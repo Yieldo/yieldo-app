@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import VaultPage from './pages/VaultPage.jsx'
 import KolPage from './pages/KolPage.jsx'
 import WalletPage from './pages/WalletPage.jsx'
+import CuratorPage from './pages/CuratorPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import './index.css'
 
@@ -33,6 +34,14 @@ createRoot(document.getElementById('root')).render(
           element={(
             <ProtectedRoute type="wallet">
               <WalletPage />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/curator"
+          element={(
+            <ProtectedRoute type="curator">
+              <CuratorPage />
             </ProtectedRoute>
           )}
         />
