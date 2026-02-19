@@ -1,10 +1,7 @@
 {
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/vaults/:vaultId", "destination": "/api/vaults/[vaultId]" },
+    { "source": "/api/vaults", "destination": "/api/vaults" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
-
-
