@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const CACHE_KEY = "yieldo_vaults_cache";
+const CACHE_KEY = "yieldo_vaults_cache_v2";
 const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_";
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
@@ -137,6 +137,14 @@ function deriveFlags(v) {
       severity: "info",
       label: "Incentivized Yield",
     });
+  const top5 = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
+  const top1 = typeof v.R09_top1 === "number" ? v.R09_top1 : 0;
+  if (top5 >= 0.8)
+    flags.push({ id: "F26", severity: "critical", label: "High Concentration (Top 5 ≥80%)" });
+  else if (top5 >= 0.5)
+    flags.push({ id: "F26", severity: "warning", label: "Concentrated Deposits (Top 5 ≥50%)" });
+  if (top1 >= 0.5)
+    flags.push({ id: "F27", severity: "critical", label: "Single Depositor ≥50%" });
   return flags;
 }
 
@@ -153,6 +161,12 @@ function inferRisk(v) {
   const age = v.D01 || 0;
   if (age < 30) score += 1;
   if (depCount < 50) score += 1;
+  // Depositor concentration: top 5 holders owning large share is risky
+  const top5 = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
+  const top1 = typeof v.R09_top1 === "number" ? v.R09_top1 : 0;
+  if (top5 >= 0.8) score += 3;        // top 5 hold 80%+ → severe concentration
+  else if (top5 >= 0.5) score += 2;   // top 5 hold 50%+ → high concentration
+  if (top1 >= 0.5) score += 2;        // single depositor holds 50%+
   if (score >= 4) return "High";
   if (score >= 2) return "Medium";
   return "Low";
@@ -337,7 +351,7 @@ function mapVault(raw) {
     incidentCount: raw.R10 || 0,
     assetPrice: raw.R01 || null,
     vol24h: raw.vol_24h || null,
-    fee: raw.fee || null,
+    fee: raw.fee != null ? (raw.fee > 1 ? raw.fee : raw.fee * 100) : null,
     timelock: raw.timelock || 0,
     maturity: raw.D02 || "Unknown",
     P03b: raw.P03b,
@@ -364,6 +378,7 @@ function mapVault(raw) {
     timestamp: raw.timestamp,
     rewards: raw.rewards,
     flow_history: raw.flow_history,
+    tvlSpark: Array.isArray(raw.tvl_spark) && raw.tvl_spark.length > 1 ? raw.tvl_spark : null,
     // raw data for detail page
     _raw: raw,
   };

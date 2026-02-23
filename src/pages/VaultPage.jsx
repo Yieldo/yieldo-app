@@ -1,6 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import VaultDetailPage from "./VaultDetailPage.jsx";
 import { useVaults } from "../hooks/useVaultData.js";
+
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return w;
+}
 
 const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
@@ -41,6 +51,58 @@ function ScoreRing({ score, size = 44, sw = 4 }) {
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(0,0,0,.04)" strokeWidth={sw}/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"/></svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size < 24 ? 8 : size < 32 ? 10 : 13, fontWeight: 700, color: col }}>{score}</div>
+    </div>
+  );
+}
+
+const fmtTvl = n => {
+  if (n === 0 || n === null || n === undefined) return "$0";
+  if (n >= 1e9) return `$${(n/1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `$${(n/1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n/1e3).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
+};
+
+function Sparkline({ data, height = 32, color = C.tealBright, width: fixedWidth }) {
+  if (!data || data.length < 2) return null;
+  const [hover, setHover] = useState(null);
+  const [dims, setDims] = useState({ w: fixedWidth || 120 });
+  const containerRef = useCallback((node) => {
+    if (!node) return;
+    const w = fixedWidth || node.clientWidth || 120;
+    setDims({ w });
+  }, [fixedWidth]);
+  const w = dims.w;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * w,
+    y: height - ((v - min) / range) * (height - 4) - 2,
+    val: v,
+  }));
+  const polyline = pts.map(p => `${p.x},${p.y}`).join(" ");
+  const onMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    let closest = 0, bestDist = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].x - mx);
+      if (d < bestDist) { bestDist = d; closest = i; }
+    }
+    setHover({ idx: closest, x: pts[closest].x, y: pts[closest].y, val: pts[closest].val });
+  };
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: fixedWidth || "100%", height }}>
+      <svg width={w} height={height} style={{ display: "block", width: fixedWidth || "100%" }}
+        onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" opacity={0.7}/>
+        {hover && <circle cx={hover.x} cy={hover.y} r={3} fill={color} stroke="#fff" strokeWidth={1.5}/>}
+      </svg>
+      {hover && (
+        <div style={{ position: "absolute", left: Math.min(hover.x, w - 60), top: -20, background: C.black, color: "#fff", fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, pointerEvents: "none", whiteSpace: "nowrap" }}>
+          {fmtTvl(hover.val)}
+        </div>
+      )}
     </div>
   );
 }
@@ -105,13 +167,7 @@ const ATYPES = [
   { id: "other", label: "Other", icon: "💎", assets: ["LINK","UNI","ARB","OP","WHYPE","WMON"] },
 ];
 
-const fmtTvl = n => {
-  if (n === 0 || n === null || n === undefined) return "$0";
-  if (n >= 1e9) return `$${(n/1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `$${(n/1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `$${(n/1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
-};
+
 
 const fmtNum = (n, suffix = "") => {
   if (n === null || n === undefined || n === "Insufficient Data") return "N/A";
@@ -119,21 +175,40 @@ const fmtNum = (n, suffix = "") => {
 };
 
 export default function VaultPage() {
+  const winW = useWindowWidth();
+  const gridCols = winW >= 1400 ? 4 : winW >= 1000 ? 3 : winW >= 640 ? 2 : 1;
+  const pad = winW >= 1000 ? "18px 32px" : winW >= 640 ? "14px 20px" : "10px 12px";
+  const headerPad = winW >= 1000 ? "14px 32px" : winW >= 640 ? "12px 20px" : "10px 12px";
   const { vaults: ALL, loading, error } = useVaults();
   const [view, setView] = useState("grid"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false), [selVault, setSelVault] = useState(null);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all");
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
-  const [sortBy, setSortBy] = useState("yieldoScore"), [autoCurate, setAutoCurate] = useState(false), [riskTol, setRiskTol] = useState("medium");
+  const [sortBy, setSortBy] = useState("yieldoScore");
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [activePreset, setActivePreset] = useState(null);
   const [cmpList, setCmpList] = useState([]), [enrolled, setEnrolled] = useState(new Set());
-  const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); };
+  const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); setActivePreset(null); };
   const togCmp = v => { cmpList.find(c=>c.id===v.id)?setCmpList(cmpList.filter(c=>c.id!==v.id)):cmpList.length<4&&setCmpList([...cmpList,v]); };
   const togEnr = id => { const n=new Set(enrolled); n.has(id)?n.delete(id):n.add(id); setEnrolled(n); };
 
   const CHAINS = useMemo(() => [...new Set(ALL.map(v => v.chain))].sort(), [ALL]);
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
-  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setAutoCurate(false); };
+  const PRESETS = {
+    conservative: { icon: "🛡️", label: "Conservative", desc: "Score ≥80 · No flags · Stables · Real yield · 90d+", fSc: 80, fAge: 90, fTvl: 10e6, fDep: 50, fAt: ["stablecoin"], fCh: ["Ethereum"], fYT: "real", sort: "yieldoScore" },
+    balanced: { icon: "⚖️", label: "Balanced", desc: "Score ≥60 · All assets · 30d+", fSc: 60, fAge: 30, fTvl: 1e6, fDep: 10, fAt: [], fCh: [], fYT: "all", sort: "yieldoScore" },
+    aggressive: { icon: "🔥", label: "Aggressive", desc: "Score ≥40 · High APY", fSc: 40, fAge: 14, fTvl: 100e3, fDep: 0, fAt: [], fCh: [], fYT: "all", sort: "apy" },
+  };
+  const applyPreset = (key) => {
+    if (activePreset === key) { clearAll(); setActivePreset(null); return; }
+    const p = PRESETS[key];
+    setSearch(""); setFCu([]); setFFS([]); setFRi([]);
+    setFSc(p.fSc); setFAge(p.fAge); setFTvl(p.fTvl); setFDep(p.fDep);
+    setFAt(p.fAt); setFCh(p.fCh); setFYT(p.fYT); setFApy(0);
+    setSortBy(p.sort); setActivePreset(key);
+  };
+  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
   const secCount = [fCu,fFS].filter(a=>a.length).length + (fSc>0?1:0) + (fApy>0?1:0) + (fTvl>0?1:0) + (fAge>0?1:0) + (fDep>0?1:0);
   const totalActive = [fAt,fCh,fRi].filter(a=>a.length).length + (fYT!=="all"?1:0) + secCount;
   const pills = [];
@@ -160,10 +235,9 @@ export default function VaultPage() {
     if(fYT!=="all")r=r.filter(v=>v.yieldType===fYT);
     if(fApy>0)r=r.filter(v=>v.apy>=fApy);if(fTvl>0)r=r.filter(v=>v.tvl>=fTvl);if(fDep>0)r=r.filter(v=>v.depositors>=fDep);
     if(fAge>0)r=r.filter(v=>v.age>=fAge);if(fSc>0)r=r.filter(v=>v.yieldoScore>=fSc);
-    if(autoCurate){const mx=riskTol==="low"?["Low"]:riskTol==="medium"?["Low","Medium"]:["Low","Medium","High"];r=r.filter(v=>mx.includes(v.risk)).sort((a,b)=>b.yieldoScore-a.yieldoScore).slice(0,12);}
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0)};
     if(sm[sortBy])r.sort(sm[sortBy]); return r;
-  }, [ALL,search,fCh,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy,autoCurate,riskTol]);
+  }, [ALL,search,fCh,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
 
   if(selVault) return <VaultDetailPage vault={selVault} onBack={()=>setSelVault(null)}/>;
 
@@ -190,7 +264,7 @@ export default function VaultPage() {
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", paddingBottom: cmpList.length>0?400:0 }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: headerPad, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#fff", fontWeight: 700, fontSize: 12 }}>Y</span></div>
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
@@ -198,15 +272,38 @@ export default function VaultPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 13, color: C.text3 }}>{enrolled.size} enrolled</span><Btn primary small>Save Selection</Btn></div>
       </div>
-      <div style={{ padding: "18px 32px" }}>
+      <div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
-        <Card style={{ padding: "10px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", border: autoCurate?`1.5px solid ${C.purple}25`:`1px solid ${C.border}`, background: autoCurate?C.purpleDim:C.white }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 16 }}>🤖</span><div><div style={{ fontSize: 13, fontWeight: 600, color: autoCurate?C.purple:C.text }}>Auto-Curate</div><div style={{ fontSize: 11, color: C.text3 }}>Top 12 by Yieldo Score within risk tolerance</div></div></div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Wallet Presets</div>
+          <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(3, 1fr)" : "1fr", gap: 10 }}>
+            {Object.entries(PRESETS).map(([key, p]) => {
+              const active = activePreset === key;
+              return (
+                <Card key={key} onClick={() => applyPreset(key)} style={{ padding: "12px 16px", cursor: "pointer", border: active ? `1.5px solid ${C.purple}` : `1px solid ${C.border}`, background: active ? C.purpleDim : C.white, transition: "all .15s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 15 }}>{p.icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: active ? C.purple : C.text }}>{p.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.4 }}>{p.desc}</div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ position: "relative" }}>
+        <Card style={{ padding: "10px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${C.border}`, background: C.white }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 16 }}>🤖</span><div><div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Auto-Curate</div><div style={{ fontSize: 11, color: C.text3 }}>Top 12 by Yieldo Score within risk tolerance</div></div></div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {autoCurate&&<div style={{ display: "flex", gap: 3 }}>{["low","medium","high"].map(r=><button key={r} onClick={()=>setRiskTol(r)} style={{ padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: riskTol===r?600:400, background: riskTol===r?C.purpleDim2:"transparent", border: `1px solid ${riskTol===r?C.purple+"30":C.border}`, color: riskTol===r?C.purple:C.text3, cursor: "pointer", fontFamily: "'Inter',sans-serif", textTransform: "capitalize" }}>{r}</button>)}</div>}
-            <div onClick={()=>setAutoCurate(!autoCurate)} style={{ width: 40, height: 22, borderRadius: 11, background: autoCurate?C.purple:"rgba(0,0,0,.1)", position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: autoCurate?21:3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.15)" }}/></div>
+            <div onClick={()=>setShowComingSoon(true)} style={{ width: 40, height: 22, borderRadius: 11, background: "rgba(0,0,0,.1)", position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.15)" }}/></div>
           </div>
         </Card>
+        {showComingSoon && <div style={{ position: "absolute", right: 12, top: "100%", marginTop: -8, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 8, padding: "12px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.1)", maxWidth: 260 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
+          <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile. Stay tuned!</div>
+          <button onClick={()=>setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
+        </div>}
+        </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
           <div style={{ flex: 1, position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
@@ -220,7 +317,7 @@ export default function VaultPage() {
             {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", gap: 16, marginBottom: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: winW >= 640 ? 16 : 8, marginBottom: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Asset</span>
             {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
@@ -268,14 +365,14 @@ export default function VaultPage() {
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: C.text3 }}><strong style={{ color: C.text }}>{filtered.length}</strong> vaults{autoCurate&&<> · <strong style={{ color: C.purple }}>Auto-curated</strong></>}</span>
+            <span style={{ fontSize: 13, color: C.text3 }}><strong style={{ color: C.text }}>{filtered.length}</strong> vaults</span>
             {pills.length>0 && <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }}/>}
             {pills.map((p,i) => <ActivePill key={i} label={p.label} onRemove={p.remove}/>)}
           </div>
           {cmpList.length>0&&<Badge color={C.purple}>⚖️ {cmpList.length} comparing</Badge>}
         </div>
         {view==="grid" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 12 }}>
             {filtered.map(v=>{
               const isCmp=!!cmpList.find(c=>c.id===v.id), isEnr=enrolled.has(v.id);
               return (
@@ -292,11 +389,12 @@ export default function VaultPage() {
                       <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>SHARPE</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtNum(v.sharpe)}</div></div>
                       <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{v.depositors.toLocaleString()}</div></div>
                     </div>
+                    {v.tvlSpark && <div style={{ padding: "4px 0" }}><Sparkline data={v.tvlSpark} height={28}/></div>}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 2 }}>
                       {["capital","performance","risk","trust"].map(k=><div key={k} style={{ display: "flex", alignItems: "center", gap: 2, justifyContent: "center" }}><ScoreRing score={v.subScores[k]} size={18} sw={2}/><span style={{ fontSize: 9, color: C.text4, textTransform: "uppercase" }}>{k[0]}</span></div>)}
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                      <button onClick={e=>{e.stopPropagation();togEnr(v.id)}} style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", backgroundImage: isEnr?"none":C.purpleGrad, background: isEnr?C.surfaceAlt:undefined, border: isEnr?`1px solid ${C.border2}`:"none", color: isEnr?C.text3:"#fff", boxShadow: isEnr?"none":C.purpleShadow }}>{isEnr?"✓ Enrolled":"+ Add"}</button>
+                      <button onClick={e=>{e.stopPropagation();setSelVault(v)}} style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", backgroundImage: C.purpleGrad, border: "none", color: "#fff", boxShadow: C.purpleShadow }}>Explore</button>
                       <button onClick={e=>{e.stopPropagation();togCmp(v)}} style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: isCmp?C.purpleDim:C.surfaceAlt, border: `1px solid ${isCmp?C.purple+"30":C.border}`, color: isCmp?C.purple:C.text3 }}>⚖️</button>
                     </div>
                   </div>
@@ -317,7 +415,7 @@ export default function VaultPage() {
                 <div><Badge color={v.riskC}>{v.risk}</Badge></div>
                 <div><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{fmtNum(v.sharpe)}</div>
-                <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</span>{v.tvlSpark && <Sparkline data={v.tvlSpark} width={40} height={16}/>}</div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                 <div><YieldBadge t={v.yieldType}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
@@ -327,7 +425,7 @@ export default function VaultPage() {
           </div></Card>
         )}
       </div>
-      {cmpList.length>0&&<div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.white, borderTop: `2px solid ${C.purple}`, boxShadow: "0 -8px 32px rgba(0,0,0,.1)", padding: "14px 32px 18px", fontFamily: "'Inter',sans-serif" }}>
+      {cmpList.length>0&&<div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.white, borderTop: `2px solid ${C.purple}`, boxShadow: "0 -8px 32px rgba(0,0,0,.1)", padding: winW >= 1000 ? "14px 32px 18px" : "10px 16px 14px", fontFamily: "'Inter',sans-serif" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 14, fontWeight: 600 }}>⚖️ Comparing {cmpList.length}</span><Badge color={C.purple}>{cmpList.length}/4</Badge></div><div style={{ display: "flex", gap: 8 }}><Btn primary small>✓ Add All</Btn><Btn ghost small onClick={()=>setCmpList([])}>✕ Clear</Btn></div></div>
         <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${cmpList.length}, 1fr)`, gap: 0, fontSize: 12 }}>
           <div style={{ display: "flex", flexDirection: "column" }}><div style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}`, height: 36 }}/>{["Score","APY","Yield","Risk","Flags","Sharpe","TVL","Retention","Dep."].map((l,i)=><div key={i} style={{ padding: "4px 0", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, minHeight: 24, display: "flex", alignItems: "center" }}>{l}</div>)}</div>

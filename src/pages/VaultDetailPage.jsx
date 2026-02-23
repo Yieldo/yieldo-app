@@ -222,7 +222,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.age}d old</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.maturity}</Badge>
-                  {v.fee !== null && v.fee !== undefined && <Badge color={C.text3} bg={C.surfaceAlt}>Fee: {(v.fee * 100).toFixed(1)}%</Badge>}
+                  {v.fee !== null && v.fee !== undefined && <Badge color={C.text3} bg={C.surfaceAlt}>Fee: {v.fee.toFixed(1)}%</Badge>}
                 </div>
               </div>
             </div>
