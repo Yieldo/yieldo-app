@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useVaultDetail } from "../hooks/useVaultData.js";
 
 const C = {
@@ -180,11 +181,28 @@ const MR = ({ label, value, unit, trend, flag, desc, trigger }) => (
 );
 
 export default function VaultDetailPage({ vault: listVault, onBack }) {
-  const vaultId = listVault?.id || null;
+  const params = useParams();
+  const navigate = useNavigate();
+  const vaultId = listVault?.id || params.vaultId || null;
   const { vault: detailVault, loading } = useVaultDetail(vaultId);
   const v = detailVault || listVault;
+  const handleBack = onBack || (() => navigate("/vault"));
   const weights = { capital: .20, performance: .20, risk: .35, trust: .25 };
+  const [tvlTf, setTvlTf] = useState("7d");
+  const [nfTf, setNfTf] = useState("7d");
+  const [apyTf, setApyTf] = useState("7d");
+  const [benchTf, setBenchTf] = useState("7d");
+  const [volTf, setVolTf] = useState("30d");
+  const [ddTf, setDdTf] = useState("90d");
 
+  if (!v && loading) return (
+    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><span style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>Y</span></div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Loading Vault...</div>
+      </div>
+    </div>
+  );
   if (!v) return null;
 
   const apyHistory = v.apyHistory && v.apyHistory.length > 0 ? v.apyHistory : [];
@@ -196,7 +214,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#fff", fontWeight: 700, fontSize: 12 }}>Y</span></div>
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <button style={{ fontSize: 14, fontWeight: 500, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif" }} onClick={onBack}>← Vault Catalog</button>
+          <button style={{ fontSize: 14, fontWeight: 500, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif" }} onClick={handleBack}>← Vault Catalog</button>
           <span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 14, fontWeight: 500, color: C.text2 }}>{v.name}</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}><Btn small>⚖️ Compare</Btn><Btn primary small>+ Add to My Vaults</Btn></div>
@@ -329,12 +347,33 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
             </div>
             <MR label="Total Value Locked" value={fmtTvl(v.tvl)} trend={v.tvlChange7d} />
-            {v.tvlChange30d !== null && <MR label="TVL Change (30d)" value={fmt(v.tvlChange30d, "%")} />}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>TVL Change</span>
+                <select value={tvlTf} onChange={e => setTvlTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) !== null && (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) >= 0 ? C.green : C.red }}>{(() => { const val = tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d; return val !== null ? `${val >= 0 ? "+" : ""}${val.toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Net Flow</span>
+                <select value={nfTf} onChange={e => setNfTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) !== null && (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) >= 0 ? C.green : C.red }}>{(() => { const val = nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d; return val !== null ? `${val >= 0 ? "+" : ""}${fmtTvl(Math.abs(val))}` : "N/A"; })()}</span>
+            </div>
             <MR label="Unique Depositors" value={v.depositors.toLocaleString()} flag={v.depositors < 10 ? "warning" : undefined} trigger={v.depositors < 10 ? "Less than 10 depositors" : undefined} />
-            <MR label="Low Depositors" value={v._raw?.C08_low_dep ? "Yes" : "No"} flag={v._raw?.C08_low_dep ? "warning" : undefined} />
+            {v._raw?.C08_low_dep && <MR label="Low Depositors" value="Yes" flag="warning" />}
             <MR label="Deposit Type" value={v.C06 === 0 ? "Instant" : fmt(v.C06)} />
-            {v.supply_queue_length !== undefined && <MR label="Supply Queue" value={v.supply_queue_length} />}
-            {v.withdraw_queue_length !== undefined && <MR label="Withdraw Queue" value={v.withdraw_queue_length} />}
+            {v.withdrawalType === "Async" && v.supply_queue_length !== undefined && <MR label="Supply Queue" value={v.supply_queue_length} />}
+            {v.withdrawalType === "Async" && v.withdraw_queue_length !== undefined && <MR label="Withdraw Queue" value={v.withdraw_queue_length} />}
           </Card>
 
           {/* Performance */}
@@ -345,14 +384,61 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <ScoreRing score={v.subScores.performance} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
             </div>
-            <MR label="Net APY" value={v.apy.toFixed(2)} unit="%" />
-            <MR label="Negative Daily APY" value={v._raw?.P02 ? "Yes" : "No"} flag={v._raw?.P02 ? "warning" : undefined} />
-            <MR label="APY vs Benchmark" value={v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"} desc={v.benchAave ? `Aave: ${v.benchAave.toFixed(2)}%` : undefined} flag={v.P03b ? "warning" : undefined} trigger={v.P03b ? "Below 80% of benchmark" : undefined} />
-            <MR label="APY Volatility" value={fmt(v.P04, "%")} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Net APY</span>
+                <select value={apyTf} onChange={e => setApyTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.purple }}>{(() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null ? `${val.toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
+            {v._raw?.P02 && <MR label="Negative Daily APY" value="Yes" flag="warning" />}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+                  APY vs Benchmark
+                  <select value={benchTf} onChange={e => setBenchTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="1d">1d</option>
+                    <option value="7d">7d</option>
+                    <option value="30d">30d</option>
+                  </select>
+                  {v.P03b && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV.warning.bg, color: SEV.warning.color }}>{SEV.warning.icon}</span>}
+                </div>
+                {v.benchAave ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>Aave: {v.benchAave.toFixed(2)}%</div> : null}
+                {v.P03b && <div style={{ fontSize: 10, color: SEV.warning.color, marginTop: 2, fontStyle: "italic" }}>→ Below 80% of benchmark</div>}
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const val = benchTf === "1d" ? v.apyVsBench1d : benchTf === "7d" ? v.apyVsBench7d : v.apyVsBench30d; return val !== null ? `${val.toFixed(2)}×` : (v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"); })()}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>APY Volatility</span>
+                <select value={volTf} onChange={e => setVolTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="30d">30d</option>
+                  <option value="365d">365d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const p = v.P04; const val = p && typeof p === "object" ? p[volTf] : (typeof p === "number" ? p : null); return val !== null && val !== undefined ? `${(val * 100).toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
             <MR label="Sharpe Ratio" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : undefined} />
             <MR label="Sortino Ratio" value={fmt(v.sortino)} />
             <MR label="Downside Deviation" value={fmt(v.P07, "%")} />
-            <MR label="Max Drawdown" value={fmt(v.maxDD, "%")} flag={v.maxDD !== null && v.maxDD < -10 ? "critical" : v.maxDD !== null && v.maxDD < -5 ? "warning" : undefined} />
+            {(() => { const val = ddTf === "30d" ? v.maxDD30d : ddTf === "90d" ? v.maxDD90d : v.maxDD365d; const flag = val !== null && val < -10 ? "critical" : val !== null && val < -5 ? "warning" : undefined; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Max Drawdown</span>
+                  <select value={ddTf} onChange={e => setDdTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="90d">90d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                  {flag && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV[flag].bg, color: SEV[flag].color }}>{SEV[flag].icon}</span>}
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: val !== null && val < -5 ? C.red : C.text }}>{val !== null ? `${val.toFixed(2)}%` : "N/A"}</span>
+              </div>
+            ); })()}
             <MR label="Drawdown Duration" value={fmt(v.P09)} />
             <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} flag={v.incRatio > 50 ? "critical" : v.incRatio > 25 ? "warning" : undefined} />
             <MR label="Yield Type" value={v._raw?.P12 || v.yieldType} />
@@ -367,10 +453,10 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>35% weight</span>
             </div>
             <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
-            <MR label="Depeg Alert" value={v.depegEvents > 0 ? "DEPEG DETECTED" : "No"} flag={v.depegEvents > 0 ? "critical" : undefined} desc="Price deviation >3% from peg" />
+            {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
             <MR label="Pause Events (90d)" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "critical" : undefined} />
-            <MR label="Emergency Events" value={v._raw?.R05 ? "Yes" : "None"} flag={v._raw?.R05 ? "critical" : undefined} />
-            <MR label="Withdrawal Type" value={v.withdrawalType} flag={v.withdrawalType === "Async" ? "info" : undefined} />
+            {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
+            <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
             <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 50 ? "warning" : undefined} />
             <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 60 ? "warning" : undefined} desc="Share of TVL held by top 5" />
             <MR label="Incidents (90d)" value={v.incidentCount} flag={v.incidentCount > 0 ? "critical" : undefined} />
@@ -387,16 +473,17 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <ScoreRing score={v.subScores.trust} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
             </div>
-            <MR label="Retention (30d)" value={fmt(v.retention30d, "%")} flag={v.retention30d !== null && v.retention30d < 50 ? "critical" : v.retention30d !== null && v.retention30d < 70 ? "warning" : undefined} />
-            <MR label="Activity Rate" value={fmt(v.activityRate, "%")} />
+            <MR label="Capital Retention" value={fmt(v.retention30d, "%")} flag={v.retention30d !== null && v.retention30d < 50 ? "critical" : v.retention30d !== null && v.retention30d < 70 ? "warning" : undefined} />
+            <MR label="User Retention" value={fmt(v.activityRate, "%")} />
             <MR label="Avg Holding Days" value={fmt(v.avgHold)} unit="days" flag={v.avgHold !== null && v.avgHold < 3 ? "critical" : v.avgHold !== null && v.avgHold < 10 ? "warning" : undefined} />
-            <MR label="Short Hold Flag" value={v._raw?.T05_short_hold ? "Yes" : "No"} flag={v._raw?.T05_short_hold ? "warning" : undefined} />
+            {v._raw?.T05_short_hold && <MR label="Short Hold Flag" value="Yes" flag="warning" />}
             <MR label="Quick Exit Rate" value={fmt(v.quickExitRate, "%")} flag={v.quickExitRate !== null && v.quickExitRate > 25 ? "warning" : undefined} desc="% exiting within 7 days" />
             <MR label="Holders 90+ Days" value={fmt(v.holders90plus)} />
             <MR label="Avg Deposit Duration" value={fmt(v.avgDepDuration)} unit="days" />
             <MR label="Net Depositors (30d)" value={v.netDep30d !== null ? `${v.netDep30d >= 0 ? "+" : ""}${v.netDep30d}` : "N/A"} />
-            {v.T10b && typeof v.T10b === "object" && <MR label="Net Flow Score" value={`${v.T10b.score}/100`} desc={`Net flow: ${v.T10b.net_flow_pct}%`} />}
-            <MR label="External Ratings" value={fmt(v.T14)} desc="Independent risk ratings count" />
+            {v.netDep30d !== null && v.depositors > 0 && <MR label="Net User Flow (30d)" value={`${v.netDep30d >= 0 ? "+" : ""}${((v.netDep30d / v.depositors) * 100).toFixed(1)}%`} desc={`${Math.abs(v.netDep30d)} of ${v.depositors} depositors ${v.netDep30d >= 0 ? "net in" : "net out"}`} />}
+            {v.T10b && typeof v.T10b === "object" && <MR label="Net Capital Flow (30d)" value={`${v.T10b.net_flow_pct >= 0 ? "+" : ""}${v.T10b.net_flow_pct}%`} desc={`Score: ${v.T10b.score}/100 · (Net deposits − withdrawals) / TVL`} />}
+            {/* <MR label="External Ratings" value={fmt(v.T14)} desc="Independent risk ratings count" /> */}
           </Card>
         </div>
 

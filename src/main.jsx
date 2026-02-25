@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import VaultPage from './pages/VaultPage.jsx'
+import VaultDetailPage from './pages/VaultDetailPage.jsx'
 import KolPage from './pages/KolPage.jsx'
 import WalletPage from './pages/WalletPage.jsx'
 import CuratorPage from './pages/CuratorPage.jsx'
@@ -18,6 +19,14 @@ createRoot(document.getElementById('root')).render(
           element={(
             <ProtectedRoute type="vault">
               <VaultPage />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/vault/:vaultId"
+          element={(
+            <ProtectedRoute type="vault">
+              <VaultDetailPage />
             </ProtectedRoute>
           )}
         />

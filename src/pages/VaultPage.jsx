@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import VaultDetailPage from "./VaultDetailPage.jsx";
+import { useNavigate } from "react-router-dom";
 import { useVaults } from "../hooks/useVaultData.js";
 
 function useWindowWidth() {
@@ -180,7 +180,8 @@ export default function VaultPage() {
   const pad = winW >= 1000 ? "18px 32px" : winW >= 640 ? "14px 20px" : "10px 12px";
   const headerPad = winW >= 1000 ? "14px 32px" : winW >= 640 ? "12px 20px" : "10px 12px";
   const { vaults: ALL, loading, error } = useVaults();
-  const [view, setView] = useState("grid"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false), [selVault, setSelVault] = useState(null);
+  const navigate = useNavigate();
+  const [view, setView] = useState("grid"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all");
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
@@ -238,8 +239,6 @@ export default function VaultPage() {
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0)};
     if(sm[sortBy])r.sort(sm[sortBy]); return r;
   }, [ALL,search,fCh,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
-
-  if(selVault) return <VaultDetailPage vault={selVault} onBack={()=>setSelVault(null)}/>;
 
   if (loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -376,10 +375,10 @@ export default function VaultPage() {
             {filtered.map(v=>{
               const isCmp=!!cmpList.find(c=>c.id===v.id), isEnr=enrolled.has(v.id);
               return (
-                <Card key={v.id} onClick={()=>setSelVault(v)} style={{ padding: 0, overflow: "hidden", border: isCmp?`2px solid ${C.purple}`:isEnr?`1.5px solid ${C.purple}20`:`1px solid ${C.border}`, transition: "all .2s", cursor: "pointer" }}>
+                <Card key={v.id} onClick={()=>navigate(`/vault/${v.id}`)} style={{ padding: 0, overflow: "hidden", border: isCmp?`2px solid ${C.purple}`:isEnr?`1.5px solid ${C.purple}20`:`1px solid ${C.border}`, transition: "all .2s", cursor: "pointer" }}>
                   <div style={{ padding: "14px 16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}><ScoreRing score={v.yieldoScore} size={40}/><div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 11, color: C.text3 }}>{v.curator} · {v.chain}</div></div></div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}><ScoreRing score={v.yieldoScore} size={40}/><div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 11, color: C.text3 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                       <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}><div style={{ fontSize: 17, fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</div><div style={{ fontSize: 10, color: C.text4 }}>APY</div></div>
                     </div>
                     <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}><Badge color={v.riskC}>{v.risk}</Badge><YieldBadge t={v.yieldType}/><Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge><Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge><ConfBadge age={v.age}/></div>
@@ -394,7 +393,7 @@ export default function VaultPage() {
                       {["capital","performance","risk","trust"].map(k=><div key={k} style={{ display: "flex", alignItems: "center", gap: 2, justifyContent: "center" }}><ScoreRing score={v.subScores[k]} size={18} sw={2}/><span style={{ fontSize: 9, color: C.text4, textTransform: "uppercase" }}>{k[0]}</span></div>)}
                     </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                      <button onClick={e=>{e.stopPropagation();setSelVault(v)}} style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", backgroundImage: C.purpleGrad, border: "none", color: "#fff", boxShadow: C.purpleShadow }}>Explore</button>
+                      <button onClick={e=>{e.stopPropagation();navigate(`/vault/${v.id}`)}} style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", backgroundImage: C.purpleGrad, border: "none", color: "#fff", boxShadow: C.purpleShadow }}>Explore</button>
                       <button onClick={e=>{e.stopPropagation();togCmp(v)}} style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: isCmp?C.purpleDim:C.surfaceAlt, border: `1px solid ${isCmp?C.purple+"30":C.border}`, color: isCmp?C.purple:C.text3 }}>⚖️</button>
                     </div>
                   </div>
@@ -407,9 +406,9 @@ export default function VaultPage() {
           <Card><div style={{ overflow: "auto" }}>
             <div style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 1000 }}><div></div><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div><div></div></div>
             {filtered.map(v=>{const isEnr=enrolled.has(v.id),isCmp=!!cmpList.find(c=>c.id===v.id);return(
-              <div key={v.id} onClick={()=>setSelVault(v)} style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: isCmp?C.purpleDim:"transparent", minWidth: 1000, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e=>{if(!isCmp)e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{if(!isCmp)e.currentTarget.style.background="transparent"}}>
+              <div key={v.id} onClick={()=>navigate(`/vault/${v.id}`)} style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: isCmp?C.purpleDim:"transparent", minWidth: 1000, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e=>{if(!isCmp)e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{if(!isCmp)e.currentTarget.style.background="transparent"}}>
                 <div><input type="checkbox" checked={isEnr} onChange={e=>{e.stopPropagation();togEnr(v.id)}} style={{ accentColor: C.purple, cursor: "pointer" }}/></div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><span style={{ fontSize: 13 }}>{v.icon}</span><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator} · {v.chain}</div></div></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><span style={{ fontSize: 13 }}>{v.icon}</span><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
                 <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
                 <div><Badge color={v.riskC}>{v.risk}</Badge></div>
