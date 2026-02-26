@@ -26,6 +26,7 @@ export default async function handler(req, res) {
           ? new Date(entry.updated_at).toISOString()
           : null,
         vault_name: entry.name || (entry._id || "").slice(0, 12) + "...",
+        source: entry.source || null,
       };
       for (const [key, metric_data] of Object.entries(metrics)) {
         if (metric_data && typeof metric_data === "object" && "value" in metric_data) {

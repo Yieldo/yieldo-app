@@ -56,6 +56,7 @@ app.get("/api/vaults", async (_req, res) => {
           ? new Date(entry.updated_at).toISOString()
           : null,
         vault_name: entry.name || (entry._id || "").slice(0, 12) + "...",
+        source: entry.source || null,
       };
       for (const [key, metric_data] of Object.entries(metrics)) {
         if (
@@ -120,6 +121,7 @@ app.get("/api/vaults/:vaultId", async (req, res) => {
         ? new Date(entry.updated_at).toISOString()
         : null,
       vault_name: entry.name || (entry._id || "").slice(0, 12) + "...",
+      source: entry.source || null,
     };
     for (const [key, metric_data] of Object.entries(metrics)) {
       if (

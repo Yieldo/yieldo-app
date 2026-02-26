@@ -231,12 +231,13 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   <span style={{ fontSize: 20, fontWeight: 700 }}>{v.name}</span>
                   <ConfBadge age={v.age} />
                 </div>
-                <div style={{ fontSize: 13, color: C.text3, marginBottom: 6 }}>Curated by {v.curator} · {v.chain}</div>
+                <div style={{ fontSize: 13, color: C.text3, marginBottom: 6 }}>Curated by {v.curator} · {v.chain} · {v.protocol}</div>
                 <div style={{ fontSize: 11, color: C.text4, marginBottom: 8, fontFamily: "monospace" }}>{v.vault_address}</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <Badge color={v.riskC}>{v.risk} Risk</Badge>
                   <YieldBadge t={v.yieldType} />
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
+                  <Badge color={v.protocol === "Hyperbeat" ? "#E040FB" : C.blue} bg={v.protocol === "Hyperbeat" ? "#FCE4EC" : C.blueBg}>{v.protocol}</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.age}d old</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.maturity}</Badge>
