@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const CACHE_KEY = "yieldo_vaults_cache_v2";
+const CACHE_KEY = "yieldo_vaults_cache_v3";
 const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_";
 const CACHE_TTL = 10 * 60 * 1000;
 
@@ -55,6 +55,7 @@ const ASSET_ICONS = {
   wbtc: "₿",
   cbbtc: "₿",
   lbtc: "₿",
+  ubtc: "₿",
   whype: "💎",
   wmon: "💎",
 };
@@ -68,7 +69,7 @@ function getAssetType(asset) {
   )
     return "stablecoin";
   if (["weth", "wsteth", "re7lrt"].includes(a)) return "eth";
-  if (["wbtc", "cbbtc", "lbtc"].includes(a)) return "btc";
+  if (["wbtc", "cbbtc", "lbtc", "ubtc"].includes(a)) return "btc";
   return "other";
 }
 
@@ -274,15 +275,22 @@ function scoreUserRetention(ret30d) {
   return 15;
 }
 
+function getTvlUsd(raw) {
+  if (raw.C01_USD) return raw.C01_USD;
+  if (Array.isArray(raw.tvl_spark) && raw.tvl_spark.length > 0) return raw.tvl_spark[raw.tvl_spark.length - 1];
+  return 0;
+}
+
 function calcCapitalScore(raw) {
   const c02 = raw.C02 || {};
   const c04 = raw.C04 || {};
+  const tvlUsd = getTvlUsd(raw);
   return (
-    scoreTVL(raw.C01_USD || 0) * 0.15 +
+    scoreTVL(tvlUsd) * 0.15 +
     scoreTVLVelocity(typeof c02["30d"] === "number" ? c02["30d"] : null) * 0.15 +
     scoreDepositors(raw.C07 || 0) * 0.15 +
     scorePendingWithdrawals(raw.R07 || 0) * 0.15 +
-    scoreNetFlows7d(typeof c04["7d"] === "number" ? c04["7d"] : null, raw.C01_USD || 0) * 0.15 +
+    scoreNetFlows7d(typeof c04["7d"] === "number" ? c04["7d"] : null, tvlUsd) * 0.15 +
     scoreDepositLatency(raw.R06 || "Instant") * 0.05 +
     70 * 0.20
   );
@@ -314,7 +322,8 @@ function calcPerformanceScore(raw) {
 function calcRiskScore(raw) {
   const incidents = typeof raw.R10 === "number" ? raw.R10 : 0;
   const assetType = getAssetType((raw.asset || "").toLowerCase());
-  const top5 = typeof raw.R09_top5 === "number" ? raw.R09_top5 : 0;
+  const top5raw = typeof raw.R09_top5 === "number" ? raw.R09_top5 : 0;
+  const top5 = top5raw > 1 ? top5raw / 100 : top5raw;
   return (
     scoreIncidents(incidents) * 0.30 +
     scoreDepegRisk(raw.R01, assetType) * 0.25 +
@@ -471,8 +480,10 @@ function deriveFlags(v) {
   if (quickExit > 25)
     flags.push({ id: "QE_flag", severity: "warning", label: "High Quick Exit Rate", penalty: 0 });
 
-  const top5 = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
-  const top1 = typeof v.R09_top1 === "number" ? v.R09_top1 : 0;
+  const top5r = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
+  const top1r = typeof v.R09_top1 === "number" ? v.R09_top1 : 0;
+  const top5 = top5r > 1 ? top5r / 100 : top5r;
+  const top1 = top1r > 1 ? top1r / 100 : top1r;
   if (v.R09_top5_flag === "critical" || top5 >= 0.8)
     flags.push({ id: "CONC_flag", severity: "critical", label: "High Concentration (Top 5)", penalty: 0 });
   else if (v.R09_top5_flag === "warning" || top5 >= 0.5)
@@ -516,9 +527,9 @@ function mapVault(raw) {
   const monthlyApy = raw.monthly_apy ? raw.monthly_apy * 100 : apy;
   const weeklyApy = raw.weekly_apy ? raw.weekly_apy * 100 : apy;
   const allTimeApy = raw.all_time_apy ? raw.all_time_apy * 100 : apy;
-  const tvl = raw.C01_USD || 0;
+  const tvl = getTvlUsd(raw);
   const depositors = raw.C07 || 0;
-  const age = raw.D01 || 0;
+  const age = raw.D01 || raw.D03 || 0;
   const chain = CHAIN_NAMES[raw.chain_id] || `Chain ${raw.chain_id}`;
   const asset = (raw.asset || "usdc").toUpperCase();
   const assetLower = (raw.asset || "usdc").toLowerCase();
@@ -589,11 +600,11 @@ function mapVault(raw) {
 
   const top1 =
     typeof raw.R09_top1 === "number"
-      ? Math.round(raw.R09_top1 * 100)
+      ? Math.round(raw.R09_top1 > 1 ? raw.R09_top1 : raw.R09_top1 * 100)
       : null;
   const top5 =
     typeof raw.R09_top5 === "number"
-      ? Math.round(raw.R09_top5 * 100)
+      ? Math.round(raw.R09_top5 > 1 ? raw.R09_top5 : raw.R09_top5 * 100)
       : null;
 
   const flags = deriveFlags(raw);
@@ -647,7 +658,7 @@ function mapVault(raw) {
     asset,
     assetLower,
     assetType,
-    platform: "Morpho",
+    protocol: raw.source || "Morpho",
     curator: curatorName,
     chain,
     chain_id: raw.chain_id,

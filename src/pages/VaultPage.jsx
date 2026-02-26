@@ -163,7 +163,7 @@ const YieldBadge = ({ t }) => t==="real" ? <Badge color={C.green} bg={C.greenDim
 const ATYPES = [
   { id: "stablecoin", label: "Stablecoin", icon: "💵", assets: ["USDC","USDT","DAI","FRAX","GHO","crvUSD","PYUSD","SUSD","EURC","USDS","USDA"] },
   { id: "eth", label: "ETH", icon: "⟠", assets: ["ETH","stETH","wstETH","cbETH","rETH","WETH","RE7LRT","WSTETH"] },
-  { id: "btc", label: "BTC", icon: "₿", assets: ["WBTC","tBTC","cbBTC","CBBTC","LBTC"] },
+  { id: "btc", label: "BTC", icon: "₿", assets: ["WBTC","tBTC","cbBTC","CBBTC","LBTC","UBTC"] },
   { id: "other", label: "Other", icon: "💎", assets: ["LINK","UNI","ARB","OP","WHYPE","WMON"] },
 ];
 
@@ -182,7 +182,7 @@ export default function VaultPage() {
   const { vaults: ALL, loading, error } = useVaults();
   const navigate = useNavigate();
   const [view, setView] = useState("grid"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
-  const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all");
+  const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
@@ -194,6 +194,7 @@ export default function VaultPage() {
   const togEnr = id => { const n=new Set(enrolled); n.has(id)?n.delete(id):n.add(id); setEnrolled(n); };
 
   const CHAINS = useMemo(() => [...new Set(ALL.map(v => v.chain))].sort(), [ALL]);
+  const PROTOCOLS = useMemo(() => [...new Set(ALL.map(v => v.protocol))].filter(Boolean).sort(), [ALL]);
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
   const PRESETS = {
@@ -204,18 +205,19 @@ export default function VaultPage() {
   const applyPreset = (key) => {
     if (activePreset === key) { clearAll(); setActivePreset(null); return; }
     const p = PRESETS[key];
-    setSearch(""); setFCu([]); setFFS([]); setFRi([]);
+    setSearch(""); setFCu([]); setFFS([]); setFRi([]); setFPr([]);
     setFSc(p.fSc); setFAge(p.fAge); setFTvl(p.fTvl); setFDep(p.fDep);
     setFAt(p.fAt); setFCh(p.fCh); setFYT(p.fYT); setFApy(0);
     setSortBy(p.sort); setActivePreset(key);
   };
-  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
+  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFPr([]);setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
   const secCount = [fCu,fFS].filter(a=>a.length).length + (fSc>0?1:0) + (fApy>0?1:0) + (fTvl>0?1:0) + (fAge>0?1:0) + (fDep>0?1:0);
-  const totalActive = [fAt,fCh,fRi].filter(a=>a.length).length + (fYT!=="all"?1:0) + secCount;
+  const totalActive = [fAt,fCh,fRi,fPr].filter(a=>a.length).length + (fYT!=="all"?1:0) + secCount;
   const pills = [];
   fAt.forEach(a => pills.push({ label: ATYPES.find(x=>x.id===a)?.label, remove: ()=>tog(fAt,setFAt,a) }));
   fCh.forEach(c => pills.push({ label: c, remove: ()=>tog(fCh,setFCh,c) }));
   fRi.forEach(r => pills.push({ label: `${r} risk`, remove: ()=>tog(fRi,setFRi,r) }));
+  fPr.forEach(p => pills.push({ label: p, remove: ()=>tog(fPr,setFPr,p) }));
   if(fYT!=="all") pills.push({ label: fYT==="real"?"Real Yield":"Incentivized", remove: ()=>setFYT("all") });
   fCu.forEach(c => pills.push({ label: c, remove: ()=>setFCu(fCu.filter(x=>x!==c)) }));
   fFS.forEach(f => pills.push({ label: f==="clean"?"✓ Clean":f==="warning"?"🟡 Warning":"🔴 Critical", remove: ()=>tog(fFS,setFFS,f) }));
@@ -229,6 +231,7 @@ export default function VaultPage() {
     let r=[...ALL];
     if(search){const q=search.toLowerCase();r=r.filter(v=>v.name.toLowerCase().includes(q)||v.asset.toLowerCase().includes(q)||v.curator.toLowerCase().includes(q)||v.chain.toLowerCase().includes(q));}
     if(fCh.length)r=r.filter(v=>fCh.includes(v.chain));
+    if(fPr.length)r=r.filter(v=>fPr.includes(v.protocol));
     if(fAt.length)r=r.filter(v=>fAt.includes(v.assetType));
     if(fRi.length)r=r.filter(v=>fRi.includes(v.risk));
     if(fCu.length)r=r.filter(v=>fCu.includes(v.curator));
@@ -238,7 +241,7 @@ export default function VaultPage() {
     if(fAge>0)r=r.filter(v=>v.age>=fAge);if(fSc>0)r=r.filter(v=>v.yieldoScore>=fSc);
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0)};
     if(sm[sortBy])r.sort(sm[sortBy]); return r;
-  }, [ALL,search,fCh,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
+  }, [ALL,search,fCh,fPr,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
 
   if (loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -328,6 +331,11 @@ export default function VaultPage() {
           </div>
           <div style={{ width: 1, height: 20, background: C.border }}/>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Protocol</span>
+            {PROTOCOLS.map(p=><Chip key={p} label={p} active={fPr.includes(p)} onClick={()=>tog(fPr,setFPr,p)} small/>)}
+          </div>
+          <div style={{ width: 1, height: 20, background: C.border }}/>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Risk</span>
             {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
           </div>
@@ -381,7 +389,7 @@ export default function VaultPage() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}><ScoreRing score={v.yieldoScore} size={40}/><div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 11, color: C.text3 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                       <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}><div style={{ fontSize: 17, fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</div><div style={{ fontSize: 10, color: C.text4 }}>APY</div></div>
                     </div>
-                    <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}><Badge color={v.riskC}>{v.risk}</Badge><YieldBadge t={v.yieldType}/><Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge><Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge><ConfBadge age={v.age}/></div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}><Badge color={v.riskC}>{v.risk}</Badge><YieldBadge t={v.yieldType}/><Badge color={v.protocol==="Hyperbeat"?"#E040FB":C.blue} bg={v.protocol==="Hyperbeat"?"#FCE4EC":C.blueBg}>{v.protocol}</Badge><Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge><Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge><ConfBadge age={v.age}/></div>
                     {v.flags.filter(f=>f.severity!=="info").length>0&&<div style={{ marginBottom: 8 }}><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 10, marginBottom: 8, padding: "8px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
                       <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>TVL</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtTvl(v.tvl)}</div></div>
