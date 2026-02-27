@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 
 const CACHE_KEY = "yieldo_vaults_cache_v3";
-const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_";
-const CACHE_TTL = 10 * 60 * 1000;
+const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v2_";
+const CACHE_TTL = 5 * 60 * 1000;
 
 function getCache(key) {
   try {
