@@ -267,12 +267,12 @@ export default function VaultPage() {
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", paddingBottom: cmpList.length>0?400:0 }}>
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: headerPad, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#fff", fontWeight: 700, fontSize: 12 }}>Y</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 30, height: 30, borderRadius: 7 }} />
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>🏦 Vault Catalog</span>
+          <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Vaults</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 13, color: C.text3 }}>{enrolled.size} enrolled</span><Btn primary small>Save Selection</Btn></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Btn small onClick={() => window.location.reload()}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
       </div>
       <div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
@@ -383,8 +383,8 @@ export default function VaultPage() {
             {filtered.map(v=>{
               const isCmp=!!cmpList.find(c=>c.id===v.id), isEnr=enrolled.has(v.id);
               return (
-                <Card key={v.id} onClick={()=>navigate(`/vault/${v.id}`)} style={{ padding: 0, overflow: "hidden", border: isCmp?`2px solid ${C.purple}`:isEnr?`1.5px solid ${C.purple}20`:`1px solid ${C.border}`, transition: "all .2s", cursor: "pointer" }}>
-                  <div style={{ padding: "14px 16px" }}>
+                <Card key={v.id} onClick={()=>navigate(`/vault/${v.id}`)} style={{ padding: 0, overflow: "hidden", border: isCmp?`2px solid ${C.purple}`:isEnr?`1.5px solid ${C.purple}20`:`1px solid ${C.border}`, transition: "all .2s", cursor: "pointer", display: "flex", flexDirection: "column" }}>
+                  <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}><ScoreRing score={v.yieldoScore} size={40}/><div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 11, color: C.text3 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                       <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}><div style={{ fontSize: 17, fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</div><div style={{ fontSize: 10, color: C.text4 }}>APY</div></div>
@@ -396,13 +396,15 @@ export default function VaultPage() {
                       <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>SHARPE</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtNum(v.sharpe)}</div></div>
                       <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{v.depositors.toLocaleString()}</div></div>
                     </div>
+                    <div style={{ marginTop: "auto" }}>
                     {v.tvlSpark && <div style={{ padding: "4px 0" }}><Sparkline data={v.tvlSpark} height={28}/></div>}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 2 }}>
                       {["capital","performance","risk","trust"].map(k=><div key={k} style={{ display: "flex", alignItems: "center", gap: 2, justifyContent: "center" }}><ScoreRing score={v.subScores[k]} size={18} sw={2}/><span style={{ fontSize: 9, color: C.text4, textTransform: "uppercase" }}>{k[0]}</span></div>)}
                     </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                    <div style={{ display: "flex", gap: 6, paddingTop: 10 }}>
                       <button onClick={e=>{e.stopPropagation();navigate(`/vault/${v.id}`)}} style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", backgroundImage: C.purpleGrad, border: "none", color: "#fff", boxShadow: C.purpleShadow }}>Explore</button>
                       <button onClick={e=>{e.stopPropagation();togCmp(v)}} style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: isCmp?C.purpleDim:C.surfaceAlt, border: `1px solid ${isCmp?C.purple+"30":C.border}`, color: isCmp?C.purple:C.text3 }}>⚖️</button>
+                    </div>
                     </div>
                   </div>
                 </Card>
