@@ -14,22 +14,8 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/vault" replace />} />
-        <Route
-          path="/vault"
-          element={(
-            <ProtectedRoute type="vault">
-              <VaultPage />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/vault/:vaultId"
-          element={(
-            <ProtectedRoute type="vault">
-              <VaultDetailPage />
-            </ProtectedRoute>
-          )}
-        />
+        <Route path="/vault" element={<VaultPage />} />
+        <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
         <Route
           path="/kol"
           element={(
