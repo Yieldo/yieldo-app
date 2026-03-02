@@ -35,7 +35,7 @@ const CHAIN_NAMES = {
   8453: "Base",
   42161: "Arbitrum",
   10: "Optimism",
-  999: "Hyperliquid",
+  999: "HyperEVM",
   747474: "Katana",
   143: "Monad",
 };
@@ -517,16 +517,21 @@ function inferRisk(v) {
   return "Low";
 }
 
+function normApy(v) {
+  return typeof v === "number" ? (v > 1 ? v / 100 : v) : v;
+}
+
 function mapVault(raw) {
-  const p01 = raw.P01 || {};
-  const netApy = typeof raw.net_apy === "number" ? raw.net_apy : null;
+  const p01raw = raw.P01 || {};
+  const p01 = typeof p01raw === "object" ? { "1d": normApy(p01raw["1d"]), "7d": normApy(p01raw["7d"]), "30d": normApy(p01raw["30d"]) } : p01raw;
+  const netApy = typeof raw.net_apy === "number" ? normApy(raw.net_apy) : null;
   const apy1d = typeof p01 === "object" && typeof p01["1d"] === "number" ? p01["1d"] * 100 : null;
   const apy7d = typeof p01 === "object" && typeof p01["7d"] === "number" ? p01["7d"] * 100 : null;
   const apy30d = typeof p01 === "object" && typeof p01["30d"] === "number" ? p01["30d"] * 100 : null;
-  const apy = netApy !== null ? netApy * 100 : (typeof raw.P01 === "number" ? raw.P01 * 100 : (apy7d || 0));
-  const monthlyApy = raw.monthly_apy ? raw.monthly_apy * 100 : apy;
-  const weeklyApy = raw.weekly_apy ? raw.weekly_apy * 100 : apy;
-  const allTimeApy = raw.all_time_apy ? raw.all_time_apy * 100 : apy;
+  const apy = netApy !== null ? netApy * 100 : (typeof raw.P01 === "number" ? normApy(raw.P01) * 100 : (apy7d || 0));
+  const monthlyApy = raw.monthly_apy ? normApy(raw.monthly_apy) * 100 : apy;
+  const weeklyApy = raw.weekly_apy ? normApy(raw.weekly_apy) * 100 : apy;
+  const allTimeApy = raw.all_time_apy ? normApy(raw.all_time_apy) * 100 : apy;
   const tvl = getTvlUsd(raw);
   const depositors = raw.C07 || 0;
   const age = raw.D01 || raw.D03 || 0;
