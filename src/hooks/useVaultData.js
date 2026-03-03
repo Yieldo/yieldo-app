@@ -278,6 +278,11 @@ function scoreUserRetention(ret30d) {
 function getTvlUsd(raw) {
   if (raw.C01_USD) return raw.C01_USD;
   if (Array.isArray(raw.tvl_spark) && raw.tvl_spark.length > 0) return raw.tvl_spark[raw.tvl_spark.length - 1];
+  // Fallback: use last snapshot's total_assets_usd (important for Hyperliquid vaults where C01=0 but snapshots have real TVL)
+  if (Array.isArray(raw.snapshots) && raw.snapshots.length > 0) {
+    const last = raw.snapshots[raw.snapshots.length - 1];
+    if (last && last.total_assets_usd > 0) return last.total_assets_usd;
+  }
   return 0;
 }
 
@@ -393,14 +398,18 @@ function deriveFlags(v) {
   const c02 = v.C02 || {};
   const tvlChg1d = typeof c02["1d"] === "number" ? c02["1d"] : null;
   const tvlChg7d = typeof c02["7d"] === "number" ? c02["7d"] : null;
-  if (tvlChg1d !== null && tvlChg1d < -20)
-    flags.push({ id: "F04", severity: "critical", label: "TVL Crash (1d)", penalty: -20 });
-  else if (tvlChg1d !== null && tvlChg1d < -10)
-    flags.push({ id: "F11", severity: "warning", label: "TVL Drop (1d)", penalty: -8 });
-  if (tvlChg7d !== null && tvlChg7d < -40)
-    flags.push({ id: "F05", severity: "critical", label: "TVL Crash (7d)", penalty: -20 });
-  else if (tvlChg7d !== null && tvlChg7d < -20)
-    flags.push({ id: "F12", severity: "warning", label: "TVL Drop (7d)", penalty: -8 });
+  // Skip TVL change flags when C01=0 but snapshots have real TVL (C02 -100% is misleading)
+  const hasFallbackTvl = (v.C01 === 0 || !v.C01) && Array.isArray(v.snapshots) && v.snapshots.length > 0 && v.snapshots[v.snapshots.length - 1]?.total_assets_usd > 0;
+  if (!hasFallbackTvl) {
+    if (tvlChg1d !== null && tvlChg1d < -20)
+      flags.push({ id: "F04", severity: "critical", label: "TVL Crash (1d)", penalty: -20 });
+    else if (tvlChg1d !== null && tvlChg1d < -10)
+      flags.push({ id: "F11", severity: "warning", label: "TVL Drop (1d)", penalty: -8 });
+    if (tvlChg7d !== null && tvlChg7d < -40)
+      flags.push({ id: "F05", severity: "critical", label: "TVL Crash (7d)", penalty: -20 });
+    else if (tvlChg7d !== null && tvlChg7d < -20)
+      flags.push({ id: "F12", severity: "warning", label: "TVL Drop (7d)", penalty: -8 });
+  }
 
   const depCount = v.C07 || 0;
   if (depCount < 10)
@@ -497,7 +506,9 @@ function deriveFlags(v) {
 function inferRisk(v) {
   let score = 0;
   if (v.R02_depeg) score += 3;
-  if (v.C03) score += 3;
+  // Skip C03 when C01=0 but snapshots have real TVL (C03 severity is unreliable)
+  const c03Unreliable = (v.C01 === 0 || !v.C01) && Array.isArray(v.snapshots) && v.snapshots.length > 0 && v.snapshots[v.snapshots.length - 1]?.total_assets_usd > 0;
+  if (v.C03 && !c03Unreliable) score += 3;
   if (v.R05) score += 3;
   if (v.P02) score += 1;
   if (v.C08_low_dep) score += 1;
@@ -518,20 +529,26 @@ function inferRisk(v) {
 }
 
 function normApy(v) {
-  return typeof v === "number" ? (v > 1 ? v / 100 : v) : v;
+  return typeof v === "number" ? v : v;
 }
 
 function mapVault(raw) {
   const p01raw = raw.P01 || {};
   const p01 = typeof p01raw === "object" ? { "1d": normApy(p01raw["1d"]), "7d": normApy(p01raw["7d"]), "30d": normApy(p01raw["30d"]) } : p01raw;
   const netApy = typeof raw.net_apy === "number" ? normApy(raw.net_apy) : null;
+  const hasSnapshots = Array.isArray(raw.snapshots) && raw.snapshots.length > 0;
   const apy1d = typeof p01 === "object" && typeof p01["1d"] === "number" ? p01["1d"] * 100 : null;
   const apy7d = typeof p01 === "object" && typeof p01["7d"] === "number" ? p01["7d"] * 100 : null;
   const apy30d = typeof p01 === "object" && typeof p01["30d"] === "number" ? p01["30d"] * 100 : null;
-  const apy = netApy !== null ? netApy * 100 : (typeof raw.P01 === "number" ? normApy(raw.P01) * 100 : (apy7d || 0));
-  const monthlyApy = raw.monthly_apy ? normApy(raw.monthly_apy) * 100 : apy;
-  const weeklyApy = raw.weekly_apy ? normApy(raw.weekly_apy) * 100 : apy;
-  const allTimeApy = raw.all_time_apy ? normApy(raw.all_time_apy) * 100 : apy;
+  // Current APY: prefer net_apy > P01 > last snapshot
+  const snapshotApy = hasSnapshots
+    ? (raw.snapshots[raw.snapshots.length - 1].net_apy || 0) * 100
+    : null;
+  const apy = netApy !== null ? netApy * 100 : (typeof raw.P01 === "number" ? normApy(raw.P01) * 100 : (apy7d || snapshotApy || 0));
+  // Weekly = P01 7d, Monthly = P01 30d, All Time = all_time_apy from API
+  const weeklyApy = raw.weekly_apy ? normApy(raw.weekly_apy) * 100 : (apy7d !== null ? apy7d : apy);
+  const monthlyApy = raw.monthly_apy ? normApy(raw.monthly_apy) * 100 : (apy30d !== null ? apy30d : apy);
+  const allTimeApy = typeof raw.all_time_apy === "number" ? normApy(raw.all_time_apy) * 100 : apy;
   const tvl = getTvlUsd(raw);
   const depositors = raw.C07 || 0;
   const age = raw.D01 || raw.D03 || 0;
@@ -639,14 +656,16 @@ function mapVault(raw) {
   const curatorName = raw.curator_name || (curator && !curator.startsWith("0x") ? curator : null) || "Unknown";
 
   const c02 = raw.C02 || {};
+  // When C01=0 but snapshots have real TVL, C02 -100% values are unreliable
+  const c02Unreliable = (raw.C01 === 0 || !raw.C01) && Array.isArray(raw.snapshots) && raw.snapshots.length > 0 && raw.snapshots[raw.snapshots.length - 1]?.total_assets_usd > 0;
   const tvlChange1d =
-    typeof c02 === "object" && typeof c02["1d"] === "number" ? c02["1d"] : null;
+    c02Unreliable ? null : (typeof c02 === "object" && typeof c02["1d"] === "number" ? c02["1d"] : null);
   const tvlChange7d =
-    typeof c02 === "object" && typeof c02["7d"] === "number" ? c02["7d"] : null;
+    c02Unreliable ? null : (typeof c02 === "object" && typeof c02["7d"] === "number" ? c02["7d"] : null);
   const tvlChange30d =
-    typeof c02 === "object" && typeof c02["30d"] === "number"
+    c02Unreliable ? null : (typeof c02 === "object" && typeof c02["30d"] === "number"
       ? c02["30d"]
-      : null;
+      : null);
 
   const c04 = raw.C04 || {};
   const netFlow1d =
