@@ -28,7 +28,7 @@ const EXPLORER_URL = {
   8453: "https://basescan.org",
   42161: "https://arbiscan.io",
   10: "https://optimistic.etherscan.io",
-  999: "https://hyperevm.cloud",
+  999: "https://hyperevmscan.io",
   747474: "https://katana.explorers.caldera.xyz",
   143: "https://explorer.monad.xyz",
 };
