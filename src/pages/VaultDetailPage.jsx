@@ -23,6 +23,26 @@ const SEV = {
   info: { icon: "🔵", color: C.blue, bg: C.blueBg, bd: "rgba(21,101,192,.15)" },
 };
 
+const EXPLORER_URL = {
+  1: "https://etherscan.io",
+  8453: "https://basescan.org",
+  42161: "https://arbiscan.io",
+  10: "https://optimistic.etherscan.io",
+  999: "https://hyperevm.cloud",
+  747474: "https://katana.explorers.caldera.xyz",
+  143: "https://explorer.monad.xyz",
+};
+
+const getExplorerLink = (chainId, address) => {
+  const base = EXPLORER_URL[chainId];
+  if (!base || !address) return null;
+  return `${base}/address/${address}`;
+};
+
+const KNOWN_NAMES = {
+  "0x0000000000000000000000000000000000000000": "Zero Address",
+};
+
 const Btn = ({ children, primary, small, ghost, active, onClick, style: sx = {} }) => {
   const b = { fontFamily: "'Inter',sans-serif", fontSize: small ? 13 : 14, fontWeight: 500, border: "none", borderRadius: 6, cursor: "pointer", padding: small ? "6px 12px" : "10px 18px", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s", ...sx };
   if (primary) return <button onClick={onClick} style={{ ...b, backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>{children}</button>;
@@ -194,6 +214,34 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [benchTf, setBenchTf] = useState("7d");
   const [volTf, setVolTf] = useState("30d");
   const [ddTf, setDdTf] = useState("90d");
+  const [fbOpen, setFbOpen] = useState(false);
+  const [fbField, setFbField] = useState("");
+  const [fbDesc, setFbDesc] = useState("");
+  const [fbEmail, setFbEmail] = useState("");
+  const [fbSending, setFbSending] = useState(false);
+  const [fbDone, setFbDone] = useState(false);
+
+  const submitFeedback = async () => {
+    setFbSending(true);
+    try {
+      const url = import.meta.env.VITE_FEEDBACK_SHEET_URL;
+      if (!url) { alert("Feedback endpoint not configured"); setFbSending(false); return; }
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Timestamp: new Date().toISOString(),
+          "Vault ID": v.id, "Vault Name": v.name, Chain: v.chain, "Chain ID": v.chain_id,
+          Field: fbField, Description: fbDesc, Reporter: fbEmail || "",
+          Status: "New",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setFbDone(true);
+      setTimeout(() => { setFbOpen(false); setFbDone(false); setFbField(""); setFbDesc(""); setFbEmail(""); }, 1800);
+    } catch { alert("Failed to submit — please try again."); }
+    setFbSending(false);
+  };
 
   if (!v && loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -217,7 +265,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           <button style={{ fontSize: 14, fontWeight: 500, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif" }} onClick={handleBack}>← Vaults</button>
           <span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 14, fontWeight: 500, color: C.text2 }}>{v.name}</span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}><Btn small onClick={() => navigate("/vault")}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
+        <div style={{ display: "flex", gap: 8 }}><Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn><Btn small onClick={() => navigate("/vault")}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
       </div>
       {loading && <div style={{ padding: "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
       <div style={{ padding: "24px 32px", maxWidth: 1200, margin: "0 auto" }}>
@@ -461,8 +509,18 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 50 ? "warning" : undefined} />
             <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 60 ? "warning" : undefined} desc="Share of TVL held by top 5" />
             <MR label="Incidents (90d)" value={v.incidentCount} flag={v.incidentCount > 0 ? "critical" : undefined} />
-            {v.owner && <MR label="Owner" value={v.owner.slice(0, 10) + "..."} desc={v.owner} />}
-            {v.guardian && <MR label="Guardian" value={v.guardian.slice(0, 10) + "..."} desc={v.guardian} />}
+            {v.owner && (() => {
+              const name = KNOWN_NAMES[v.owner.toLowerCase()];
+              const link = getExplorerLink(v.chain_id, v.owner);
+              const display = name || `${v.owner.slice(0, 6)}...${v.owner.slice(-4)}`;
+              return <MR label="Owner" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.owner : undefined} />;
+            })()}
+            {v.guardian && (() => {
+              const name = KNOWN_NAMES[v.guardian.toLowerCase()];
+              const link = getExplorerLink(v.chain_id, v.guardian);
+              const display = name || `${v.guardian.slice(0, 6)}...${v.guardian.slice(-4)}`;
+              return <MR label="Guardian" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.guardian : undefined} />;
+            })()}
             {v.timelock > 0 && <MR label="Timelock" value={`${v.timelock}s`} />}
           </Card>
 
@@ -541,6 +599,54 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           <div style={{ fontSize: 11, color: "rgba(0,0,0,.5)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice. Past performance ≠ future results.</div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {fbOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setFbOpen(false)}>
+          <div style={{ background: C.white, borderRadius: 12, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }} onClick={e => e.stopPropagation()}>
+            {fbDone ? (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>Thanks!</div>
+                <div style={{ fontSize: 14, color: C.text3 }}>Your report has been submitted.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Report Data Issue</div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>Help us improve — flag incorrect or suspicious data for <strong>{v.name}</strong></div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>Which field looks wrong?</label>
+                <select value={fbField} onChange={e => setFbField(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 12, fontFamily: "'Inter',sans-serif", background: C.white }}>
+                  <option value="">Select a field...</option>
+                  <optgroup label="Capital">
+                    <option>TVL</option><option>Depositors</option><option>Net Flows</option>
+                  </optgroup>
+                  <optgroup label="Performance">
+                    <option>APY</option><option>Benchmark Ratio</option><option>Volatility</option><option>Max Drawdown</option>
+                  </optgroup>
+                  <optgroup label="Risk">
+                    <option>Asset Price</option><option>Pause Events</option><option>Concentration</option><option>Owner / Guardian</option>
+                  </optgroup>
+                  <optgroup label="Trust">
+                    <option>Capital Retention</option><option>User Retention</option><option>Holding Days</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option>Yieldo Score</option><option>Vault Info / Metadata</option><option>Other</option>
+                  </optgroup>
+                </select>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>What seems wrong?</label>
+                <textarea value={fbDesc} onChange={e => setFbDesc(e.target.value)} placeholder="e.g. APY shows 500% but the vault page shows 12%" rows={3} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 12, fontFamily: "'Inter',sans-serif", resize: "vertical" }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>Email (optional — for follow-up)</label>
+                <input value={fbEmail} onChange={e => setFbEmail(e.target.value)} placeholder="you@example.com" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 16, fontFamily: "'Inter',sans-serif" }} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Btn small onClick={() => setFbOpen(false)}>Cancel</Btn>
+                  <Btn primary small onClick={submitFeedback} style={{ opacity: !fbField || !fbDesc ? 0.5 : 1, pointerEvents: !fbField || !fbDesc || fbSending ? "none" : "auto" }}>
+                    {fbSending ? "Sending..." : "Submit Report"}
+                  </Btn>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

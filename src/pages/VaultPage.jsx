@@ -189,6 +189,37 @@ export default function VaultPage() {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
   const [cmpList, setCmpList] = useState([]), [enrolled, setEnrolled] = useState(new Set());
+  const [fbOpen, setFbOpen] = useState(false);
+  const [fbVault, setFbVault] = useState("");
+  const [fbField, setFbField] = useState("");
+  const [fbDesc, setFbDesc] = useState("");
+  const [fbEmail, setFbEmail] = useState("");
+  const [fbSending, setFbSending] = useState(false);
+  const [fbDone, setFbDone] = useState(false);
+
+  const submitFeedback = async () => {
+    setFbSending(true);
+    try {
+      const url = import.meta.env.VITE_FEEDBACK_SHEET_URL;
+      if (!url) { alert("Feedback endpoint not configured"); setFbSending(false); return; }
+      const matched = ALL.find(v => v.name === fbVault);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Timestamp: new Date().toISOString(),
+          "Vault ID": matched?.id || "", "Vault Name": fbVault || "General", Chain: matched?.chain || "", "Chain ID": matched?.chain_id || "",
+          Field: fbField, Description: fbDesc, Reporter: fbEmail || "",
+          Status: "New",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setFbDone(true);
+      setTimeout(() => { setFbOpen(false); setFbDone(false); setFbVault(""); setFbField(""); setFbDesc(""); setFbEmail(""); }, 1800);
+    } catch { alert("Failed to submit — please try again."); }
+    setFbSending(false);
+  };
+
   const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); setActivePreset(null); };
   const togCmp = v => { cmpList.find(c=>c.id===v.id)?setCmpList(cmpList.filter(c=>c.id!==v.id)):cmpList.length<4&&setCmpList([...cmpList,v]); };
   const togEnr = id => { const n=new Set(enrolled); n.has(id)?n.delete(id):n.add(id); setEnrolled(n); };
@@ -272,7 +303,7 @@ export default function VaultPage() {
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
           <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Vaults</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Btn small onClick={() => window.location.reload()}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn><Btn small onClick={() => window.location.reload()}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
       </div>
       <div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
@@ -444,6 +475,49 @@ export default function VaultPage() {
           </div>)}
         </div>
       </div>}
+
+      {/* Feedback Modal */}
+      {fbOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setFbOpen(false)}>
+          <div style={{ background: C.white, borderRadius: 12, padding: 28, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }} onClick={e => e.stopPropagation()}>
+            {fbDone ? (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>Thanks!</div>
+                <div style={{ fontSize: 14, color: C.text3 }}>Your report has been submitted.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Report Data Issue</div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>Help us improve — flag incorrect or suspicious data</div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>Which vault?</label>
+                <select value={fbVault} onChange={e => setFbVault(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 12, fontFamily: "'Inter',sans-serif", background: C.white }}>
+                  <option value="">General / not specific</option>
+                  {ALL.map(v => <option key={v.id} value={v.name}>{v.name} ({v.chain})</option>)}
+                </select>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>Which field looks wrong?</label>
+                <select value={fbField} onChange={e => setFbField(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 12, fontFamily: "'Inter',sans-serif", background: C.white }}>
+                  <option value="">Select a field...</option>
+                  <optgroup label="Capital"><option>TVL</option><option>Depositors</option><option>Net Flows</option></optgroup>
+                  <optgroup label="Performance"><option>APY</option><option>Benchmark Ratio</option><option>Volatility</option><option>Max Drawdown</option></optgroup>
+                  <optgroup label="Risk"><option>Asset Price</option><option>Pause Events</option><option>Concentration</option><option>Owner / Guardian</option></optgroup>
+                  <optgroup label="Trust"><option>Capital Retention</option><option>User Retention</option><option>Holding Days</option></optgroup>
+                  <optgroup label="Other"><option>Yieldo Score</option><option>Vault Info / Metadata</option><option>Other</option></optgroup>
+                </select>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>What seems wrong?</label>
+                <textarea value={fbDesc} onChange={e => setFbDesc(e.target.value)} placeholder="e.g. APY shows 500% but the vault page shows 12%" rows={3} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 12, fontFamily: "'Inter',sans-serif", resize: "vertical" }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.text3, display: "block", marginBottom: 4 }}>Email (optional — for follow-up)</label>
+                <input value={fbEmail} onChange={e => setFbEmail(e.target.value)} placeholder="you@example.com" style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 13, marginBottom: 16, fontFamily: "'Inter',sans-serif" }} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Btn small onClick={() => setFbOpen(false)}>Cancel</Btn>
+                  <Btn primary small onClick={submitFeedback} style={{ opacity: !fbField || !fbDesc ? 0.5 : 1, pointerEvents: !fbField || !fbDesc || fbSending ? "none" : "auto" }}>
+                    {fbSending ? "Sending..." : "Submit Report"}
+                  </Btn>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
