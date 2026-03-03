@@ -362,11 +362,6 @@ export default function VaultPage() {
           </div>
           <div style={{ width: 1, height: 20, background: C.border }}/>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Protocol</span>
-            {PROTOCOLS.map(p=><Chip key={p} label={p} active={fPr.includes(p)} onClick={()=>tog(fPr,setFPr,p)} small/>)}
-          </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Risk</span>
             {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
           </div>
@@ -382,6 +377,7 @@ export default function VaultPage() {
         {moreFilters && (
           <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px", maxWidth: 280 }}><TagInput label="Protocol" allOptions={PROTOCOLS} selected={fPr} onChange={v=>setFPr(v)}/></div>
               <div style={{ flex: "1 1 200px", maxWidth: 280 }}><TagInput label="Curator" allOptions={CURATORS} selected={fCu} onChange={v=>setFCu(v)}/></div>
               <div>
                 <FL>Flag Status</FL>
