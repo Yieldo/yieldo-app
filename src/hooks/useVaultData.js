@@ -790,9 +790,25 @@ export function useVaults() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const HIDDEN_VAULT_NAMES = [
+      "Hyperliquidity Provider",
+      "HyperGrowth",
+      "Growi HF",
+      "Not In Employment Education or Training",
+      "drkmttr",
+      "Bitcoin Moving Average Long/Short",
+      "Systemic Strategies",
+      "Orbit Value Strategies",
+      "Ultron",
+    ];
+    const isHidden = (v) =>
+      (v.source && v.source.toLowerCase() === "hyperliquid") ||
+      (v.vault_name &&
+        HIDDEN_VAULT_NAMES.some((name) => v.vault_name.includes(name)));
+
     const cached = getCache(CACHE_KEY);
     if (cached) {
-      setVaults(cached.map(mapVault));
+      setVaults(cached.filter((v) => !isHidden(v)).map(mapVault));
       setLoading(false);
       return;
     }
@@ -804,7 +820,7 @@ export function useVaults() {
       })
       .then((data) => {
         setCache(CACHE_KEY, data);
-        setVaults(data.map(mapVault));
+        setVaults(data.filter((v) => !isHidden(v)).map(mapVault));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
