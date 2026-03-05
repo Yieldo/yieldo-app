@@ -325,7 +325,8 @@ function calcPerformanceScore(raw) {
 }
 
 function calcRiskScore(raw) {
-  const incidents = typeof raw.R10 === "number" ? raw.R10 : 0;
+  const r10 = raw.R10;
+  const incidents = typeof r10 === "number" ? r10 : (r10 && typeof r10 === "object" ? (r10["90d"] ?? 0) : 0);
   const assetType = getAssetType((raw.asset || "").toLowerCase());
   const top5raw = typeof raw.R09_top5 === "number" ? raw.R09_top5 : 0;
   const top5 = top5raw > 1 ? top5raw / 100 : top5raw;
@@ -473,7 +474,8 @@ function deriveFlags(v) {
   if (v.T06b === "info" || v.T06b === "warning")
     flags.push({ id: "F33", severity: "info", label: "Elevated Quick Exit Rate", penalty: 0 });
 
-  const incidents = typeof v.R10 === "number" ? v.R10 : 0;
+  const r10val = v.R10;
+  const incidents = typeof r10val === "number" ? r10val : (r10val && typeof r10val === "object" ? (r10val["90d"] ?? 0) : 0);
   if (incidents > 0)
     flags.push({ id: "R10_flag", severity: "critical", label: `${incidents} Incident${incidents > 1 ? "s" : ""} (90d)`, penalty: 0 });
 
@@ -609,10 +611,16 @@ function mapVault(raw) {
     typeof retentionObj === "object" ? retentionObj["30d"] : retentionObj;
   const capRet =
     typeof retention30d === "number" ? Math.round(retention30d) : null;
+  const capitalRetention = typeof retentionObj === "object"
+    ? { "30d": retentionObj["30d"] ?? null, "365d": retentionObj["365d"] ?? null }
+    : { "30d": typeof retentionObj === "number" ? retentionObj : null, "365d": null };
 
   const activityObj = raw.T03 || {};
   const activityRate =
     typeof activityObj === "object" ? activityObj["30d"] : activityObj;
+  const userRetention = typeof activityObj === "object"
+    ? { "30d": activityObj["30d"] ?? null, "365d": activityObj["365d"] ?? null }
+    : { "30d": typeof activityObj === "number" ? activityObj : null, "365d": null };
 
   const avgHold = typeof raw.T04 === "number" ? Math.round(raw.T04) : null;
   const quickExitRate = typeof raw.T06 === "number" ? raw.T06 : null;
@@ -746,10 +754,14 @@ function mapVault(raw) {
     avgDepDuration,
     activityRate: typeof activityRate === "number" ? activityRate : null,
     retention30d,
+    capitalRetention,
+    userRetention,
     withdrawalType: raw.R06 || "Instant",
-    pauseEvents: raw.R03 || 0,
+    pendingWithdrawals: typeof raw.R07 === "number" ? raw.R07 : (raw.R07?.value ?? null),
+    pendingWithdrawalsFlag: raw.R08 === true || raw.R08 === "critical" ? "critical" : raw.R08 === "warning" ? "warning" : undefined,
+    pauseEvents: typeof raw.R03 === "number" ? raw.R03 : (raw.R03 && typeof raw.R03 === "object" ? (raw.R03["365d"] ?? raw.R03["90d"] ?? 0) : 0),
     depegEvents: raw.R02_depeg ? 1 : 0,
-    incidentCount: raw.R10 || 0,
+    incidentCount: typeof raw.R10 === "number" ? { "90d": raw.R10, "365d": raw.R10 } : (raw.R10 && typeof raw.R10 === "object" ? { "90d": raw.R10["90d"] ?? 0, "365d": raw.R10["365d"] ?? 0 } : { "90d": 0, "365d": 0 }),
     assetPrice: raw.R01 || null,
     vol24h: raw.vol_24h || null,
     fee: raw.fee != null ? (raw.fee > 1 ? raw.fee : raw.fee * 100) : null,

@@ -214,6 +214,9 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [benchTf, setBenchTf] = useState("7d");
   const [volTf, setVolTf] = useState("30d");
   const [ddTf, setDdTf] = useState("90d");
+  const [incTf, setIncTf] = useState("90d");
+  const [capRetTf, setCapRetTf] = useState("30d");
+  const [userRetTf, setUserRetTf] = useState("30d");
   const [fbOpen, setFbOpen] = useState(false);
   const [fbField, setFbField] = useState("");
   const [fbDesc, setFbDesc] = useState("");
@@ -503,12 +506,24 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             </div>
             <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
             {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
-            <MR label="Pause Events (90d)" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "critical" : undefined} />
+            <MR label="Pause Events" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "critical" : undefined} />
             {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
             <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
+            {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
             <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 50 ? "warning" : undefined} />
             <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 60 ? "warning" : undefined} desc="Share of TVL held by top 5" />
-            <MR label="Incidents (90d)" value={v.incidentCount} flag={v.incidentCount > 0 ? "critical" : undefined} />
+            {(() => { const val = v.incidentCount[incTf] ?? 0; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Incidents</span>
+                  <select value={incTf} onChange={e => setIncTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="90d">90d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: val > 0 ? "#ef4444" : C.text }}>{val}</span>
+              </div>
+            ); })()}
             {v.owner && (() => {
               const name = KNOWN_NAMES[v.owner.toLowerCase()];
               const link = getExplorerLink(v.chain_id, v.owner);
@@ -532,8 +547,30 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <ScoreRing score={v.subScores.trust} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
             </div>
-            <MR label="Capital Retention" value={fmt(v.retention30d, "%")} flag={v.retention30d !== null && v.retention30d < 50 ? "critical" : v.retention30d !== null && v.retention30d < 70 ? "warning" : undefined} />
-            <MR label="User Retention" value={fmt(v.activityRate, "%")} />
+            {(() => { const val = v.capitalRetention?.[capRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; const flag = d !== null && d < 50 ? "critical" : d !== null && d < 70 ? "warning" : undefined; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Capital Retention</span>
+                  <select value={capRetTf} onChange={e => setCapRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: flag === "critical" ? "#ef4444" : flag === "warning" ? "#f59e0b" : C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
+              </div>
+            ); })()}
+            {(() => { const val = v.userRetention?.[userRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>User Retention</span>
+                  <select value={userRetTf} onChange={e => setUserRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
+              </div>
+            ); })()}
             <MR label="Avg Holding Days" value={fmt(v.avgHold)} unit="days" flag={v.avgHold !== null && v.avgHold < 3 ? "critical" : v.avgHold !== null && v.avgHold < 10 ? "warning" : undefined} />
             {v._raw?.T05_short_hold && <MR label="Short Hold Flag" value="Yes" flag="warning" />}
             <MR label="Quick Exit Rate" value={fmt(v.quickExitRate, "%")} flag={v.quickExitRate !== null && v.quickExitRate > 25 ? "warning" : undefined} desc="% exiting within 7 days" />
