@@ -5,6 +5,7 @@ const PASSWORDS = {
   kol: "Yieldo@kol",
   wallet: "Yieldo@wallet",
   curator: "Yieldo@curator",
+  vaultscoring: "Yieldo@scoring",
 }
 
 function ProtectedRoute({ type, children }) {

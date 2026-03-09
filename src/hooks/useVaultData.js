@@ -796,6 +796,17 @@ function mapVault(raw) {
   };
 }
 
+export {
+  scoreTVL, scoreTVLVelocity, scoreDepositors, scorePendingWithdrawals,
+  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreSortino,
+  scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
+  scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
+  scoreCapitalRetention, scoreAvgDepositDuration, scoreHolders90Plus,
+  scoreNetDepositors, scoreNetFlowDirection, scoreQuickExitRate,
+  scoreUserRetention, getConfidence, calcExternalRatingBonus,
+  getTvlUsd, getAssetType,
+};
+
 export function useVaults() {
   const [vaults, setVaults] = useState([]);
   const [loading, setLoading] = useState(true);
