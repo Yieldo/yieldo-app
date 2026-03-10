@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useVaults } from "../hooks/useVaultData.js";
 import {
   scoreTVL, scoreTVLVelocity, scoreDepositors, scorePendingWithdrawals,
-  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreSortino,
+  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreWinRate,
+  scoreWorstWeek, scoreAlphaConsistency,
   scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
   scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
   scoreCapitalRetention, scoreAvgDepositDuration, scoreHolders90Plus,
@@ -67,7 +68,9 @@ function calcBreakdown(raw) {
   const assetType = getAssetType((raw.asset || "").toLowerCase());
 
   const sharpeVal = raw.P05 === "Insufficient Data" ? null : (typeof raw.P05 === "number" ? raw.P05 : null);
-  const sortinoVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
+  const winRateVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
+  const worstWeekVal = raw.P07 === "Insufficient Data" ? null : (typeof raw.P07 === "number" ? raw.P07 : null);
+  const consistencyVal = raw.P13 === "Insufficient Data" ? null : (typeof raw.P13 === "number" ? raw.P13 : null);
   const p08 = raw.P08 || {};
   const dd = typeof p08 === "object"
     ? (p08["90d"] ?? p08["365d"] ?? p08["30d"] ?? 0)
@@ -105,14 +108,23 @@ function calcBreakdown(raw) {
     { metric: "-", label: "Constant", rawVal: 70, rawFmt: "70", score: 70, weight: 0.20 },
   ];
 
+  const perfComposite = typeof raw.perf_composite === "number" ? raw.perf_composite : null;
+
   const performance = [
-    { metric: "P05", label: "Sharpe Ratio", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.20 },
-    { metric: "P06", label: "Sortino Ratio", rawVal: sortinoVal, rawFmt: fv(sortinoVal), score: scoreSortino(sortinoVal), weight: 0.10 },
-    { metric: "P08", label: "Max Drawdown", rawVal: dd, rawFmt: `${fv(dd)}%`, score: scoreMaxDrawdown(dd), weight: 0.25 },
+    { metric: "P05", label: "Sharpe (vs Benchmark)", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.20 },
+    { metric: "P06", label: "Win Rate", rawVal: winRateVal, rawFmt: winRateVal !== null ? `${(winRateVal * 100).toFixed(1)}%` : "N/A", score: scoreWinRate(winRateVal), weight: 0.10 },
+    { metric: "P07", label: "Worst Week", rawVal: worstWeekVal, rawFmt: worstWeekVal !== null ? `${(worstWeekVal * 100).toFixed(2)}%` : "N/A", score: scoreWorstWeek(worstWeekVal), weight: 0.05 },
+    { metric: "P13", label: "Alpha Consistency", rawVal: consistencyVal, rawFmt: consistencyVal !== null ? `${(consistencyVal * 100).toFixed(1)}%` : "N/A", score: scoreAlphaConsistency(consistencyVal), weight: 0.05 },
+    { metric: "P08", label: "Max Drawdown", rawVal: dd, rawFmt: `${fv(dd)}%`, score: scoreMaxDrawdown(dd), weight: 0.20 },
     { metric: "P09", label: "Drawdown Duration", rawVal: ddDuration, rawFmt: `${ddDuration}d`, score: scoreDrawdownDuration(ddDuration), weight: 0.05 },
     { metric: "P10", label: "Yield Composition", rawVal: organicPct, rawFmt: `${fv(organicPct, 0)}% organic`, score: scoreYieldComposition(organicPct), weight: 0.15 },
-    { metric: "P03.7d", label: "APY vs Benchmark", rawVal: benchRatio, rawFmt: benchRatio !== null ? `${fv(benchRatio)}x` : "N/A", score: scoreAPYvsBenchmark(benchRatio), weight: 0.25 },
+    { metric: "P03.7d", label: "APY vs Benchmark", rawVal: benchRatio, rawFmt: benchRatio !== null ? `${fv(benchRatio)}x` : "N/A", score: scoreAPYvsBenchmark(benchRatio), weight: 0.20 },
   ];
+
+  // Show backend perf_composite if available
+  if (perfComposite !== null) {
+    performance.unshift({ metric: "perf_composite", label: "Backend Composite", rawVal: perfComposite, rawFmt: `${perfComposite.toFixed(1)} / 10`, score: perfComposite * 10, weight: 0 });
+  }
 
   const risk = [
     { metric: "R10", label: "Incidents (90d)", rawVal: incidents, rawFmt: String(incidents), score: scoreIncidents(incidents), weight: 0.30 },

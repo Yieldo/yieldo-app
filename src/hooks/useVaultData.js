@@ -129,13 +129,34 @@ function scoreSharpe(sharpe) {
   return 100;
 }
 
-function scoreSortino(sortino) {
-  if (sortino == null) return 50;
-  if (sortino < 0) return 10;
-  if (sortino < 1) return 30;
-  if (sortino < 2) return 50;
-  if (sortino < 5) return 75;
-  if (sortino < 10) return 90;
+function scoreWinRate(winRate) {
+  if (winRate == null) return 50;
+  if (winRate < 0.3) return 10;
+  if (winRate < 0.5) return 30;
+  if (winRate < 0.65) return 50;
+  if (winRate < 0.8) return 75;
+  if (winRate < 0.9) return 90;
+  return 100;
+}
+
+function scoreWorstWeek(worstWeek) {
+  if (worstWeek == null) return 50;
+  const abs = Math.abs(worstWeek);
+  if (abs === 0) return 100;
+  if (abs < 0.005) return 90;
+  if (abs < 0.01) return 75;
+  if (abs < 0.02) return 50;
+  if (abs < 0.05) return 30;
+  return 10;
+}
+
+function scoreAlphaConsistency(consistency) {
+  if (consistency == null) return 50;
+  if (consistency < 0.1) return 10;
+  if (consistency < 0.25) return 30;
+  if (consistency < 0.4) return 50;
+  if (consistency < 0.6) return 75;
+  if (consistency < 0.8) return 90;
   return 100;
 }
 
@@ -302,8 +323,14 @@ function calcCapitalScore(raw) {
 }
 
 function calcPerformanceScore(raw) {
+  // Use backend perf_composite if available (0-10 scale → 0-100)
+  if (typeof raw.perf_composite === "number") {
+    return raw.perf_composite * 10;
+  }
   const sharpeVal = raw.P05 === "Insufficient Data" ? null : (typeof raw.P05 === "number" ? raw.P05 : null);
-  const sortinoVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
+  const winRateVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
+  const worstWeekVal = raw.P07 === "Insufficient Data" ? null : (typeof raw.P07 === "number" ? raw.P07 : null);
+  const consistencyVal = raw.P13 === "Insufficient Data" ? null : (typeof raw.P13 === "number" ? raw.P13 : null);
   const p08 = raw.P08 || {};
   const dd = typeof p08 === "object"
     ? (p08["90d"] ?? p08["365d"] ?? p08["30d"] ?? 0)
@@ -316,11 +343,13 @@ function calcPerformanceScore(raw) {
     : (typeof raw.P03 === "number" ? raw.P03 : null);
   return (
     scoreSharpe(sharpeVal) * 0.20 +
-    scoreSortino(sortinoVal) * 0.10 +
-    scoreMaxDrawdown(dd) * 0.25 +
+    scoreWinRate(winRateVal) * 0.10 +
+    scoreWorstWeek(worstWeekVal) * 0.05 +
+    scoreAlphaConsistency(consistencyVal) * 0.05 +
+    scoreMaxDrawdown(dd) * 0.20 +
     scoreDrawdownDuration(ddDuration) * 0.05 +
     scoreYieldComposition(organicPct) * 0.15 +
-    scoreAPYvsBenchmark(benchRatio) * 0.25
+    scoreAPYvsBenchmark(benchRatio) * 0.20
   );
 }
 
@@ -585,12 +614,31 @@ function mapVault(raw) {
   const maxDD = raw.P08 === "Insufficient Data" ? null
     : typeof raw.P08 === "number" ? raw.P08
     : (maxDD90d !== null ? maxDD90d : maxDD30d);
-  const sortino =
+  const winRate =
     raw.P06 === "Insufficient Data"
       ? null
       : typeof raw.P06 === "number"
         ? raw.P06
         : null;
+  const worstWeek =
+    raw.P07 === "Insufficient Data"
+      ? null
+      : typeof raw.P07 === "number"
+        ? raw.P07
+        : null;
+  const alphaConsistency =
+    raw.P13 === "Insufficient Data"
+      ? null
+      : typeof raw.P13 === "number"
+        ? raw.P13
+        : null;
+  const perfComposite =
+    raw.perf_composite === "Insufficient Data"
+      ? null
+      : typeof raw.perf_composite === "number"
+        ? raw.perf_composite
+        : null;
+  const perfDetail = raw.perf_detail || null;
 
   const p03 = raw.P03 || {};
   const apyVsBench1d = typeof p03 === "object" && typeof p03["1d"] === "number" ? p03["1d"] : null;
@@ -725,7 +773,11 @@ function mapVault(raw) {
     maxDD90d,
     maxDD365d,
     sharpe: sharpe !== null ? sharpe : 0,
-    sortino,
+    winRate,
+    worstWeek,
+    alphaConsistency,
+    perfComposite,
+    perfDetail,
     capRet: capRet !== null ? capRet : 0,
     avgHold: avgHold !== null ? avgHold : 0,
     top1,
@@ -798,7 +850,8 @@ function mapVault(raw) {
 
 export {
   scoreTVL, scoreTVLVelocity, scoreDepositors, scorePendingWithdrawals,
-  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreSortino,
+  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreWinRate,
+  scoreWorstWeek, scoreAlphaConsistency,
   scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
   scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
   scoreCapitalRetention, scoreAvgDepositDuration, scoreHolders90Plus,

@@ -270,7 +270,7 @@ export default function VaultPage() {
     if(fYT!=="all")r=r.filter(v=>v.yieldType===fYT);
     if(fApy>0)r=r.filter(v=>v.apy>=fApy);if(fTvl>0)r=r.filter(v=>v.tvl>=fTvl);if(fDep>0)r=r.filter(v=>v.depositors>=fDep);
     if(fAge>0)r=r.filter(v=>v.age>=fAge);if(fSc>0)r=r.filter(v=>v.yieldoScore>=fSc);
-    const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0)};
+    const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0),perfScore:(a,b)=>(b.perfComposite||0)-(a.perfComposite||0)};
     if(sm[sortBy])r.sort(sm[sortBy]); return r;
   }, [ALL,search,fCh,fPr,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
 
@@ -347,7 +347,7 @@ export default function VaultPage() {
           <Btn ghost small active={view==="table"} onClick={()=>setView("table")}>☰</Btn>
           <div style={{ height: 18, width: 1, background: C.border }}/>
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 11, fontFamily: "'Inter',sans-serif", color: C.text2, background: C.white, cursor: "pointer", outline: "none" }}>
-            {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["perfScore","Perf Score"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
           </select>
         </div>
         <div style={{ display: "flex", gap: winW >= 640 ? 16 : 8, marginBottom: 10, alignItems: "flex-end", flexWrap: "wrap" }}>

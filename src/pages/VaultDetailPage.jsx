@@ -474,9 +474,15 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               </div>
               <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const p = v.P04; const val = p && typeof p === "object" ? p[volTf] : (typeof p === "number" ? p : null); return val !== null && val !== undefined ? `${(val * 100).toFixed(2)}%` : "N/A"; })()}</span>
             </div>
-            <MR label="Sharpe Ratio" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : undefined} />
-            <MR label="Sortino Ratio" value={fmt(v.sortino)} />
-            <MR label="Downside Deviation" value={fmt(v.P07, "%")} />
+            {v.perfComposite !== null && (() => {
+              const grade = v.perfComposite >= 8.5 ? "A+" : v.perfComposite >= 7.5 ? "A" : v.perfComposite >= 6.5 ? "B+" : v.perfComposite >= 5.5 ? "B" : v.perfComposite >= 4.0 ? "C" : "D";
+              const gradeColor = grade.startsWith("A") ? C.green : grade.startsWith("B") ? C.gold : C.red;
+              return <MR label="Performance Score" value={`${v.perfComposite.toFixed(1)} / 10`} desc={<span style={{ fontWeight: 600, color: gradeColor }}>Grade: {grade}</span>} />;
+            })()}
+            <MR label="Sharpe (vs Benchmark)" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : "Excess return per unit of volatility vs Aave"} />
+            <MR label="Win Rate" value={v.winRate !== null ? `${(v.winRate * 100).toFixed(1)}%` : "N/A"} desc={v.perfDetail?.win_rate ? `Beat Aave ${v.perfDetail.win_rate.win_weeks} / ${v.perfDetail.win_rate.total_weeks} weeks` : "% of weeks outperforming Aave lending"} />
+            <MR label="Worst Week" value={v.worstWeek !== null ? `${(v.worstWeek * 100).toFixed(2)}%` : "N/A"} desc="Largest single-week underperformance vs Aave" flag={v.worstWeek !== null && v.worstWeek < -0.02 ? "critical" : v.worstWeek !== null && v.worstWeek < 0 ? "warning" : undefined} />
+            <MR label="Alpha Consistency" value={v.alphaConsistency !== null ? `${(v.alphaConsistency * 100).toFixed(1)}%` : "N/A"} desc="Higher = steadier outperformance, lower = volatile swings" />
             {(() => { const val = ddTf === "30d" ? v.maxDD30d : ddTf === "90d" ? v.maxDD90d : v.maxDD365d; const flag = val !== null && val < -10 ? "critical" : val !== null && val < -5 ? "warning" : undefined; return (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
