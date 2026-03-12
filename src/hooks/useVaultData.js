@@ -369,14 +369,14 @@ function calcPerformanceScore(raw) {
     ? p03["7d"]
     : (typeof raw.P03 === "number" ? raw.P03 : null);
   return (
-    scoreSharpe(sharpeVal) * 0.20 +
+    scoreSharpe(sharpeVal) * 0.10 +
     scoreWinRate(winRateVal) * 0.10 +
     scoreWorstWeek(worstWeekVal) * 0.05 +
     scoreAlphaConsistency(consistencyVal) * 0.05 +
-    scoreMaxDrawdown(dd) * 0.20 +
+    scoreMaxDrawdown(dd) * 0.25 +
     scoreDrawdownDuration(ddDuration) * 0.05 +
     scoreYieldComposition(organicPct) * 0.15 +
-    scoreAPYvsBenchmark(benchRatio) * 0.20
+    scoreAPYvsBenchmark(benchRatio) * 0.25
   );
 }
 

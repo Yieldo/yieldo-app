@@ -112,14 +112,14 @@ function calcBreakdown(raw) {
   const perfComposite = typeof raw.perf_composite === "number" ? raw.perf_composite : null;
 
   const performance = [
-    { metric: "P05", label: "Sharpe (vs Benchmark)", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.20 },
+    { metric: "P05", label: "Sharpe (vs Benchmark)", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.10 },
     { metric: "P06", label: "Win Rate", rawVal: winRateVal, rawFmt: winRateVal !== null ? `${(winRateVal * 100).toFixed(1)}%` : "N/A", score: scoreWinRate(winRateVal), weight: 0.10 },
     { metric: "P07", label: "Worst Week", rawVal: worstWeekVal, rawFmt: worstWeekVal !== null ? `${(worstWeekVal * 100).toFixed(2)}%` : "N/A", score: scoreWorstWeek(worstWeekVal), weight: 0.05 },
     { metric: "P13", label: "Alpha Consistency", rawVal: consistencyVal, rawFmt: consistencyVal !== null ? `${(consistencyVal * 100).toFixed(1)}%` : "N/A", score: scoreAlphaConsistency(consistencyVal), weight: 0.05 },
-    { metric: "P08", label: "Max Drawdown", rawVal: dd, rawFmt: `${fv(dd)}%`, score: scoreMaxDrawdown(dd), weight: 0.20 },
+    { metric: "P08", label: "Max Drawdown", rawVal: dd, rawFmt: `${fv(dd)}%`, score: scoreMaxDrawdown(dd), weight: 0.25 },
     { metric: "P09", label: "Drawdown Duration", rawVal: ddDuration, rawFmt: `${ddDuration}d`, score: scoreDrawdownDuration(ddDuration), weight: 0.05 },
     { metric: "P10", label: "Yield Composition", rawVal: organicPct, rawFmt: `${fv(organicPct, 0)}% organic`, score: scoreYieldComposition(organicPct), weight: 0.15 },
-    { metric: "P03.7d", label: "APY vs Benchmark", rawVal: benchRatio, rawFmt: benchRatio !== null ? `${fv(benchRatio)}x` : "N/A", score: scoreAPYvsBenchmark(benchRatio), weight: 0.20 },
+    { metric: "P03.7d", label: "APY vs Benchmark", rawVal: benchRatio, rawFmt: benchRatio !== null ? `${fv(benchRatio)}x` : "N/A", score: scoreAPYvsBenchmark(benchRatio), weight: 0.25 },
   ];
 
   // Show backend perf_composite if available
