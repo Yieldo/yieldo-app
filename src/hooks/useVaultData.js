@@ -86,14 +86,20 @@ function scoreTVLVelocity(change30d) {
   if (change30d > 50) return 100;
   if (change30d > 10) return 80;
   if (change30d > 0) return 70;
-  if (change30d > -10) return 50;
+  if (change30d > -10) return 60;
   if (change30d > -30) return 30;
   return 10;
 }
 
 function scoreDepositors(count) {
   if (count <= 0) return 0;
-  return Math.min(100, (Math.log10(count) / 4) * 100);
+  if (count < 10) return 20;
+  if (count < 50) return 40;
+  if (count < 100) return 55;
+  if (count < 500) return 70;
+  if (count < 1000) return 80;
+  if (count < 5000) return 90;
+  return 100;
 }
 
 function scorePendingWithdrawals(pctTVL) {
@@ -218,6 +224,16 @@ function scoreDepegRisk(assetPrice, assetType) {
   return 5;
 }
 
+function scoreTimelock(timelock) {
+  if (!timelock || timelock <= 0) return 30;
+  const hours = timelock / 3600;
+  if (hours < 12) return 40;
+  if (hours < 24) return 55;
+  if (hours < 48) return 70;
+  if (hours < 168) return 85;
+  return 100;
+}
+
 function scoreConcentration(top5Share, depositorCount) {
   if (top5Share == null) return 50;
   const scale = depositorCount < 500 ? 0.8 : 1.0;
@@ -230,9 +246,20 @@ function scoreConcentration(top5Share, depositorCount) {
   return 5;
 }
 
+function scoreHoldRatio(pct) {
+  if (pct == null) return 50;
+  if (pct > 80) return 100;
+  if (pct > 60) return 85;
+  if (pct > 40) return 70;
+  if (pct > 20) return 50;
+  if (pct > 10) return 35;
+  return 20;
+}
+
 function scoreCapitalRetention(ret30d) {
   if (ret30d == null) return 50;
   if (ret30d > 95) return 100;
+  if (ret30d > 90) return 85;
   if (ret30d > 85) return 80;
   if (ret30d > 70) return 60;
   if (ret30d > 50) return 40;
@@ -262,7 +289,7 @@ function scoreNetDepositors(net30d) {
   if (net30d == null) return 50;
   if (net30d > 50) return 100;
   if (net30d > 10) return 80;
-  if (net30d > 0) return 60;
+  if (net30d > 0) return 70;
   if (net30d === 0) return 50;
   if (net30d > -10) return 30;
   return 10;
@@ -364,7 +391,7 @@ function calcRiskScore(raw) {
     scoreDepegRisk(raw.R01, assetType) * 0.25 +
     scoreConcentration(top5, raw.C07 || 0) * 0.15 +
     scoreDepositLatency(raw.R06 || "Instant") * 0.10 +
-    50 * 0.15 +
+    scoreTimelock(raw.timelock || 0) * 0.15 +
     50 * 0.05
   );
 }
@@ -377,11 +404,12 @@ function calcTrustScore(raw) {
   const netFlowPct = raw.T10b && typeof raw.T10b === "object" ? raw.T10b.net_flow_pct : null;
   const quickExit = typeof raw.T06 === "number" ? raw.T06 : null;
   const userRet = raw.T03 && typeof raw.T03 === "object" ? raw.T03["30d"] : (typeof raw.T03 === "number" ? raw.T03 : null);
+  const holdRatio = typeof raw.T11 === "number" ? raw.T11 : null;
   return (
     scoreCapitalRetention(ret30d) * 0.20 +
     scoreAvgDepositDuration(avgDuration) * 0.15 +
     scoreHolders90Plus(holders90, raw.C07 || 0) * 0.10 +
-    50 * 0.15 +
+    scoreHoldRatio(holdRatio) * 0.15 +
     scoreNetDepositors(netDep) * 0.05 +
     scoreNetFlowDirection(netFlowPct) * 0.20 +
     scoreQuickExitRate(quickExit) * 0.10 +
@@ -826,6 +854,7 @@ function mapVault(raw) {
     P09: raw.P09,
     T06b: raw.T06b,
     T10b: raw.T10b,
+    T11: typeof raw.T11 === "number" ? raw.T11 : null,
     T14: raw.T14,
     D03: raw.D03,
     D04: raw.D04,
@@ -854,10 +883,10 @@ export {
   scoreWorstWeek, scoreAlphaConsistency,
   scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
   scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
-  scoreCapitalRetention, scoreAvgDepositDuration, scoreHolders90Plus,
-  scoreNetDepositors, scoreNetFlowDirection, scoreQuickExitRate,
-  scoreUserRetention, getConfidence, calcExternalRatingBonus,
-  getTvlUsd, getAssetType,
+  scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
+  scoreAvgDepositDuration, scoreHolders90Plus, scoreNetDepositors, scoreNetFlowDirection,
+  scoreQuickExitRate, scoreUserRetention, getConfidence,
+  calcExternalRatingBonus, getTvlUsd, getAssetType,
 };
 
 export function useVaults() {

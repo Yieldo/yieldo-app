@@ -581,6 +581,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             {v._raw?.T05_short_hold && <MR label="Short Hold Flag" value="Yes" flag="warning" />}
             <MR label="Quick Exit Rate" value={fmt(v.quickExitRate, "%")} flag={v.quickExitRate !== null && v.quickExitRate > 25 ? "warning" : undefined} desc="% exiting within 7 days" />
             <MR label="Holders 90+ Days" value={fmt(v.holders90plus)} />
+            <MR label="HOLD Ratio" value={v.T11 !== null ? `${v.T11.toFixed(1)}%` : "N/A"} desc="% of all-time depositors still holding" />
             <MR label="Avg Deposit Duration" value={fmt(v.avgDepDuration)} unit="days" />
             <MR label="Net Depositors (30d)" value={v.netDep30d !== null ? `${v.netDep30d >= 0 ? "+" : ""}${v.netDep30d}` : "N/A"} />
             {v.netDep30d !== null && v.depositors > 0 && <MR label="Net User Flow (30d)" value={`${v.netDep30d >= 0 ? "+" : ""}${((v.netDep30d / v.depositors) * 100).toFixed(1)}%`} desc={`${Math.abs(v.netDep30d)} of ${v.depositors} depositors ${v.netDep30d >= 0 ? "net in" : "net out"}`} />}

@@ -6,10 +6,10 @@ import {
   scoreWorstWeek, scoreAlphaConsistency,
   scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
   scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
-  scoreCapitalRetention, scoreAvgDepositDuration, scoreHolders90Plus,
-  scoreNetDepositors, scoreNetFlowDirection, scoreQuickExitRate,
-  scoreUserRetention, getConfidence, calcExternalRatingBonus,
-  getTvlUsd, getAssetType,
+  scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
+  scoreAvgDepositDuration, scoreHolders90Plus, scoreNetDepositors, scoreNetFlowDirection,
+  scoreQuickExitRate, scoreUserRetention, getConfidence,
+  calcExternalRatingBonus, getTvlUsd, getAssetType,
 } from "../hooks/useVaultData.js";
 
 const C = {
@@ -94,6 +94,7 @@ function calcBreakdown(raw) {
   const netFlowPct = raw.T10b && typeof raw.T10b === "object" ? raw.T10b.net_flow_pct : null;
   const quickExit = typeof raw.T06 === "number" ? raw.T06 : null;
   const userRet = raw.T03 && typeof raw.T03 === "object" ? raw.T03["30d"] : (typeof raw.T03 === "number" ? raw.T03 : null);
+  const holdRatio = typeof raw.T11 === "number" ? raw.T11 : null;
 
   const tvlVel30d = typeof c02["30d"] === "number" ? c02["30d"] : null;
   const netFlow7d = typeof c04["7d"] === "number" ? c04["7d"] : null;
@@ -104,7 +105,7 @@ function calcBreakdown(raw) {
     { metric: "C07", label: "Depositors", rawVal: raw.C07 || 0, rawFmt: String(raw.C07 || 0), score: scoreDepositors(raw.C07 || 0), weight: 0.15 },
     { metric: "R07", label: "Pending Withdrawals", rawVal: raw.R07 || 0, rawFmt: `${fv(raw.R07 || 0, 1)}%`, score: scorePendingWithdrawals(raw.R07 || 0), weight: 0.15 },
     { metric: "C04.7d", label: "Net Flows (7d)", rawVal: netFlow7d, rawFmt: netFlow7d !== null ? fmtTvl(netFlow7d) : "N/A", score: scoreNetFlows7d(netFlow7d, tvlUsd), weight: 0.15 },
-    { metric: "R06", label: "Deposit Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.05 },
+    { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.05 },
     { metric: "-", label: "Constant", rawVal: 70, rawFmt: "70", score: 70, weight: 0.20 },
   ];
 
@@ -130,8 +131,8 @@ function calcBreakdown(raw) {
     { metric: "R10", label: "Incidents (90d)", rawVal: incidents, rawFmt: String(incidents), score: scoreIncidents(incidents), weight: 0.30 },
     { metric: "R01", label: "Depeg Risk", rawVal: raw.R01, rawFmt: raw.R01 !== null && raw.R01 !== undefined ? `$${fv(raw.R01, 4)}` : "N/A", score: scoreDepegRisk(raw.R01, assetType), weight: 0.25 },
     { metric: "R09_top5", label: "Concentration (Top5)", rawVal: top5, rawFmt: `${(top5 * 100).toFixed(1)}%`, score: scoreConcentration(top5, raw.C07 || 0), weight: 0.15 },
-    { metric: "R06", label: "Deposit Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.10 },
-    { metric: "-", label: "Constant", rawVal: 50, rawFmt: "50", score: 50, weight: 0.15 },
+    { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.10 },
+    { metric: "timelock", label: "Timelock", rawVal: raw.timelock || 0, rawFmt: raw.timelock ? `${((raw.timelock || 0) / 3600).toFixed(1)}h` : "None", score: scoreTimelock(raw.timelock || 0), weight: 0.15 },
     { metric: "-", label: "Constant", rawVal: 50, rawFmt: "50", score: 50, weight: 0.05 },
   ];
 
@@ -139,7 +140,7 @@ function calcBreakdown(raw) {
     { metric: "T01.30d", label: "Capital Retention", rawVal: ret30d, rawFmt: ret30d !== null ? `${fv(ret30d)}%` : "N/A", score: scoreCapitalRetention(ret30d), weight: 0.20 },
     { metric: "T09", label: "Avg Deposit Duration", rawVal: avgDuration, rawFmt: avgDuration !== null ? `${fv(avgDuration, 0)}d` : "N/A", score: scoreAvgDepositDuration(avgDuration), weight: 0.15 },
     { metric: "T07", label: "Holders 90+ Days", rawVal: holders90, rawFmt: `${holders90} / ${raw.C07 || 0}`, score: scoreHolders90Plus(holders90, raw.C07 || 0), weight: 0.10 },
-    { metric: "-", label: "Constant", rawVal: 50, rawFmt: "50", score: 50, weight: 0.15 },
+    { metric: "T11", label: "HOLD Ratio", rawVal: holdRatio, rawFmt: holdRatio !== null ? `${fv(holdRatio, 1)}%` : "N/A", score: scoreHoldRatio(holdRatio), weight: 0.15 },
     { metric: "T10", label: "Net Depositors (30d)", rawVal: netDep, rawFmt: netDep !== null ? String(netDep) : "N/A", score: scoreNetDepositors(netDep), weight: 0.05 },
     { metric: "T10b", label: "Net Flow Direction", rawVal: netFlowPct, rawFmt: netFlowPct !== null ? `${fv(netFlowPct)}%` : "N/A", score: scoreNetFlowDirection(netFlowPct), weight: 0.20 },
     { metric: "T06", label: "Quick Exit Rate", rawVal: quickExit, rawFmt: quickExit !== null ? `${fv(quickExit)}%` : "N/A", score: scoreQuickExitRate(quickExit), weight: 0.10 },
