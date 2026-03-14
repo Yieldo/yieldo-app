@@ -288,7 +288,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   <Badge color={v.riskC}>{v.risk} Risk</Badge>
                   <YieldBadge t={v.yieldType} />
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
-                  <Badge color={v.protocol === "Hyperbeat" ? "#E040FB" : C.blue} bg={v.protocol === "Hyperbeat" ? "#FCE4EC" : C.blueBg}>{v.protocol}</Badge>
+                  <Badge color={v.protocol === "Hyperbeat" ? "#E040FB" : v.protocol === "Veda" ? "#FF6B35" : C.blue} bg={v.protocol === "Hyperbeat" ? "#FCE4EC" : v.protocol === "Veda" ? "#FFF3E0" : C.blueBg}>{v.protocol}</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.chain}</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.age}d old</Badge>
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.maturity}</Badge>
