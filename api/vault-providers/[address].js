@@ -1,0 +1,31 @@
+import { MongoClient } from "mongodb";
+
+let cachedClient = null;
+
+async function getDb() {
+  if (cachedClient) return cachedClient.db("yieldo_wallets");
+  const uri = process.env.MONGO_URI_WALLETS || process.env.MONGO_URI;
+  const client = new MongoClient(uri);
+  await client.connect();
+  cachedClient = client;
+  return client.db("yieldo_wallets");
+}
+
+export default async function handler(req, res) {
+  try {
+    const db = await getDb();
+    const coll = db.collection("vault_providers");
+    const address = req.query.address.toLowerCase();
+
+    if (req.method === "GET") {
+      const provider = await coll.findOne({ wallet_address: address });
+      if (!provider) return res.status(404).json({ error: "Not registered" });
+      return res.json(provider);
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
+  } catch (err) {
+    console.error("Error in vault-providers/[address]:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}

@@ -11,6 +11,7 @@ import VaultDetailPage from './pages/VaultDetailPage.jsx'
 import KolPage from './pages/KolPage.jsx'
 import WalletPage from './pages/WalletPage.jsx'
 import WalletsPage from './pages/WalletsPage.jsx'
+import VaultProviderPage from './pages/VaultProviderPage.jsx'
 import CuratorPage from './pages/CuratorPage.jsx'
 import ApplyPage from './pages/ApplyPage.jsx'
 import VaultScoringPage from './pages/VaultScoringPage.jsx'
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />
+              <Route path="/vault-provider" element={<VaultProviderPage />} />
               <Route
                 path="/vaultscoring"
                 element={(
