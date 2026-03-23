@@ -235,6 +235,50 @@ app.put("/api/wallet-providers/:address/vaults", async (req, res) => {
   }
 });
 
+// ========== Vault Provider Endpoints ==========
+
+app.get("/api/vault-providers/:address", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const address = req.params.address.toLowerCase();
+    const provider = await walletsDb.collection("vault_providers").findOne({ wallet_address: address });
+    if (!provider) return res.status(404).json({ error: "Not registered" });
+    res.json(provider);
+  } catch (err) {
+    console.error("Error fetching vault provider:", err);
+    res.status(500).json({ error: "Failed to fetch provider" });
+  }
+});
+
+app.post("/api/vault-providers", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const { wallet_address, name, website, contact_email, vault_address, description } = req.body;
+    if (!wallet_address || !name) {
+      return res.status(400).json({ error: "wallet_address and name are required" });
+    }
+    const address = wallet_address.toLowerCase();
+    const existing = await walletsDb.collection("vault_providers").findOne({ wallet_address: address });
+    if (existing) return res.status(409).json({ error: "Already registered" });
+
+    const doc = {
+      wallet_address: address,
+      name,
+      vault_address: vault_address || "",
+      website: website || "",
+      contact_email: contact_email || "",
+      description: description || "",
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    await walletsDb.collection("vault_providers").insertOne(doc);
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error("Error registering vault provider:", err);
+    res.status(500).json({ error: "Failed to register" });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`API server running on port ${PORT}`));
