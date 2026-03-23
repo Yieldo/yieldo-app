@@ -77,8 +77,7 @@ function scoreTVL(tvlUSD) {
   if (tvlUSD <= 0) return 0;
   if (tvlUSD < 1e6) return (tvlUSD / 1e6) * 40;
   if (tvlUSD < 1e7) return 40 + ((tvlUSD - 1e6) / 9e6) * 40;
-  if (tvlUSD < 1e8) return 80 + ((tvlUSD - 1e7) / 9e7) * 15;
-  return 95 + Math.min(5, ((tvlUSD - 1e8) / 9e8) * 5);
+  return 80 + Math.min(20, (tvlUSD / 1e8) * 20);
 }
 
 function scoreTVLVelocity(change30d) {
@@ -111,7 +110,10 @@ function scoreNetFlows7d(netFlow7d, tvl) {
 }
 
 function scoreDepositLatency(type) {
-  return type === "Instant" ? 100 : 50;
+  if (type === "Instant") return 100;
+  if (type === "<1h") return 80;
+  if (type === "1h-24h") return 40;
+  return 0;
 }
 
 function scoreSharpe(sharpe) {
