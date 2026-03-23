@@ -27,18 +27,29 @@ if (!MONGO_URI) {
   console.error("MONGO_URI is not set. Create a .env file or set the environment variable.");
   process.exit(1);
 }
+const MONGO_URI_WALLETS = process.env.MONGO_URI_WALLETS;
 const DB_NAME = "yieldo_v1";
+const WALLETS_DB_NAME = "yieldo_wallets";
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 let db;
+let walletsDb;
 
 async function connectDB() {
   const client = new MongoClient(MONGO_URI);
   await client.connect();
   db = client.db(DB_NAME);
-  console.log("Connected to MongoDB");
+  console.log("Connected to MongoDB (vaults)");
+
+  if (MONGO_URI_WALLETS) {
+    const walletsClient = new MongoClient(MONGO_URI_WALLETS);
+    await walletsClient.connect();
+    walletsDb = walletsClient.db(WALLETS_DB_NAME);
+    console.log("Connected to MongoDB (wallets)");
+  }
 }
 
 app.get("/api/vaults", async (_req, res) => {
@@ -157,6 +168,70 @@ app.get("/api/vaults/:vaultId", async (req, res) => {
   } catch (err) {
     console.error("Error fetching vault:", err);
     res.status(500).json({ error: "Failed to fetch vault" });
+  }
+});
+
+// ========== Wallet Provider Endpoints ==========
+
+// Get wallet provider by address
+app.get("/api/wallet-providers/:address", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const address = req.params.address.toLowerCase();
+    const provider = await walletsDb.collection("wallet_providers").findOne({ wallet_address: address });
+    if (!provider) return res.status(404).json({ error: "Not registered" });
+    res.json(provider);
+  } catch (err) {
+    console.error("Error fetching wallet provider:", err);
+    res.status(500).json({ error: "Failed to fetch provider" });
+  }
+});
+
+// Register new wallet provider
+app.post("/api/wallet-providers", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const { wallet_address, name, website, contact_email, description } = req.body;
+    if (!wallet_address || !name) {
+      return res.status(400).json({ error: "wallet_address and name are required" });
+    }
+    const address = wallet_address.toLowerCase();
+    const existing = await walletsDb.collection("wallet_providers").findOne({ wallet_address: address });
+    if (existing) return res.status(409).json({ error: "Already registered" });
+
+    const doc = {
+      wallet_address: address,
+      name,
+      website: website || "",
+      contact_email: contact_email || "",
+      description: description || "",
+      enrolled_vaults: [],
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    await walletsDb.collection("wallet_providers").insertOne(doc);
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error("Error registering wallet provider:", err);
+    res.status(500).json({ error: "Failed to register" });
+  }
+});
+
+// Update enrolled vaults
+app.put("/api/wallet-providers/:address/vaults", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const address = req.params.address.toLowerCase();
+    const { enrolled_vaults } = req.body;
+    const result = await walletsDb.collection("wallet_providers").updateOne(
+      { wallet_address: address },
+      { $set: { enrolled_vaults: enrolled_vaults || [], updated_at: new Date() } }
+    );
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Not registered" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error updating vaults:", err);
+    res.status(500).json({ error: "Failed to update" });
   }
 });
 
