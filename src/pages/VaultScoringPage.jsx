@@ -2,11 +2,11 @@ import { useState, useMemo } from "react";
 import { useVaults } from "../hooks/useVaultData.js";
 import {
   scoreTVL, scoreTVLVelocity, scoreDepositors, scorePendingWithdrawals,
-  scoreNetFlows7d, scoreDepositLatency, scoreSharpe, scoreWinRate,
-  scoreWorstWeek, scoreAlphaConsistency,
+  scoreNetFlows7d, scoreDepositLatency, scoreSharpe,
+  scoreWinRate, scoreWorstWeek, scoreAlphaConsistency,
   scoreMaxDrawdown, scoreDrawdownDuration, scoreYieldComposition,
   scoreAPYvsBenchmark, scoreIncidents, scoreDepegRisk, scoreConcentration,
-  scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
+  scoreWithdrawalLatency, scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
   scoreAvgDepositDuration, scoreHolders90Plus, scoreNetDepositors, scoreNetFlowDirection,
   scoreQuickExitRate, scoreUserRetention, getConfidence,
   calcExternalRatingBonus, getTvlUsd, getAssetType,
@@ -68,9 +68,6 @@ function calcBreakdown(raw) {
   const assetType = getAssetType((raw.asset || "").toLowerCase());
 
   const sharpeVal = raw.P05 === "Insufficient Data" ? null : (typeof raw.P05 === "number" ? raw.P05 : null);
-  const winRateVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
-  const worstWeekVal = raw.P07 === "Insufficient Data" ? null : (typeof raw.P07 === "number" ? raw.P07 : null);
-  const consistencyVal = raw.P13 === "Insufficient Data" ? null : (typeof raw.P13 === "number" ? raw.P13 : null);
   const p08 = raw.P08 || {};
   const dd = typeof p08 === "object"
     ? (p08["90d"] ?? p08["365d"] ?? p08["30d"] ?? 0)
@@ -100,40 +97,36 @@ function calcBreakdown(raw) {
   const netFlow7d = typeof c04["7d"] === "number" ? c04["7d"] : null;
 
   const capital = [
-    { metric: "C01", label: "TVL", rawVal: tvlUsd, rawFmt: fmtTvl(tvlUsd), score: scoreTVL(tvlUsd), weight: 0.15 },
-    { metric: "C02.30d", label: "TVL Velocity (30d)", rawVal: tvlVel30d, rawFmt: tvlVel30d !== null ? `${tvlVel30d.toFixed(1)}%` : "N/A", score: scoreTVLVelocity(tvlVel30d), weight: 0.15 },
-    { metric: "C07", label: "Depositors", rawVal: raw.C07 || 0, rawFmt: String(raw.C07 || 0), score: scoreDepositors(raw.C07 || 0), weight: 0.15 },
-    { metric: "R07", label: "Pending Withdrawals", rawVal: raw.R07 || 0, rawFmt: `${fv(raw.R07 || 0, 1)}%`, score: scorePendingWithdrawals(raw.R07 || 0), weight: 0.15 },
-    { metric: "C04.7d", label: "Net Flows (7d)", rawVal: netFlow7d, rawFmt: netFlow7d !== null ? fmtTvl(netFlow7d) : "N/A", score: scoreNetFlows7d(netFlow7d, tvlUsd), weight: 0.15 },
-    { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.05 },
-    { metric: "-", label: "Constant", rawVal: 70, rawFmt: "70", score: 70, weight: 0.20 },
+    { metric: "C01", label: "TVL", rawVal: tvlUsd, rawFmt: fmtTvl(tvlUsd), score: scoreTVL(tvlUsd), weight: 0.1875 },
+    { metric: "C02.30d", label: "TVL Velocity (30d)", rawVal: tvlVel30d, rawFmt: tvlVel30d !== null ? `${tvlVel30d.toFixed(1)}%` : "N/A", score: scoreTVLVelocity(tvlVel30d), weight: 0.1875 },
+    { metric: "C07", label: "Depositors", rawVal: raw.C07 || 0, rawFmt: String(raw.C07 || 0), score: scoreDepositors(raw.C07 || 0), weight: 0.1875 },
+    { metric: "R07", label: "Pending Withdrawals", rawVal: raw.R07 || 0, rawFmt: `${fv(raw.R07 || 0, 1)}%`, score: scorePendingWithdrawals(raw.R07 || 0), weight: 0.1875 },
+    { metric: "C04.7d", label: "Net Flows (7d)", rawVal: netFlow7d, rawFmt: netFlow7d !== null ? fmtTvl(netFlow7d) : "N/A", score: scoreNetFlows7d(netFlow7d, tvlUsd), weight: 0.1875 },
+    { metric: "R06", label: "Deposit Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.0625 },
   ];
 
-  const perfComposite = typeof raw.perf_composite === "number" ? raw.perf_composite : null;
+  // P06=Win Rate, P07=Worst Week, P13=Alpha Consistency (from perf_alpha.py)
+  const winRateVal = raw.P06 === "Insufficient Data" ? null : (typeof raw.P06 === "number" ? raw.P06 : null);
+  const worstWeekVal = raw.P07 === "Insufficient Data" ? null : (typeof raw.P07 === "number" ? raw.P07 : null);
+  const consistencyVal = raw.P13 === "Insufficient Data" ? null : (typeof raw.P13 === "number" ? raw.P13 : null);
 
   const performance = [
-    { metric: "P05", label: "Sharpe (vs Benchmark)", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.10 },
+    { metric: "P05", label: "Sharpe Ratio", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.15 },
     { metric: "P06", label: "Win Rate", rawVal: winRateVal, rawFmt: winRateVal !== null ? `${(winRateVal * 100).toFixed(1)}%` : "N/A", score: scoreWinRate(winRateVal), weight: 0.10 },
     { metric: "P07", label: "Worst Week", rawVal: worstWeekVal, rawFmt: worstWeekVal !== null ? `${(worstWeekVal * 100).toFixed(2)}%` : "N/A", score: scoreWorstWeek(worstWeekVal), weight: 0.05 },
     { metric: "P13", label: "Alpha Consistency", rawVal: consistencyVal, rawFmt: consistencyVal !== null ? `${(consistencyVal * 100).toFixed(1)}%` : "N/A", score: scoreAlphaConsistency(consistencyVal), weight: 0.05 },
     { metric: "P08", label: "Max Drawdown", rawVal: dd, rawFmt: `${fv(dd)}%`, score: scoreMaxDrawdown(dd), weight: 0.25 },
     { metric: "P09", label: "Drawdown Duration", rawVal: ddDuration, rawFmt: `${ddDuration}d`, score: scoreDrawdownDuration(ddDuration), weight: 0.05 },
-    { metric: "P10", label: "Yield Composition", rawVal: organicPct, rawFmt: `${fv(organicPct, 0)}% organic`, score: scoreYieldComposition(organicPct), weight: 0.15 },
+    { metric: "P10", label: "Yield Composition", rawVal: organicPct, rawFmt: `${fv(organicPct, 0)}% organic`, score: scoreYieldComposition(organicPct), weight: 0.10 },
     { metric: "P03.7d", label: "APY vs Benchmark", rawVal: benchRatio, rawFmt: benchRatio !== null ? `${fv(benchRatio)}x` : "N/A", score: scoreAPYvsBenchmark(benchRatio), weight: 0.25 },
   ];
 
-  // Show backend perf_composite if available
-  if (perfComposite !== null) {
-    performance.unshift({ metric: "perf_composite", label: "Backend Composite", rawVal: perfComposite, rawFmt: `${perfComposite.toFixed(1)} / 10`, score: perfComposite * 10, weight: 0 });
-  }
-
   const risk = [
-    { metric: "R10", label: "Incidents (90d)", rawVal: incidents, rawFmt: String(incidents), score: scoreIncidents(incidents), weight: 0.30 },
-    { metric: "R01", label: "Depeg Risk", rawVal: raw.R01, rawFmt: raw.R01 !== null && raw.R01 !== undefined ? `$${fv(raw.R01, 4)}` : "N/A", score: scoreDepegRisk(raw.R01, assetType), weight: 0.25 },
-    { metric: "R09_top5", label: "Concentration (Top5)", rawVal: top5, rawFmt: `${(top5 * 100).toFixed(1)}%`, score: scoreConcentration(top5, raw.C07 || 0), weight: 0.15 },
-    { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreDepositLatency(raw.R06 || "Instant"), weight: 0.10 },
-    { metric: "timelock", label: "Timelock", rawVal: raw.timelock || 0, rawFmt: raw.timelock ? `${((raw.timelock || 0) / 3600).toFixed(1)}h` : "None", score: scoreTimelock(raw.timelock || 0), weight: 0.15 },
-    { metric: "-", label: "Constant", rawVal: 50, rawFmt: "50", score: 50, weight: 0.05 },
+    { metric: "R10", label: "Incidents (90d)", rawVal: incidents, rawFmt: String(incidents), score: scoreIncidents(incidents), weight: 0.353 },
+    { metric: "R01", label: "Depeg Risk", rawVal: raw.R01, rawFmt: raw.R01 !== null && raw.R01 !== undefined ? `$${fv(raw.R01, 4)}` : "N/A", score: scoreDepegRisk(raw.R01, assetType), weight: 0.294 },
+    { metric: "R09_top5", label: "Concentration (Top5)", rawVal: top5, rawFmt: `${(top5 * 100).toFixed(1)}%`, score: scoreConcentration(top5, raw.C07 || 0), weight: 0.176 },
+    { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreWithdrawalLatency(raw.R06 || "Instant"), weight: 0.118 },
+    { metric: "timelock", label: "Timelock", rawVal: raw.timelock || 0, rawFmt: raw.timelock ? `${((raw.timelock || 0) / 3600).toFixed(1)}h` : "None", score: scoreTimelock(raw.timelock || 0), weight: 0.059 },
   ];
 
   const trust = [
