@@ -9,7 +9,7 @@ import {
   scoreWithdrawalLatency, scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
   scoreAvgDepositDuration, scoreHolders90Plus, scoreNetDepositors, scoreNetFlowDirection,
   scoreQuickExitRate, scoreUserRetention, getConfidence,
-  calcExternalRatingBonus, getTvlUsd, getAssetType,
+  calcExternalRatingBonus, getTrustBoost, getTvlUsd, getAssetType,
 } from "../hooks/useVaultData.js";
 
 const C = {
@@ -143,13 +143,15 @@ function calcBreakdown(raw) {
   const capTotal = capital.reduce((s, r) => s + r.score * r.weight, 0);
   const perfTotal = performance.reduce((s, r) => s + r.score * r.weight, 0);
   const riskTotal = risk.reduce((s, r) => s + r.score * r.weight, 0);
-  const trustTotal = trust.reduce((s, r) => s + r.score * r.weight, 0);
+  const trustRaw = trust.reduce((s, r) => s + r.score * r.weight, 0);
+  const trustBoost = getTrustBoost(tvlUsd, raw.C07 || 0);
+  const trustTotal = Math.min(100, trustRaw * trustBoost);
 
   const age = raw.D01 || raw.D03 || 0;
   const conf = getConfidence(age);
   const extBonus = calcExternalRatingBonus(raw.T14);
 
-  return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal, trustTotal, conf, extBonus, age };
+  return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal, trustRaw, trustBoost, trustTotal, conf, extBonus, age };
 }
 
 const FORMULAS = {
@@ -276,7 +278,23 @@ function ScoringDetail({ vault }) {
       <MetricTable title="Capital Score" rows={b.capital} totalScore={b.capTotal} weight={0.20} color="#6366f1" />
       <MetricTable title="Performance Score" rows={b.performance} totalScore={b.perfTotal} weight={0.20} color={C.teal} />
       <MetricTable title="Risk Score" rows={b.risk} totalScore={b.riskTotal} weight={0.35} color="#ef4444" />
-      <MetricTable title="Trust Score" rows={b.trust} totalScore={b.trustTotal} weight={0.25} color={C.gold} />
+      <MetricTable title="Trust Score" rows={b.trust} totalScore={b.trustRaw} weight={0.25} color={C.gold} />
+
+      {b.trustBoost > 1 && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: `${C.gold}10`, border: `1px solid ${C.gold}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 14 }}>🛡️</span>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>Trust Scale Boost Applied: ×{b.trustBoost.toFixed(2)}</div>
+              <div style={{ fontSize: 11, color: C.text3 }}>TVL {fmtTvl(getTvlUsd(raw))} + {raw.C07 || 0} depositors → battle-tested vault gets trust floor protection</div>
+            </div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 12 }}>
+            <div style={{ color: C.text3 }}>Raw: {b.trustRaw.toFixed(1)} × {b.trustBoost.toFixed(2)}</div>
+            <div style={{ fontWeight: 700, color: C.gold }}>Boosted: {b.trustTotal.toFixed(1)}</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ background: C.white, borderRadius: 8, border: `1px solid ${C.border2}`, padding: 16, marginTop: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Final Score Calculation</div>

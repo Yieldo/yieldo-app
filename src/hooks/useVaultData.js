@@ -318,6 +318,25 @@ function scoreUserRetention(ret30d) {
   return 15;
 }
 
+// Dynamic trust boost for battle-tested vaults
+// Requires BOTH TVL and depositor thresholds to qualify for each tier
+function getTrustBoost(tvlUsd, depositorCount) {
+  const tvlTier =
+    tvlUsd >= 100e6 ? 4 :
+    tvlUsd >= 50e6 ? 3 :
+    tvlUsd >= 25e6 ? 2 :
+    tvlUsd >= 10e6 ? 1 : 0;
+  const depTier =
+    depositorCount >= 1000 ? 4 :
+    depositorCount >= 500 ? 3 :
+    depositorCount >= 200 ? 2 :
+    depositorCount >= 100 ? 1 : 0;
+  // Use the lower of both — need both scale AND breadth
+  const tier = Math.min(tvlTier, depTier);
+  // tier 4: +12%, tier 3: +8%, tier 2: +5%, tier 1: +3%, tier 0: no boost
+  return [1.00, 1.03, 1.05, 1.08, 1.12][tier];
+}
+
 function getTvlUsd(raw) {
   if (raw.C01_USD) return raw.C01_USD;
   if (Array.isArray(raw.tvl_spark) && raw.tvl_spark.length > 0) return raw.tvl_spark[raw.tvl_spark.length - 1];
@@ -716,10 +735,15 @@ function mapVault(raw) {
   const critFlags = flags.filter((f) => f.severity === "critical").length;
   const warnFlags = flags.filter((f) => f.severity === "warning").length;
 
+  const tvlUsd = getTvlUsd(raw);
+  const depositorCount = raw.C07 || 0;
+
   const capScore = calcCapitalScore(raw);
   const perfScore = calcPerformanceScore(raw);
   const riskScore = calcRiskScore(raw);
-  const trustScore = calcTrustScore(raw);
+  const trustRaw = calcTrustScore(raw);
+  const trustBoost = getTrustBoost(tvlUsd, depositorCount);
+  const trustScore = Math.min(100, trustRaw * trustBoost);
 
   const conf = getConfidence(age);
   const flagPenalty = flags.reduce((sum, f) => sum + (f.penalty || 0), 0);
@@ -780,6 +804,7 @@ function mapVault(raw) {
     weeklyApy,
     allTimeApy,
     yieldoScore,
+    trustBoost,
     tvl,
     depositors,
     age,
@@ -884,7 +909,7 @@ export {
   scoreWithdrawalLatency, scoreTimelock, scoreHoldRatio, scoreCapitalRetention,
   scoreAvgDepositDuration, scoreHolders90Plus, scoreNetDepositors, scoreNetFlowDirection,
   scoreQuickExitRate, scoreUserRetention, getConfidence,
-  calcExternalRatingBonus, getTvlUsd, getAssetType,
+  calcExternalRatingBonus, getTrustBoost, getTvlUsd, getAssetType,
 };
 
 export function useVaults() {
