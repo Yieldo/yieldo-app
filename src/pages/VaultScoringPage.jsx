@@ -186,7 +186,7 @@ function MetricRow({ r, isExpanded, onToggle }) {
   const info = FORMULAS[r.metric] || {};
   return (
     <>
-      <tr onClick={onToggle} style={{ borderBottom: isExpanded ? "none" : `1px solid ${C.border}`, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = isExpanded ? "#f0eef8" : "transparent"}>
+      <tr onClick={e => { e.stopPropagation(); onToggle(); }} style={{ borderBottom: isExpanded ? "none" : `1px solid ${C.border}`, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = isExpanded ? "#f0eef8" : "transparent"}>
         <td style={td}><code style={{ fontSize: 11, background: C.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>{r.metric}</code></td>
         <td style={td}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>{r.label} <span style={{ fontSize: 10, color: C.purple }}>{isExpanded ? "▼" : "▶"}</span></span></td>
         <td style={{ ...td, textAlign: "right", fontFamily: "monospace" }}>{r.rawFmt}</td>
@@ -195,7 +195,7 @@ function MetricRow({ r, isExpanded, onToggle }) {
         <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{(r.score * r.weight).toFixed(1)}</td>
       </tr>
       {isExpanded && (
-        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+        <tr onClick={e => e.stopPropagation()} style={{ borderBottom: `1px solid ${C.border}` }}>
           <td colSpan={6} style={{ padding: "0 10px 10px", background: "#f0eef8" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "10px 0" }}>
               <div>

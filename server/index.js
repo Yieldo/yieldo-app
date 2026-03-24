@@ -52,7 +52,15 @@ async function connectDB() {
   }
 }
 
+// Server-side cache for /api/vaults (2 min TTL)
+let vaultsCache = null;
+let vaultsCacheTs = 0;
+const VAULTS_CACHE_TTL = 2 * 60 * 1000;
+
 app.get("/api/vaults", async (_req, res) => {
+  if (vaultsCache && Date.now() - vaultsCacheTs < VAULTS_CACHE_TTL) {
+    return res.json(vaultsCache);
+  }
   try {
     const cursor = db.collection("vaults").find({});
     const entries = await cursor.toArray();
@@ -87,19 +95,17 @@ app.get("/api/vaults", async (_req, res) => {
       return row;
     });
     // attach lightweight TVL sparkline (last 14 snapshots per vault)
+    // Use exact string match with $in (much faster than regex)
     const vaultIds = data.map((d) => d.vault_id);
-    const regexOr = vaultIds.map((id) => new RegExp("^" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i"));
     const sparkSnaps = await db
       .collection("snapshots")
-      .find({ vault_id: { $in: regexOr } })
+      .find({ vault_id: { $in: vaultIds } })
       .sort({ date: 1 })
       .project({ vault_id: 1, total_assets_usd: 1, date: 1, _id: 0 })
       .toArray();
-    const idLower = {};
-    for (const d of data) idLower[d.vault_id.toLowerCase()] = d.vault_id;
     const sparkMap = {};
     for (const s of sparkSnaps) {
-      const key = idLower[s.vault_id.toLowerCase()] || s.vault_id;
+      const key = s.vault_id;
       if (!sparkMap[key]) sparkMap[key] = [];
       sparkMap[key].push(s.total_assets_usd || 0);
     }
@@ -107,8 +113,9 @@ app.get("/api/vaults", async (_req, res) => {
       const arr = sparkMap[d.vault_id] || [];
       d.tvl_spark = arr.slice(-14);
     }
-    console.log(`Sparkline: ${sparkSnaps.length} snapshots found for ${vaultIds.length} vaults, ${Object.keys(sparkMap).length} matched`);
 
+    vaultsCache = data;
+    vaultsCacheTs = Date.now();
     res.json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
