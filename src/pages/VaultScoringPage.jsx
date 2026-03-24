@@ -152,7 +152,77 @@ function calcBreakdown(raw) {
   return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal, trustTotal, conf, extBonus, age };
 }
 
+const FORMULAS = {
+  C01: { formula: "$0-1M: (TVL/1M)×40\n$1M-10M: 40+((TVL-1M)/9M)×40\n>$10M: 80+min(20, (TVL/100M)×20)", source: "On-chain totalAssets() + CoinGecko price" },
+  "C02.30d": { formula: "Growth(>+5%): 100\nStable(0-5%): 90\nChurn(-1 to -10%): 60\nOutflow(-10 to -25%): 30\nRun(<-25%): 0", source: "Computed from TVL snapshot diffs" },
+  C07: { formula: "min(100, log10(count) × 33.3)\n10 deps→33, 100→67, 500→90, 1000→100", source: "Morpho API positions (>$100 filter)" },
+  R07: { formula: "100 − (pending_pct × 2)\n0%→100, 25%→50, 50%→0", source: "On-chain (async vaults only)" },
+  "C04.7d": { formula: "pct = (net_flow_7d / TVL) × 100\n>5%: 100, ±2%: 70, 2-5%: 85\n-2 to -10%: 40, <-10%: 0", source: "Computed from TVL snapshot diffs" },
+  R06: { formula: "Instant: 100, <1hr: 80\n1-24hr: 40, >24hr: 0", source: "On-chain ERC-7540 interface check" },
+  P05: { formula: "Benchmark-relative Sharpe:\nmean(spread) / σ(spread)\nspread = vault_apy − benchmark_apy\n13w(40%) + 52w(60%) blend\n\n<0→0, 0-0.5→30, 0.5-1→50\n1-1.5→70, 1.5-2→85, >2→100", source: "perf_alpha.py (snapshots + DeFiLlama benchmark)" },
+  P06: { formula: "Win Rate = wins / total_weeks\nwins = weeks where vault APY > benchmark\n13w(40%) + 52w(60%) blend\n\n<30%→10, 30-50%→30, 50-65%→50\n65-80%→75, 80-90%→90, >90%→100", source: "perf_alpha.py (snapshots + DeFiLlama benchmark)" },
+  P07: { formula: "Worst Week = min(weekly spread)\nspread = vault_apy − benchmark_apy\n13w(40%) + 52w(60%) blend\n\nabs=0→100, <0.5%→90, <1%→75\n<2%→50, <5%→30, >5%→10", source: "perf_alpha.py" },
+  P13: { formula: "Alpha Consistency = 1 − CV(positive_spreads)\nCV = stdev / mean of winning weeks\n13w(40%) + 52w(60%) blend\n\n<10%→10, 10-25%→30, 25-40%→50\n40-60%→75, 60-80%→90, >80%→100", source: "perf_alpha.py" },
+  P08: { formula: "Min(NAV_t / Max(NAV_0..t) − 1)\nUsing synthetic share prices from APY\n\n<1%→100, 1-2%→85, 2-5%→65\n5-10%→40, >10%→0", source: "Computed from daily APY snapshots" },
+  P09: { formula: "Max consecutive days below NAV peak\n\n<3d→100, 3-7d→70, 7-14d→50\n14-30d→25, >30d→0", source: "Computed from daily APY snapshots" },
+  P10: { formula: "organic_pct = 100 − incentive_pct\nincentive = sum(reward supplyApr) / netApy\n\n100% organic→100, >70%→80\n50-70%→50, <50%→20, 0%→0", source: "Morpho API rewards array (non-Morpho defaults 100%)" },
+  "P03.7d": { formula: "ratio = vault_7d_APY / benchmark_APY\nBenchmark: Aave (stables), Lido (ETH), Aave WBTC (BTC)\n\n≥2x→100, ≥1.5x→85, ≥1.2x→70\n~1x(±10%)→55, 0.5-0.9x→30\n0.25-0.5x→10, <0.25x→0", source: "P01 / DeFiLlama benchmark" },
+  R10: { formula: "Count of pauses, exploits, emergency events\n\n0→100, 1→40, 2→10, >2→0", source: "Morpho API events + on-chain log scanning" },
+  R01: { formula: "Stablecoins: deviation from $1.00 peg\n>$0.995→100, $0.99-0.995→70\n$0.98-0.99→30, <$0.98→0\nNon-stablecoins: default 80", source: "CoinGecko price" },
+  R09_top5: { formula: "≥500 depositors (standard):\n<10%→100, 10-25%→80, 25-40%→60\n40-60%→30, >60%→10\n\n<500 depositors (strict):\n<10%→100, 10-20%→80, 20-35%→60\n35-50%→30, >50%→10", source: "Morpho API positions / on-chain Transfer events" },
+  "R06.wd": { formula: "Instant→100, <1h→90, 1-24h→60\n1-7d→30, >7d→10", source: "On-chain ERC-7540 check + hardcoded list" },
+  timelock: { formula: "Immutable or ≥48h→100\n12-48h→60\nInstant upgrade→0", source: "On-chain timelock() contract read" },
+  "T01.30d": { formula: "current_tvl / tvl_30d_ago × 100\nCapped at 100%\n\n>95%→100, 90-95%→85, 80-90%→70\n70-80%→50, 50-70%→25, <50%→0", source: "TVL snapshot ratio (not cohort-based)" },
+  T09: { formula: "Mean(withdraw_time − deposit_time)\nFor completed deposit-withdraw cycles\nFiltered: deposits ≥$100\n\n>90d→100, 60-90d→80, 30-60d→60\n7-30d→30, <7d→10", source: "Morpho API / on-chain events" },
+  T07: { formula: "ratio = holders_90d / total_depositors\n\n>50%→100, 30-50%→80, 10-30%→60\n5-10%→40, <5%→20", source: "Morpho API / on-chain events (>$100 filter)" },
+  T11: { formula: "HODL = active_addrs / total_known_depositors\n\n>70%→100, 50-70%→75\n30-50%→45, <30%→15", source: "Computed from depositor tracking" },
+  T10: { formula: "net = new_depositors − full_exits (30d)\n\n>10→100, 1-10→70, 0→40, negative→0", source: "Morpho API / on-chain events" },
+  T10b: { formula: "(net_deposits − net_withdrawals) / TVL\nOver trailing 30 days\n\n>+10%→100, 5-10%→90, 3-5%→80\n0-3%→70, 0 to -10%→40, <-10%→20", source: "Computed from depositor tracking / TVL" },
+  T06: { formula: "% of depositors exiting within 7 days\nFiltered: deposits ≥$100\n\n<5%→100, 5-10%→80, 10-15%→55\n15-25%→35, >25%→15", source: "Morpho API / on-chain events" },
+  "T03.30d": { formula: "active_users / total_unique_users × 100\nActive = balance > $100\n\n>80%→100, 60-80%→70\n40-60%→40, <40%→15", source: "Morpho API positions / on-chain events" },
+};
+
+function MetricRow({ r, isExpanded, onToggle }) {
+  const info = FORMULAS[r.metric] || {};
+  return (
+    <>
+      <tr onClick={onToggle} style={{ borderBottom: isExpanded ? "none" : `1px solid ${C.border}`, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = isExpanded ? "#f0eef8" : "transparent"}>
+        <td style={td}><code style={{ fontSize: 11, background: C.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>{r.metric}</code></td>
+        <td style={td}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>{r.label} <span style={{ fontSize: 10, color: C.purple }}>{isExpanded ? "▼" : "▶"}</span></span></td>
+        <td style={{ ...td, textAlign: "right", fontFamily: "monospace" }}>{r.rawFmt}</td>
+        <td style={{ ...td, textAlign: "right", fontWeight: 600, color: scoreColor(Math.round(r.score)) }}>{r.score.toFixed(1)}</td>
+        <td style={{ ...td, textAlign: "right", color: C.text3 }}>{(r.weight * 100).toFixed(1)}%</td>
+        <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{(r.score * r.weight).toFixed(1)}</td>
+      </tr>
+      {isExpanded && (
+        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+          <td colSpan={6} style={{ padding: "0 10px 10px", background: "#f0eef8" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "10px 0" }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Scoring Formula</div>
+                <pre style={{ margin: 0, fontSize: 11, color: C.text2, lineHeight: 1.5, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", whiteSpace: "pre-wrap", background: C.white, padding: 8, borderRadius: 6, border: `1px solid ${C.border}` }}>{info.formula || "—"}</pre>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.teal, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Live Calculation</div>
+                <div style={{ background: C.white, padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 11, lineHeight: 1.6, fontFamily: "monospace" }}>
+                  <div>Input: <strong>{r.rawFmt}</strong> (raw: {r.rawVal === null ? "null" : typeof r.rawVal === "number" ? r.rawVal.toFixed(6) : String(r.rawVal)})</div>
+                  <div>Score: <strong style={{ color: scoreColor(Math.round(r.score)) }}>{r.score.toFixed(2)}</strong> / 100</div>
+                  <div>Weight: {(r.weight * 100).toFixed(1)}%</div>
+                  <div>Contribution: <strong>{(r.score * r.weight).toFixed(2)}</strong></div>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginTop: 8, marginBottom: 2 }}>Data Source</div>
+                <div style={{ fontSize: 11, color: C.text3 }}>{info.source || "—"}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 function MetricTable({ title, rows, totalScore, weight, color }) {
+  const [expandedMetric, setExpandedMetric] = useState(null);
   const weighted = totalScore * weight;
   return (
     <div style={{ marginBottom: 16 }}>
@@ -180,14 +250,7 @@ function MetricTable({ title, rows, totalScore, weight, color }) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
-              <td style={td}><code style={{ fontSize: 11, background: C.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>{r.metric}</code></td>
-              <td style={td}>{r.label}</td>
-              <td style={{ ...td, textAlign: "right", fontFamily: "monospace" }}>{r.rawFmt}</td>
-              <td style={{ ...td, textAlign: "right", fontWeight: 600, color: scoreColor(Math.round(r.score)) }}>{r.score.toFixed(1)}</td>
-              <td style={{ ...td, textAlign: "right", color: C.text3 }}>{(r.weight * 100).toFixed(0)}%</td>
-              <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{(r.score * r.weight).toFixed(1)}</td>
-            </tr>
+            <MetricRow key={i} r={r} isExpanded={expandedMetric === i} onToggle={() => setExpandedMetric(expandedMetric === i ? null : i)} />
           ))}
         </tbody>
       </table>
