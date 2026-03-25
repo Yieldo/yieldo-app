@@ -126,10 +126,10 @@ const ActivePill = ({ label, onRemove }) => (
 
 const FL = ({ children }) => <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>{children}</div>;
 
-const NumInput = ({ label, value, onChange, prefix, suffix, width = 80 }) => (
+const NumInput = ({ label, value, onChange, prefix, suffix, width }) => (
   <div>
     {label && <FL>{label}</FL>}
-    <div style={{ display: "flex", alignItems: "center", gap: 2, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "0 8px", width }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 2, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "0 8px", ...(width ? { width } : {}) }}>
       {prefix && <span style={{ fontSize: 11, color: C.text4 }}>{prefix}</span>}
       <input type="number" value={value||""} onChange={e=>onChange(e.target.value===""?0:+e.target.value)} placeholder="Any" style={{ width: "100%", padding: "6px 2px", border: "none", background: "transparent", fontSize: 12, fontFamily: "'Inter',sans-serif", color: C.text, outline: "none" }}/>
       {suffix && <span style={{ fontSize: 11, color: C.text4, whiteSpace: "nowrap" }}>{suffix}</span>}
@@ -200,9 +200,9 @@ function DashboardTab({ vaults, navigate }) {
             <div style={{ fontSize: 12, opacity: .7, marginBottom: 6 }}>Your idle stablecoins</div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{fmtUsd(totalIdle)} earning 0%</div>
             <div style={{ fontSize: 14, opacity: .85, marginBottom: 16 }}>At <strong>{bestApy.toFixed(2)}% APY</strong> (best scored vault) that's <strong>{fmtUsd(monthlyEarn)}/month</strong> you're leaving on the table.</div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => navigate("/vault")} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Browse scored vaults →</button>
-              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button onClick={() => navigate("/vault")} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Browse scored vaults →</button>
+              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.2)", color: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: 8, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
             </div>
           </div>
         </div>
@@ -212,10 +212,10 @@ function DashboardTab({ vaults, navigate }) {
           <div style={{ position: "relative" }}>
             <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Curated on-chain yield — scored for safety</div>
             <div style={{ fontSize: 13, opacity: .85, marginBottom: 18, maxWidth: 500 }}>Yieldo scores DeFi vaults across Capital, Performance, Risk, and Trust so you can find the best yield without the guesswork.</div>
-            <div style={{ display: "flex", gap: 12 }}>
-              {!isConnected && <button onClick={openConnectModal} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Connect Wallet</button>}
-              <button onClick={() => navigate("/vault")} style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Browse Vaults →</button>
-              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {!isConnected && <button onClick={openConnectModal} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Connect Wallet</button>}
+              <button onClick={() => navigate("/vault")} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Browse Vaults →</button>
+              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.2)", color: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: 8, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
             </div>
           </div>
         </div>
@@ -525,83 +525,96 @@ export default function VaultPage() {
           <button onClick={()=>setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
         </div>}
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+        {/* Search + Sort + View */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
           <div style={{ flex: 1, position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vaults, assets, curators, chains..." style={{ width: "100%", padding: "9px 14px 9px 34px", background: C.white, border: `1px solid ${C.border2}`, borderRadius: 8, fontSize: 13, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", color: C.text }}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vaults, assets, curators, chains..." style={{ width: "100%", padding: "10px 14px 10px 34px", background: C.white, border: `1px solid ${C.border2}`, borderRadius: 8, fontSize: 13, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", color: C.text }}/>
           </div>
-          {winW >= 640 && <><div style={{ height: 18, width: 1, background: C.border }}/>
-          <Btn ghost small active={view==="grid"} onClick={()=>setView("grid")}>▦</Btn>
-          <Btn ghost small active={view==="table"} onClick={()=>setView("table")}>☰</Btn>
-          <div style={{ height: 18, width: 1, background: C.border }}/></>}
-          <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 11, fontFamily: "'Inter',sans-serif", color: C.text2, background: C.white, cursor: "pointer", outline: "none" }}>
-            {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["perfScore","Perf Score"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-          </select>
-        </div>
-        <div style={{ display: "flex", gap: winW >= 640 ? 16 : 8, marginBottom: 10, alignItems: "flex-end", flexWrap: winW >= 768 ? "wrap" : "nowrap", overflowX: winW < 768 ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: winW < 768 ? 4 : 0 }}>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Asset</span>
-            {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
-          </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Chain</span>
-            {CHAINS.map(c=><Chip key={c} label={c} active={fCh.includes(c)} onClick={()=>tog(fCh,setFCh,c)} small/>)}
-          </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Protocol</span>
-            <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 11, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none" }}>
-              <option value="">All</option>
-              {PROTOCOLS.map(p => <option key={p} value={p}>{p}</option>)}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, color: C.text4, whiteSpace: "nowrap" }}>Sort:</span>
+            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: C.text2, background: C.white, cursor: "pointer", outline: "none" }}>
+              {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["perfScore","Perf Score"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
             </select>
           </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Risk</span>
-            {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
-          </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Yield</span>
-            {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
-          </div>
-          <div style={{ width: 1, height: 20, background: C.border }}/>
-          <Chip label={moreFilters?"Less filters":"More filters"} icon={moreFilters?"▲":"▼"} active={moreFilters||secCount>0} onClick={()=>setMoreFilters(!moreFilters)} small/>
-          {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.text4, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", textDecoration: "underline" }}>Clear all</button>}
+          {winW >= 640 && <div style={{ display: "flex", gap: 2, background: C.surfaceAlt, borderRadius: 8, padding: 3, border: `1px solid ${C.border}` }}>
+            <button onClick={()=>setView("grid")} style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: view==="grid" ? C.white : "transparent", color: view==="grid" ? C.purple : C.text4, boxShadow: view==="grid" ? "0 1px 3px rgba(0,0,0,.06)" : "none", fontWeight: view==="grid" ? 600 : 400 }}>▦ Grid</button>
+            <button onClick={()=>setView("table")} style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: view==="table" ? C.white : "transparent", color: view==="table" ? C.purple : C.text4, boxShadow: view==="table" ? "0 1px 3px rgba(0,0,0,.06)" : "none", fontWeight: view==="table" ? 600 : 400 }}>☰ Table</button>
+          </div>}
         </div>
-        {moreFilters && (
-          <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <div>
+
+        {/* Filters */}
+        <div style={{ display: "grid", gridTemplateColumns: winW >= 768 ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 10 }}>
+          {/* Asset Type */}
+          <Card style={{ padding: "10px 14px" }}>
+            <FL>Asset</FL>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
+            </div>
+          </Card>
+          {/* Chain */}
+          <Card style={{ padding: "10px 14px" }}>
+            <FL>Chain</FL>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {CHAINS.map(c=><Chip key={c} label={c} active={fCh.includes(c)} onClick={()=>tog(fCh,setFCh,c)} small/>)}
+            </div>
+          </Card>
+          {/* Risk */}
+          <Card style={{ padding: "10px 14px" }}>
+            <FL>Risk</FL>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
+            </div>
+          </Card>
+          {/* Yield + Protocol + More */}
+          <Card style={{ padding: "10px 14px" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <FL>Yield Type</FL>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
+                </div>
+              </div>
+              <div style={{ minWidth: 120 }}>
                 <FL>Protocol</FL>
-                <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", minWidth: 160 }}>
-                  <option value="">All Protocols</option>
+                <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", width: "100%" }}>
+                  <option value="">All</option>
                   {PROTOCOLS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
+            </div>
+          </Card>
+        </div>
+        {/* More filters toggle + clear */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <Chip label={moreFilters?"Less filters":"More filters"} icon={moreFilters?"▲":"▼"} active={moreFilters||secCount>0} onClick={()=>setMoreFilters(!moreFilters)} small/>
+          {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "4px 12px", borderRadius: 6, fontWeight: 500 }}>Clear all ({totalActive})</button>}
+        </div>
+        {moreFilters && (
+          <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(3, 1fr)" : "1fr", gap: 16 }}>
               <div>
                 <FL>Curator</FL>
-                <select value={fCu.length === 1 ? fCu[0] : ""} onChange={e => setFCu(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fCu.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fCu.length ? C.purple : C.text3, background: fCu.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", minWidth: 160 }}>
+                <select value={fCu.length === 1 ? fCu[0] : ""} onChange={e => setFCu(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fCu.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fCu.length ? C.purple : C.text3, background: fCu.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", width: "100%" }}>
                   <option value="">All Curators</option>
                   {CURATORS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <FL>Flag Status</FL>
-                <div style={{ display: "flex", gap: 4 }}>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                   <Chip label="Clean" icon="✓" active={fFS.includes("clean")} onClick={()=>tog(fFS,setFFS,"clean")} small/>
                   <Chip label="Warning" icon="🟡" active={fFS.includes("warning")} onClick={()=>tog(fFS,setFFS,"warning")} small/>
                   <Chip label="Critical" icon="🔴" active={fFS.includes("critical")} onClick={()=>tog(fFS,setFFS,"critical")} small/>
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <NumInput label="Min Score" value={fSc} onChange={v=>setFSc(v)} width={65}/>
-              <NumInput label="Min APY" value={fApy} onChange={v=>setFApy(v)} suffix="%" width={65}/>
-              <NumInput label="Min TVL" value={fTvl} onChange={v=>setFTvl(v)} prefix="$" width={80}/>
-              <NumInput label="Min Age" value={fAge} onChange={v=>setFAge(v)} suffix="d" width={60}/>
-              <NumInput label="Min Depositors" value={fDep} onChange={v=>setFDep(v)} width={65}/>
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(5, 1fr)" : "repeat(2, 1fr) 1fr", gap: 12 }}>
+              <NumInput label="Min Score" value={fSc} onChange={v=>setFSc(v)}/>
+              <NumInput label="Min APY" value={fApy} onChange={v=>setFApy(v)} suffix="%"/>
+              <NumInput label="Min TVL" value={fTvl} onChange={v=>setFTvl(v)} prefix="$"/>
+              <NumInput label="Min Age" value={fAge} onChange={v=>setFAge(v)} suffix="d"/>
+              <NumInput label="Min Depositors" value={fDep} onChange={v=>setFDep(v)}/>
             </div>
           </Card>
         )}

@@ -1,16 +1,32 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
-import { http } from "wagmi";
+import { http, fallback } from "wagmi";
 
 export const config = getDefaultConfig({
   appName: "Yieldo",
   projectId: "0dd252f3816efa3917348bf2b60af0aa",
   chains: [mainnet, base, arbitrum, optimism],
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [optimism.id]: http(),
+    [mainnet.id]: fallback([
+      http("https://ethereum-rpc.publicnode.com"),
+      http("https://rpc.ankr.com/eth"),
+      http("https://cloudflare-eth.com"),
+    ]),
+    [base.id]: fallback([
+      http("https://base-rpc.publicnode.com"),
+      http("https://rpc.ankr.com/base"),
+      http("https://mainnet.base.org"),
+    ]),
+    [arbitrum.id]: fallback([
+      http("https://arbitrum-one-rpc.publicnode.com"),
+      http("https://rpc.ankr.com/arbitrum"),
+      http("https://arb1.arbitrum.io/rpc"),
+    ]),
+    [optimism.id]: fallback([
+      http("https://optimism-rpc.publicnode.com"),
+      http("https://rpc.ankr.com/optimism"),
+      http("https://mainnet.optimism.io"),
+    ]),
   },
 });
 
