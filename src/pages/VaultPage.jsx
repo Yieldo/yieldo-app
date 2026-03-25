@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 
 function useWindowWidth() {
@@ -174,6 +176,94 @@ const fmtNum = (n, suffix = "") => {
   return typeof n === "number" ? `${n.toFixed(1)}${suffix}` : `${n}${suffix}`;
 };
 
+function DashboardTab({ vaults, navigate }) {
+  const { address, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const topVaults = useMemo(() => vaults.filter(v => v.yieldoScore >= 70 && v.critFlags === 0).sort((a, b) => b.yieldoScore - a.yieldoScore).slice(0, 5), [vaults]);
+  const totalTvl = useMemo(() => vaults.reduce((s, v) => s + (v.tvl || 0), 0), [vaults]);
+  const avgApy = useMemo(() => vaults.length ? vaults.reduce((s, v) => s + (v.apy || 0), 0) / vaults.length : 0, [vaults]);
+  const fmtTvlD = n => { if (n >= 1e9) return `$${(n/1e9).toFixed(2)}B`; if (n >= 1e6) return `$${(n/1e6).toFixed(1)}M`; return `$${(n/1e3).toFixed(0)}K`; };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px" }}>
+      {/* Hero */}
+      <div style={{ backgroundImage: C.purpleGrad, borderRadius: 14, padding: "28px 28px", marginBottom: 20, color: "#fff", boxShadow: C.purpleShadow, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.05)" }} />
+        <div style={{ position: "relative" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Curated on-chain yield — scored for safety</div>
+          <div style={{ fontSize: 13, opacity: .85, marginBottom: 18, maxWidth: 500 }}>Yieldo scores DeFi vaults across Capital, Performance, Risk, and Trust so you can find the best yield without the guesswork.</div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {!isConnected && <button onClick={openConnectModal} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Connect Wallet</button>}
+            <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Integrate Yieldo →</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+        {[
+          { icon: "🏦", label: "Total Vaults", value: vaults.length },
+          { icon: "💰", label: "Total TVL", value: fmtTvlD(totalTvl) },
+          { icon: "📈", label: "Avg APY", value: `${avgApy.toFixed(2)}%` },
+          { icon: "🔗", label: "Chains", value: new Set(vaults.map(v => v.chain)).size },
+        ].map((s, i) => (
+          <div key={i} style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{s.icon}</div>
+              <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>{s.label}</span>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700 }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Top Picks */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Top Scored Vaults</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Score ≥ 70 · No critical flags</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {topVaults.map(v => (
+            <div key={v.id} onClick={() => navigate(`/vault/${encodeURIComponent(v.id)}`)}
+              style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`, padding: "14px 18px", cursor: "pointer", transition: "border-color .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.purple; e.currentTarget.style.boxShadow = "0 2px 10px rgba(122,28,203,.08)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <ScoreRing score={v.yieldoScore} size={40} sw={4} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{v.name}</span>
+                    <span style={{ fontSize: 11, color: C.text3 }}>{v.protocol} · {v.chain}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, fontSize: 11, color: C.text3 }}>
+                    <span>TVL: {fmtTvl(v.tvl)}</span>
+                    <span>{v.depositors} depositors</span>
+                    <span style={{ color: v.critFlags === 0 && v.warnFlags === 0 ? C.green : C.amber }}>{v.critFlags === 0 && v.warnFlags === 0 ? "✓ Clean" : `🟡 ${v.warnFlags} flags`}</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: C.green }}>{v.apy.toFixed(2)}%</div>
+                  <div style={{ fontSize: 10, color: C.text4 }}>APY</div>
+                </div>
+                <div style={{ fontSize: 16, color: C.text4 }}>›</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div style={{ padding: "10px 14px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, display: "flex", gap: 10 }}>
+        <span>⚠️</span>
+        <div style={{ fontSize: 11, color: "rgba(0,0,0,.5)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for data visualization only — not financial advice.</div>
+      </div>
+    </div>
+  );
+}
+
 export default function VaultPage() {
   const winW = useWindowWidth();
   const gridCols = winW >= 1400 ? 4 : winW >= 1000 ? 3 : winW >= 640 ? 2 : 1;
@@ -181,6 +271,21 @@ export default function VaultPage() {
   const headerPad = winW >= 1000 ? "14px 32px" : winW >= 640 ? "12px 20px" : "10px 12px";
   const { vaults: ALL, loading, error } = useVaults();
   const navigate = useNavigate();
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
+  const [activeTab, setActiveTab] = useState("vaults");
+
+  // Track wallet connections in DB
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet_address: address }),
+    }).catch(() => {});
+  }, [isConnected, address]);
+
   const [view, setView] = useState("grid"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
@@ -297,15 +402,38 @@ export default function VaultPage() {
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", paddingBottom: cmpList.length>0?400:0 }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: headerPad, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 30, height: 30, borderRadius: 7 }} />
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Vaults</span>
+      {/* Header */}
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${winW >= 1000 ? "32px" : "20px"}`, display: "flex", justifyContent: "space-between", alignItems: "center", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 6px rgba(0,0,0,.04)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 7 }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-.01em" }}>YIELDO</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn><Btn small onClick={() => window.location.reload()}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
+        <div style={{ display: "flex", gap: 2 }}>
+          {[["dashboard", "Dashboard"], ["vaults", "Vaults"]].map(([id, label]) => (
+            <button key={id} onClick={() => setActiveTab(id)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: activeTab === id ? 600 : 400, border: "none", cursor: "pointer", padding: "6px 16px", borderRadius: 6, background: activeTab === id ? C.purpleDim : "transparent", color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>
+          <Btn small onClick={() => navigate("/apply")}>Integrate Now</Btn>
+          {isConnected && address ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 11, color: C.text2, background: C.surfaceAlt, padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontFamily: "monospace" }}>
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: C.green, display: "inline-block", marginRight: 5 }} />
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </div>
+              <button onClick={() => disconnect()} style={{ fontSize: 10, color: C.text4, background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={openConnectModal} style={{ backgroundImage: C.purpleGrad, color: "#fff", border: "none", borderRadius: 7, padding: "7px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>Connect Wallet</button>
+          )}
+        </div>
       </div>
-      <div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
+      {/* Dashboard Tab */}
+      {activeTab === "dashboard" && <DashboardTab vaults={ALL} navigate={navigate} />}
+
+      {/* Vaults Tab */}
+      {activeTab === "vaults" && <><div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Wallet Presets</div>
@@ -491,6 +619,7 @@ export default function VaultPage() {
           </div>)}
         </div>
       </div>}
+      </>}
 
       {/* Feedback Modal */}
       {fbOpen && (

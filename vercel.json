@@ -5,6 +5,7 @@
     { "source": "/api/wallet-providers", "destination": "/api/wallet-providers" },
     { "source": "/api/vault-providers/:address", "destination": "/api/vault-providers/[address]" },
     { "source": "/api/vault-providers", "destination": "/api/vault-providers" },
+    { "source": "/api/users", "destination": "/api/users" },
     { "source": "/api/vaults/:vaultId", "destination": "/api/vaults/[vaultId]" },
     { "source": "/api/vaults", "destination": "/api/vaults" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

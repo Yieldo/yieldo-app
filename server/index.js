@@ -286,6 +286,43 @@ app.post("/api/vault-providers", async (req, res) => {
   }
 });
 
+// ========== User Wallet Tracking ==========
+
+app.post("/api/users", async (req, res) => {
+  if (!walletsDb) return res.status(503).json({ error: "Wallets DB not configured" });
+  try {
+    const { wallet_address } = req.body;
+    if (!wallet_address) return res.status(400).json({ error: "wallet_address required" });
+    const address = wallet_address.toLowerCase();
+    const now = new Date();
+    const coll = walletsDb.collection("users");
+    const existing = await coll.findOne({ wallet_address: address });
+    if (existing) {
+      await coll.updateOne(
+        { wallet_address: address },
+        {
+          $push: { connection_history: { connected_at: now, ua: req.headers["user-agent"] || "" } },
+          $set: { last_connected: now },
+          $inc: { connection_count: 1 },
+        }
+      );
+      return res.json({ status: "returning", wallet_address: address });
+    }
+    const doc = {
+      wallet_address: address,
+      first_connected: now,
+      last_connected: now,
+      connection_count: 1,
+      connection_history: [{ connected_at: now, ua: req.headers["user-agent"] || "" }],
+    };
+    await coll.insertOne(doc);
+    res.status(201).json({ status: "new", wallet_address: address });
+  } catch (err) {
+    console.error("Error tracking user:", err);
+    res.status(500).json({ error: "Failed to track user" });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`API server running on port ${PORT}`));
