@@ -178,6 +178,7 @@ const fmtNum = (n, suffix = "") => {
 };
 
 function DashboardTab({ vaults, navigate }) {
+  const winW = useWindowWidth();
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { balances, totalIdle } = useWalletBalances();
