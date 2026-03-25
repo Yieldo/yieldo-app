@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
@@ -229,8 +229,13 @@ function DashboardTab({ vaults, navigate }) {
                   <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>{b.symbol}</span>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>{isStable ? fmtUsd(b.balance) : `${b.balance.toFixed(4)}`}</div>
+                {b.chains && b.chains.length > 1 && (
+                  <div style={{ fontSize: 9, color: C.text4, marginTop: 3 }}>
+                    {b.chains.map((c, ci) => <span key={ci}>{ci > 0 ? " · " : ""}{c.chain}: {isStable ? fmtUsd(c.balance) : c.balance.toFixed(3)}</span>)}
+                  </div>
+                )}
                 {isStable && b.balance > 0 && (
-                  <div style={{ fontSize: 10, color: C.red, marginTop: 4, display: "flex", alignItems: "center", gap: 3 }}>
+                  <div style={{ fontSize: 10, color: C.red, marginTop: 3, display: "flex", alignItems: "center", gap: 3 }}>
                     <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.red, display: "inline-block" }} />
                     Earning 0% — could earn {fmtUsd((b.balance * bestApy / 100) / 12)}/mo
                   </div>
@@ -318,10 +323,12 @@ export default function VaultPage() {
   const headerPad = winW >= 1000 ? "14px 32px" : winW >= 640 ? "12px 20px" : "10px 12px";
   const { vaults: ALL, loading, error } = useVaults();
   const navigate = useNavigate();
+  const location = useLocation();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
-  const [activeTab, setActiveTab] = useState("vaults");
+  const activeTab = location.pathname === "/" ? "dashboard" : "vaults";
+  const setActiveTab = (tab) => navigate(tab === "dashboard" ? "/" : "/vault");
   const [widgetDismissed, setWidgetDismissed] = useState(false);
   const { balances, totalIdle } = useWalletBalances();
 
