@@ -218,7 +218,7 @@ function DashboardTab({ vaults, navigate }) {
 
       {/* Wallet Balances — only when connected */}
       {isConnected && balances && (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(Object.keys(balances).length, 4)}, 1fr)`, gap: 10, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? `repeat(${Math.min(Object.keys(balances).length, 4)}, 1fr)` : "repeat(2, 1fr)", gap: 10, marginBottom: 20 }}>
           {Object.entries(balances).filter(([, b]) => b.balance > 0).map(([key, b]) => {
             const isStable = ["USDC", "USDT", "DAI"].includes(b.symbol);
             return (
@@ -241,7 +241,7 @@ function DashboardTab({ vaults, navigate }) {
       )}
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(4,1fr)" : "repeat(2,1fr)", gap: 10, marginBottom: 24 }}>
         {[
           { icon: "🏦", label: "Total Vaults", value: vaults.length },
           { icon: "💰", label: "Total TVL", value: fmtTvlD(totalTvl) },
@@ -451,29 +451,29 @@ export default function VaultPage() {
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", paddingBottom: cmpList.length>0?400:0 }}>
       {/* Header */}
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${winW >= 1000 ? "32px" : "20px"}`, display: "flex", justifyContent: "space-between", alignItems: "center", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 6px rgba(0,0,0,.04)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 7 }} />
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-.01em" }}>YIELDO</span>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${winW >= 640 ? "20px" : "12px"}`, display: "flex", justifyContent: "space-between", alignItems: "center", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 6px rgba(0,0,0,.04)", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 6 }} />
+          {winW >= 480 && <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-.01em" }}>YIELDO</span>}
         </div>
         <div style={{ display: "flex", gap: 2 }}>
           {[["dashboard", "Dashboard"], ["vaults", "Vaults"]].map(([id, label]) => (
-            <button key={id} onClick={() => setActiveTab(id)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: activeTab === id ? 600 : 400, border: "none", cursor: "pointer", padding: "6px 16px", borderRadius: 6, background: activeTab === id ? C.purpleDim : "transparent", color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>{label}</button>
+            <button key={id} onClick={() => setActiveTab(id)} style={{ fontFamily: "'Inter',sans-serif", fontSize: winW >= 640 ? 13 : 12, fontWeight: activeTab === id ? 600 : 400, border: "none", cursor: "pointer", padding: winW >= 640 ? "6px 16px" : "6px 10px", borderRadius: 6, background: activeTab === id ? C.purpleDim : "transparent", color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>{label}</button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>
-          <Btn small onClick={() => navigate("/apply")}>Integrate Now</Btn>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {winW >= 768 && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
+          {winW >= 640 && <Btn small onClick={() => navigate("/apply")}>Integrate Now</Btn>}
           {isConnected && address ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ fontSize: 11, color: C.text2, background: C.surfaceAlt, padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontFamily: "monospace" }}>
-                <span style={{ width: 6, height: 6, borderRadius: 3, background: C.green, display: "inline-block", marginRight: 5 }} />
-                {address.slice(0, 6)}...{address.slice(-4)}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ fontSize: 11, color: C.text2, background: C.surfaceAlt, padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.border}`, fontFamily: "monospace" }}>
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: C.green, display: "inline-block", marginRight: 4 }} />
+                {address.slice(0, 4)}...{address.slice(-3)}
               </div>
-              <button onClick={() => disconnect()} style={{ fontSize: 10, color: C.text4, background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 8px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕</button>
+              <button onClick={() => disconnect()} style={{ fontSize: 10, color: C.text4, background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 6px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕</button>
             </div>
           ) : (
-            <button onClick={openConnectModal} style={{ backgroundImage: C.purpleGrad, color: "#fff", border: "none", borderRadius: 7, padding: "7px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>Connect Wallet</button>
+            <button onClick={openConnectModal} style={{ backgroundImage: C.purpleGrad, color: "#fff", border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow, whiteSpace: "nowrap" }}>{winW >= 640 ? "Connect Wallet" : "Connect"}</button>
           )}
         </div>
       </div>
@@ -518,15 +518,15 @@ export default function VaultPage() {
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vaults, assets, curators, chains..." style={{ width: "100%", padding: "9px 14px 9px 34px", background: C.white, border: `1px solid ${C.border2}`, borderRadius: 8, fontSize: 13, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", color: C.text }}/>
           </div>
-          <div style={{ height: 18, width: 1, background: C.border }}/>
+          {winW >= 640 && <><div style={{ height: 18, width: 1, background: C.border }}/>
           <Btn ghost small active={view==="grid"} onClick={()=>setView("grid")}>▦</Btn>
           <Btn ghost small active={view==="table"} onClick={()=>setView("table")}>☰</Btn>
-          <div style={{ height: 18, width: 1, background: C.border }}/>
+          <div style={{ height: 18, width: 1, background: C.border }}/></>}
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border2}`, fontSize: 11, fontFamily: "'Inter',sans-serif", color: C.text2, background: C.white, cursor: "pointer", outline: "none" }}>
             {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["perfScore","Perf Score"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", gap: winW >= 640 ? 16 : 8, marginBottom: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: winW >= 640 ? 16 : 8, marginBottom: 10, alignItems: "flex-end", flexWrap: winW >= 768 ? "wrap" : "nowrap", overflowX: winW < 768 ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: winW < 768 ? 4 : 0 }}>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Asset</span>
             {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
@@ -671,7 +671,7 @@ export default function VaultPage() {
 
       {/* Floating Idle Balance Widget — shown on Vaults tab when wallet connected */}
       {activeTab === "vaults" && isConnected && totalIdle > 0 && !widgetDismissed && (
-        <div style={{ position: "fixed", bottom: 20, left: 20, zIndex: 90, background: C.white, borderRadius: 14, border: `1.5px solid ${C.purple}30`, boxShadow: "0 8px 32px rgba(122,28,203,.15)", padding: "14px 18px", maxWidth: 280, fontFamily: "'Inter',sans-serif", cursor: "pointer", transition: "transform .2s" }}
+        <div style={{ position: "fixed", bottom: winW >= 640 ? 20 : 12, left: winW >= 640 ? 20 : 12, right: winW >= 640 ? "auto" : 12, zIndex: 90, background: C.white, borderRadius: 14, border: `1.5px solid ${C.purple}30`, boxShadow: "0 8px 32px rgba(122,28,203,.15)", padding: "14px 18px", maxWidth: winW >= 640 ? 280 : "none", fontFamily: "'Inter',sans-serif", cursor: "pointer", transition: "transform .2s" }}
           onClick={() => setActiveTab("dashboard")}
           onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
           onMouseLeave={e => e.currentTarget.style.transform = "none"}>
