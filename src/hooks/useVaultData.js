@@ -749,7 +749,7 @@ function mapVault(raw) {
   const flagPenalty = flags.reduce((sum, f) => sum + (f.penalty || 0), 0);
   const extBonus = calcExternalRatingBonus(raw.T14);
 
-  const rawScore = (capScore * 0.20 + perfScore * 0.20 + riskScore * 0.35 + trustScore * 0.25) * conf + flagPenalty + extBonus;
+  const rawScore = (capScore * 0.20 + perfScore * 0.25 + riskScore * 0.35 + trustScore * 0.20) * conf + flagPenalty + extBonus;
   const yieldoScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
   const subScores = {

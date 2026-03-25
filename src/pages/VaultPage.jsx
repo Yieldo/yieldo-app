@@ -362,6 +362,14 @@ export default function VaultPage() {
           </div>
           <div style={{ width: 1, height: 20, background: C.border }}/>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Protocol</span>
+            <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 11, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none" }}>
+              <option value="">All</option>
+              {PROTOCOLS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div style={{ width: 1, height: 20, background: C.border }}/>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginRight: 4 }}>Risk</span>
             {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
           </div>
