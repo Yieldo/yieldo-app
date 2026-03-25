@@ -60,7 +60,7 @@ export default async function handler(req, res) {
       d.tvl_spark = arr.slice(-14);
     }
 
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");
     res.status(200).json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
