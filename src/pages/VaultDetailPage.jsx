@@ -90,12 +90,13 @@ const fmt = (v, suffix = "", fallback = "N/A") => {
   return `${v}${suffix}`;
 };
 
-function APYChart({ data, benchmarkData, width = 560, height = 200 }) {
+function APYChart({ data, dates = [], benchmarkData, width = 560, height = 200 }) {
   const [range, setRange] = useState("All");
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
   const ranges = { "7d": 7, "30d": 30, "90d": 90, "All": data.length };
   const sliced = data.slice(-ranges[range]);
+  const slicedDates = dates.slice(-ranges[range]);
   const benchSliced = benchmarkData ? benchmarkData.slice(-ranges[range]) : [];
   const allVals = [...sliced, ...(benchSliced || [])].filter(v => typeof v === "number");
   if (allVals.length < 2) return <div style={{ fontSize: 12, color: C.text4, padding: 20, textAlign: "center" }}>Insufficient APY history data</div>;
@@ -134,6 +135,18 @@ function APYChart({ data, benchmarkData, width = 560, height = 200 }) {
         {yLines.map((v, i) => (
           <g key={i}><line x1={pad.l} y1={toY(v)} x2={width - pad.r} y2={toY(v)} stroke="rgba(0,0,0,.04)" strokeWidth="1" /><text x={pad.l - 6} y={toY(v) + 3} textAnchor="end" fontSize="9" fill={C.text4} fontFamily="'Inter',sans-serif">{v.toFixed(1)}%</text></g>
         ))}
+        {slicedDates.length > 0 && (() => {
+          const labelCount = Math.min(6, slicedDates.length);
+          const step = Math.max(1, Math.floor((slicedDates.length - 1) / (labelCount - 1)));
+          const indices = Array.from({ length: labelCount }, (_, i) => Math.min(i * step, slicedDates.length - 1));
+          return indices.map(idx => {
+            const d = slicedDates[idx];
+            if (!d) return null;
+            const parts = d.split("-");
+            const label = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : d;
+            return <text key={idx} x={toX(idx)} y={pad.t + ch + 16} textAnchor="middle" fontSize="9" fill={C.text4} fontFamily="'Inter',sans-serif">{label}</text>;
+          });
+        })()}
         <path d={areaPath} fill="url(#apyGrad)" />
         <defs><linearGradient id="apyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.purple} stopOpacity=".12" /><stop offset="100%" stopColor={C.purple} stopOpacity=".01" /></linearGradient></defs>
         {benchPath && <path d={benchPath} fill="none" stroke={C.text4} strokeWidth="1" strokeDasharray="4 3" opacity=".4" />}
@@ -142,8 +155,8 @@ function APYChart({ data, benchmarkData, width = 560, height = 200 }) {
           <g>
             <line x1={toX(hover)} y1={pad.t} x2={toX(hover)} y2={pad.t + ch} stroke={C.purple} strokeWidth="1" opacity=".3" strokeDasharray="3 2" />
             <circle cx={toX(hover)} cy={toY(sliced[hover])} r="4" fill={C.purple} stroke="#fff" strokeWidth="2" />
-            <rect x={toX(hover) - 40} y={pad.t - 18} width="80" height="16" rx="4" fill={C.white} stroke={C.border2} />
-            <text x={toX(hover)} y={pad.t - 7} textAnchor="middle" fontSize="10" fontWeight="600" fill={C.purple} fontFamily="'Inter',sans-serif">{sliced[hover].toFixed(2)}%</text>
+            <rect x={toX(hover) - 48} y={pad.t - 18} width="96" height="16" rx="4" fill={C.white} stroke={C.border2} />
+            <text x={toX(hover)} y={pad.t - 7} textAnchor="middle" fontSize="10" fontWeight="600" fill={C.purple} fontFamily="'Inter',sans-serif">{slicedDates[hover] ? slicedDates[hover].slice(5) + " · " : ""}{sliced[hover].toFixed(2)}%</text>
           </g>
         )}
       </svg>
@@ -257,6 +270,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   if (!v) return null;
 
   const apyHistory = v.apyHistory && v.apyHistory.length > 0 ? v.apyHistory : [];
+  const apyDates = v.apyDates && v.apyDates.length > 0 ? v.apyDates : [];
   const hasHistory = apyHistory.length >= 2;
 
   return (
@@ -359,7 +373,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <span style={{ fontSize: 15, fontWeight: 700 }}>APY History</span>
               <span style={{ fontSize: 11, color: C.text4 }}>({apyHistory.length} days)</span>
             </div>
-            <APYChart data={apyHistory} benchmarkData={null} width={1110} height={220} />
+            <APYChart data={apyHistory} dates={apyDates} benchmarkData={null} width={1110} height={220} />
           </Card>
         )}
 

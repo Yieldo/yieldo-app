@@ -385,8 +385,20 @@ export default function VaultPage() {
         {moreFilters && (
           <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px", maxWidth: 280 }}><TagInput label="Protocol" allOptions={PROTOCOLS} selected={fPr} onChange={v=>setFPr(v)}/></div>
-              <div style={{ flex: "1 1 200px", maxWidth: 280 }}><TagInput label="Curator" allOptions={CURATORS} selected={fCu} onChange={v=>setFCu(v)}/></div>
+              <div>
+                <FL>Protocol</FL>
+                <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", minWidth: 160 }}>
+                  <option value="">All Protocols</option>
+                  {PROTOCOLS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <FL>Curator</FL>
+                <select value={fCu.length === 1 ? fCu[0] : ""} onChange={e => setFCu(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fCu.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fCu.length ? C.purple : C.text3, background: fCu.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", minWidth: 160 }}>
+                  <option value="">All Curators</option>
+                  {CURATORS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
               <div>
                 <FL>Flag Status</FL>
                 <div style={{ display: "flex", gap: 4 }}>

@@ -984,6 +984,9 @@ export function useVaultDetail(vaultId) {
           mapped.apyHistory = data.snapshots.map(
             (s) => (s.net_apy || 0) * 100
           );
+          mapped.apyDates = data.snapshots.map(
+            (s) => s.date || ""
+          );
           mapped.tvlHistory = data.snapshots.map(
             (s) => s.total_assets_usd || 0
           );
