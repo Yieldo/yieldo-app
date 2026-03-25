@@ -27,8 +27,9 @@ createRoot(document.getElementById('root')).render(
         <RainbowKitProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<VaultPage />} />
+              <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />
+              <Route path="/dashboard" element={<VaultPage />} />
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />

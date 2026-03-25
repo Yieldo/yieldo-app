@@ -327,8 +327,8 @@ export default function VaultPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
-  const activeTab = location.pathname === "/" ? "dashboard" : "vaults";
-  const setActiveTab = (tab) => navigate(tab === "dashboard" ? "/" : "/vault");
+  const activeTab = location.pathname === "/dashboard" ? "dashboard" : "vaults";
+  const setActiveTab = (tab) => navigate(tab === "dashboard" ? "/dashboard" : "/vault");
   const [widgetDismissed, setWidgetDismissed] = useState(false);
   const { balances, totalIdle } = useWalletBalances();
 
