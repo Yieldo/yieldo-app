@@ -312,7 +312,7 @@ function DashboardTab({ vaults, navigate }) {
 
 export default function VaultPage() {
   const winW = useWindowWidth();
-  const gridCols = winW >= 1400 ? 4 : winW >= 1000 ? 3 : winW >= 640 ? 2 : 1;
+  const gridCols = winW >= 1800 ? 5 : winW >= 1400 ? 4 : winW >= 1000 ? 3 : winW >= 640 ? 2 : 1;
   const pad = winW >= 1000 ? "18px 32px" : winW >= 640 ? "14px 20px" : "10px 12px";
   const headerPad = winW >= 1000 ? "14px 32px" : winW >= 640 ? "12px 20px" : "10px 12px";
   const { vaults: ALL, loading, error } = useVaults();
