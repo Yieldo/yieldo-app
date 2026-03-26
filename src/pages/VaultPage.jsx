@@ -428,17 +428,21 @@ export default function VaultPage() {
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
   const PRESETS = {
-    conservative: { icon: "🛡️", label: "Conservative", desc: "Score ≥80 · No flags · Stables · Real yield · 90d+", fSc: 80, fAge: 90, fTvl: 10e6, fDep: 50, fAt: ["stablecoin"], fCh: ["Ethereum"], fYT: "real", sort: "yieldoScore" },
-    balanced: { icon: "⚖️", label: "Balanced", desc: "Score ≥60 · All assets · 30d+", fSc: 60, fAge: 30, fTvl: 1e6, fDep: 10, fAt: [], fCh: [], fYT: "all", sort: "yieldoScore" },
-    aggressive: { icon: "🔥", label: "Aggressive", desc: "Score ≥40 · High APY", fSc: 40, fAge: 14, fTvl: 100e3, fDep: 0, fAt: [], fCh: [], fYT: "all", sort: "apy" },
+    conservative: { icon: "🛡️", label: "Conservative", desc: "Score ≥80 · No flags · Stables · Real yield · 90d+", color: C.green, fSc: 80, fAge: 90, fTvl: 10e6, fDep: 50, fAt: ["stablecoin"], fCh: ["Ethereum"], fYT: "real", sort: "yieldoScore" },
+    balanced: { icon: "⚖️", label: "Balanced", desc: "Score ≥60 · All assets · 30d+", color: C.teal, fSc: 60, fAge: 30, fTvl: 1e6, fDep: 10, fAt: [], fCh: [], fYT: "all", sort: "yieldoScore" },
+    aggressive: { icon: "🚀", label: "Aggressive", desc: "Score ≥40 · High APY focus", color: C.gold, fSc: 40, fAge: 14, fTvl: 100e3, fDep: 0, fAt: [], fCh: [], fYT: "all", sort: "apy" },
+    morpho: { icon: "🔮", label: "Morpho", desc: "All Morpho protocol vaults", color: C.purple, fSc: 0, fAge: 0, fTvl: 0, fDep: 0, fAt: [], fCh: [], fPr: ["Morpho"], fYT: "all", sort: "yieldoScore" },
+    autocurate: { icon: "✨", label: "Auto-Curate", desc: "Coming soon", color: "#6366f1", isComingSoon: true },
   };
   const applyPreset = (key) => {
-    if (activePreset === key) { clearAll(); setActivePreset(null); return; }
     const p = PRESETS[key];
-    setSearch(""); setFCu([]); setFFS([]); setFRi([]); setFPr([]);
-    setFSc(p.fSc); setFAge(p.fAge); setFTvl(p.fTvl); setFDep(p.fDep);
-    setFAt(p.fAt); setFCh(p.fCh); setFYT(p.fYT); setFApy(0);
-    setSortBy(p.sort); setActivePreset(key);
+    if (p.isComingSoon) { setShowComingSoon(true); return; }
+    if (activePreset === key) { clearAll(); setActivePreset(null); return; }
+    setSearch(""); setFCu([]); setFFS([]); setFRi([]);
+    setFPr(p.fPr || []);
+    setFSc(p.fSc || 0); setFAge(p.fAge || 0); setFTvl(p.fTvl || 0); setFDep(p.fDep || 0);
+    setFAt(p.fAt || []); setFCh(p.fCh || []); setFYT(p.fYT || "all"); setFApy(0);
+    setSortBy(p.sort || "yieldoScore"); setActivePreset(key);
   };
   const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFPr([]);setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
   const secCount = [fCu,fFS].filter(a=>a.length).length + (fSc>0?1:0) + (fApy>0?1:0) + (fTvl>0?1:0) + (fAge>0?1:0) + (fDep>0?1:0);
@@ -529,78 +533,83 @@ export default function VaultPage() {
       {/* Vaults Tab */}
       {activeTab === "vaults" && <><div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
-        {/* Presets */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        {/* ── WALLET PRESETS ── */}
+        <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Wallet Presets</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, position: "relative" }}>
           {Object.entries(PRESETS).map(([key, p]) => {
             const active = activePreset === key;
             return (
-              <button key={key} onClick={() => applyPreset(key)} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? C.purpleDim : C.white, border: `1px solid ${active ? C.purple + "50" : C.border}`, color: active ? C.purple : C.text3, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" }}>
-                <span style={{ fontSize: 13 }}>{p.icon}</span>{p.label}
+              <button key={key} onClick={() => applyPreset(key)} style={{ flex: winW >= 768 ? 1 : undefined, padding: winW >= 768 ? "10px 14px" : "8px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Inter',sans-serif", border: `1.5px solid ${active ? (p.color || C.purple) : C.border}`, background: active ? `${p.color || C.purple}10` : C.surfaceAlt, textAlign: "left", transition: "all .15s", whiteSpace: "nowrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: winW >= 768 ? 3 : 0 }}>
+                  <span style={{ fontSize: 14 }}>{p.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 600, color: active ? (p.color || C.purple) : C.text }}>{p.label}</span>
+                  {active && <span style={{ marginLeft: "auto", fontSize: 9, background: p.color || C.purple, color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>Active</span>}
+                </div>
+                {winW >= 768 && <div style={{ fontSize: 10, color: active ? (p.color || C.purple) : C.text4, opacity: active ? .85 : 1, lineHeight: 1.4 }}>{p.desc}</div>}
               </button>
             );
           })}
-          <div style={{ position: "relative", display: "inline-flex" }}>
-            <button onClick={() => { setShowComingSoon(!showComingSoon); fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet_address: "auto-curate-click", event: "auto_curate_click" }) }).catch(() => {}); }} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: C.white, border: `1px solid ${C.border}`, color: C.text3, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 13 }}>✨</span>Auto-Curate
-            </button>
-            {showComingSoon && <div style={{ position: "absolute", left: 0, top: "100%", marginTop: 6, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 10, padding: "14px 18px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", width: 240 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
-              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile.</div>
-              <button onClick={() => setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
-            </div>}
-          </div>
-        </div>
-        {/* Search + Sort + View */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vaults, assets, curators, chains..." style={{ width: "100%", padding: "10px 14px 10px 34px", background: C.white, border: `1px solid ${C.border2}`, borderRadius: 8, fontSize: 13, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", color: C.text }}/>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: C.text4, whiteSpace: "nowrap" }}>Sort:</span>
-            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: C.text2, background: C.white, cursor: "pointer", outline: "none" }}>
-              {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["perfScore","Perf Score"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          {winW >= 640 && <div style={{ display: "flex", gap: 2, background: C.surfaceAlt, borderRadius: 8, padding: 3, border: `1px solid ${C.border}` }}>
-            <button onClick={()=>setView("grid")} style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: view==="grid" ? C.white : "transparent", color: view==="grid" ? C.purple : C.text4, boxShadow: view==="grid" ? "0 1px 3px rgba(0,0,0,.06)" : "none", fontWeight: view==="grid" ? 600 : 400 }}>▦ Grid</button>
-            <button onClick={()=>setView("table")} style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: view==="table" ? C.white : "transparent", color: view==="table" ? C.purple : C.text4, boxShadow: view==="table" ? "0 1px 3px rgba(0,0,0,.06)" : "none", fontWeight: view==="table" ? 600 : 400 }}>☰ Table</button>
+          {showComingSoon && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 6, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 10, padding: "14px 18px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", width: 240 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
+            <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile.</div>
+            <button onClick={() => setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
           </div>}
         </div>
 
-        {/* Filters */}
-        <Card style={{ padding: winW >= 768 ? "16px 20px" : "12px 14px", marginBottom: 12, border: `1px solid ${C.border}` }}>
-          {/* Row 1: Asset + Chain */}
-          <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Asset</span>
-              {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
-            </div>
-            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Chain</span>
-              {CHAINS.map(c=><Chip key={c} label={c} active={fCh.includes(c)} onClick={()=>tog(fCh,setFCh,c)} small/>)}
+        {/* ── SEARCH + FILTERS + CONTROLS ── */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
+          {/* Search */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
+            <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…" style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: winW >= 768 ? 220 : 160, color: C.text, background: C.white, transition: "border-color .15s" }} />
+          </div>
+          <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+
+          {/* Asset */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Asset</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {ATYPES.map(a=><button key={a.id} onClick={()=>tog(fAt,setFAt,a.id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fAt.includes(a.id) ? 700 : 400, backgroundImage: fAt.includes(a.id) ? C.purpleGrad : "none", background: fAt.includes(a.id) ? undefined : "transparent", border: `1px solid ${fAt.includes(a.id) ? "transparent" : C.border}`, color: fAt.includes(a.id) ? "#fff" : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ fontSize: 10 }}>{a.icon}</span>{a.label}</button>)}
             </div>
           </div>
-          {/* Row 2: Risk + Yield + Protocol */}
-          <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Risk</span>
-              {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
-            </div>
-            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Yield</span>
-              {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
-            </div>
-            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
-            <SearchableSelect label="" options={PROTOCOLS} value={fPr[0] || ""} onChange={v => setFPr(v ? [v] : [])} placeholder="All protocols" />
-            <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-              <Chip label={moreFilters?"Less ▲":"More ▼"} active={moreFilters||secCount>0} onClick={()=>setMoreFilters(!moreFilters)} small/>
-              {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "5px 12px", borderRadius: 6, fontWeight: 600 }}>Clear ({totalActive})</button>}
+          <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+
+          {/* Risk */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Risk</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {[["Low",C.green],["Medium",C.amber],["High",C.red]].map(([r,col])=><button key={r} onClick={()=>tog(fRi,setFRi,r)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fRi.includes(r) ? 700 : 400, background: fRi.includes(r) ? `${col}18` : "transparent", border: `1px solid ${fRi.includes(r) ? col+"50" : C.border}`, color: fRi.includes(r) ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{r}</button>)}
             </div>
           </div>
-        </Card>
+
+          {/* Chain — second row on mobile */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Chain</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {CHAINS.map(c=><button key={c} onClick={()=>tog(fCh,setFCh,c)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fCh.includes(c) ? 600 : 400, background: fCh.includes(c) ? C.purpleDim2 : "transparent", border: `1px solid ${fCh.includes(c) ? C.purple+"40" : C.border}`, color: fCh.includes(c) ? C.purple : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{c}</button>)}
+            </div>
+          </div>
+
+          {/* Right: Advanced + Sort + View */}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            <button onClick={()=>setMoreFilters(!moreFilters)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: moreFilters||secCount>0 ? C.purpleDim : "transparent", border: `1px solid ${moreFilters||secCount>0 ? C.purple+"30" : C.border2}`, color: moreFilters||secCount>0 ? C.purple : C.text2, transition: "all .15s" }}>
+              ⚙️ Advanced
+              {secCount>0 && <span style={{ background: C.purple, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10 }}>{secCount}</span>}
+              <span style={{ fontSize: 10, opacity: .6 }}>{moreFilters ? "▲" : "▼"}</span>
+            </button>
+            {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "5px 12px", borderRadius: 6, fontWeight: 600 }}>Clear ({totalActive})</button>}
+            <div style={{ width: 1, height: 20, background: C.border }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3 }}>Sort</span>
+              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ fontSize: 11, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "5px 8px", background: C.white, fontFamily: "'Inter',sans-serif", color: C.text, cursor: "pointer", outline: "none" }}>
+                {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            {winW >= 640 && <div style={{ display: "flex", background: C.surfaceAlt, borderRadius: 7, border: `1px solid ${C.border}`, padding: 2, gap: 2 }}>
+              {[["grid","⊞"],["table","☰"]].map(([v,icon])=><button key={v} onClick={()=>setView(v)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "4px 8px", borderRadius: 5, border: "none", cursor: "pointer", background: view===v ? C.white : "transparent", color: view===v ? C.purple : C.text4, boxShadow: view===v ? "0 1px 3px rgba(0,0,0,.06)" : "none" }}>{icon}</button>)}
+            </div>}
+          </div>
+        </div>
         {moreFilters && (
           <Card style={{ padding: winW >= 768 ? "16px 20px" : "12px 14px", marginBottom: 12, marginTop: -4, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, background: C.surfaceAlt }}>
             <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
