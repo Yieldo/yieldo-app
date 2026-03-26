@@ -539,107 +539,114 @@ export default function VaultPage() {
       {activeTab === "dashboard" && <DashboardTab vaults={ALL} navigate={navigate} />}
 
       {/* Vaults Tab */}
-      {activeTab === "vaults" && <><div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
-        <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
-        {/* ── WALLET PRESETS ── */}
-        <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Wallet Presets</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, position: "relative", overflowX: winW < 768 ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: winW < 768 ? 4 : 0 }}>
-          {Object.entries(PRESETS).map(([key, p]) => {
-            const active = activePreset === key;
-            return (
-              <button key={key} onClick={() => applyPreset(key)} style={{ flex: winW >= 768 ? 1 : undefined, padding: winW >= 768 ? "10px 14px" : "8px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Inter',sans-serif", border: `1.5px solid ${active ? (p.color || C.purple) : C.border}`, background: active ? `${p.color || C.purple}10` : C.surfaceAlt, textAlign: "left", transition: "all .15s", whiteSpace: "nowrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: winW >= 768 ? 3 : 0 }}>
-                  <span style={{ fontSize: 14 }}>{p.icon}</span>
-                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 600, color: active ? (p.color || C.purple) : C.text }}>{p.label}</span>
-                  {active && <span style={{ marginLeft: "auto", fontSize: 9, background: p.color || C.purple, color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>Active</span>}
-                </div>
-                {winW >= 768 && <div style={{ fontSize: 10, color: active ? (p.color || C.purple) : C.text4, opacity: active ? .85 : 1, lineHeight: 1.4 }}>{p.desc}</div>}
-              </button>
-            );
-          })}
-          {showComingSoon && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 6, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 10, padding: "14px 18px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", width: 240 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
-            <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile.</div>
-            <button onClick={() => setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
-          </div>}
-        </div>
-
-        {/* ── SEARCH + FILTERS + CONTROLS ── */}
-        <div style={{ display: "flex", gap: winW >= 768 ? 10 : 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12, padding: "12px 0", borderTop: `1px solid ${C.border}`, rowGap: 8 }}>
-          {/* Search */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
-            <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…" style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: winW >= 768 ? 220 : 160, color: C.text, background: C.white, transition: "border-color .15s" }} />
-          </div>
-          {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />}
-
-          {/* Asset */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Asset</span>
-            <div style={{ display: "flex", gap: 3 }}>
-              {ATYPES.map(a=><button key={a.id} onClick={()=>tog(fAt,setFAt,a.id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fAt.includes(a.id) ? 700 : 400, backgroundImage: fAt.includes(a.id) ? C.purpleGrad : "none", background: fAt.includes(a.id) ? undefined : "transparent", border: `1px solid ${fAt.includes(a.id) ? "transparent" : C.border}`, color: fAt.includes(a.id) ? "#fff" : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ fontSize: 10 }}>{a.icon}</span>{a.label}</button>)}
-            </div>
-          </div>
-          {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />}
-
-          {/* Risk */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Risk</span>
-            <div style={{ display: "flex", gap: 3 }}>
-              {[["Low",C.green],["Medium",C.amber],["High",C.red]].map(([r,col])=><button key={r} onClick={()=>tog(fRi,setFRi,r)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fRi.includes(r) ? 700 : 400, background: fRi.includes(r) ? `${col}18` : "transparent", border: `1px solid ${fRi.includes(r) ? col+"50" : C.border}`, color: fRi.includes(r) ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{r}</button>)}
-            </div>
-          </div>
-
-          {/* Chain — second row on mobile */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Chain</span>
-            <div style={{ display: "flex", gap: 3 }}>
-              {CHAINS.map(c=><button key={c} onClick={()=>tog(fCh,setFCh,c)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fCh.includes(c) ? 600 : 400, background: fCh.includes(c) ? C.purpleDim2 : "transparent", border: `1px solid ${fCh.includes(c) ? C.purple+"40" : C.border}`, color: fCh.includes(c) ? C.purple : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{c}</button>)}
-            </div>
-          </div>
-
-          {/* Right: Advanced + Sort + View */}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-            <button onClick={()=>setMoreFilters(!moreFilters)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: moreFilters||secCount>0 ? C.purpleDim : "transparent", border: `1px solid ${moreFilters||secCount>0 ? C.purple+"30" : C.border2}`, color: moreFilters||secCount>0 ? C.purple : C.text2, transition: "all .15s" }}>
-              ⚙️ Advanced
-              {secCount>0 && <span style={{ background: C.purple, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10 }}>{secCount}</span>}
-              <span style={{ fontSize: 10, opacity: .6 }}>{moreFilters ? "▲" : "▼"}</span>
-            </button>
-            {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "5px 12px", borderRadius: 6, fontWeight: 600 }}>Clear ({totalActive})</button>}
-            <div style={{ width: 1, height: 20, background: C.border }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontSize: 11, color: C.text3 }}>Sort</span>
-              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ fontSize: 11, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "5px 8px", background: C.white, fontFamily: "'Inter',sans-serif", color: C.text, cursor: "pointer", outline: "none" }}>
-                {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            {winW >= 640 && <div style={{ display: "flex", background: C.surfaceAlt, borderRadius: 7, border: `1px solid ${C.border}`, padding: 2, gap: 2 }}>
-              {[["grid","⊞"],["table","☰"]].map(([v,icon])=><button key={v} onClick={()=>setView(v)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "4px 8px", borderRadius: 5, border: "none", cursor: "pointer", background: view===v ? C.white : "transparent", color: view===v ? C.purple : C.text4, boxShadow: view===v ? "0 1px 3px rgba(0,0,0,.06)" : "none" }}>{icon}</button>)}
+      {activeTab === "vaults" && <><div style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        {/* ── ZONE 1: WALLET PRESETS ── */}
+        <div style={{ padding: "14px 20px 0", maxWidth: 1600, margin: "0 auto" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Wallet Presets</div>
+          <div style={{ display: "flex", gap: 8, position: "relative", overflowX: winW < 768 ? "auto" : "visible", WebkitOverflowScrolling: "touch" }}>
+            {Object.entries(PRESETS).map(([key, p]) => {
+              const active = activePreset === key;
+              return (
+                <button key={key} onClick={() => applyPreset(key)} style={{ flex: winW >= 768 ? 1 : undefined, padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: "'Inter',sans-serif", border: `1.5px solid ${active ? (p.color || C.purple) : C.border}`, background: active ? `${p.color || C.purple}10` : C.surfaceAlt, textAlign: "left", transition: "all .15s", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 14 }}>{p.icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: active ? 700 : 600, color: active ? (p.color || C.purple) : C.text }}>{p.label}</span>
+                    {active && <span style={{ marginLeft: "auto", fontSize: 9, background: p.color || C.purple, color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>Active</span>}
+                  </div>
+                  {winW >= 640 && <div style={{ fontSize: 10, color: active ? (p.color || C.purple) : C.text4, opacity: active ? .85 : 1, lineHeight: 1.4 }}>{p.desc}</div>}
+                </button>
+              );
+            })}
+            {showComingSoon && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 6, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 10, padding: "14px 18px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", width: 240 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
+              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile.</div>
+              <button onClick={() => setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
             </div>}
           </div>
         </div>
+
+        {/* ── ZONE 2: SEARCH + FILTERS ── */}
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, marginTop: 14, maxWidth: 1600, margin: "14px auto 0" }}>
+          {/* Row 1: Search + Asset + Risk */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
+              <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…" style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: winW >= 768 ? 220 : 150, color: C.text, background: C.white, transition: "border-color .15s" }} />
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500, whiteSpace: "nowrap" }}>Asset</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {ATYPES.map(a=><button key={a.id} onClick={()=>tog(fAt,setFAt,a.id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fAt.includes(a.id) ? 700 : 400, backgroundImage: fAt.includes(a.id) ? C.purpleGrad : "none", background: fAt.includes(a.id) ? undefined : "transparent", border: `1px solid ${fAt.includes(a.id) ? "transparent" : C.border}`, color: fAt.includes(a.id) ? "#fff" : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ fontSize: 10 }}>{a.icon}</span>{a.label}</button>)}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Risk</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {[["Low",C.green],["Medium",C.amber],["High",C.red]].map(([r,col])=><button key={r} onClick={()=>tog(fRi,setFRi,r)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fRi.includes(r) ? 700 : 400, background: fRi.includes(r) ? `${col}18` : "transparent", border: `1px solid ${fRi.includes(r) ? col+"50" : C.border}`, color: fRi.includes(r) ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{r}</button>)}
+              </div>
+            </div>
+          </div>
+          {/* Row 2: Chain + Yield + Protocol + Advanced + Sort + View */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10, rowGap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Chain</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {CHAINS.map(c=><button key={c} onClick={()=>tog(fCh,setFCh,c)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fCh.includes(c) ? 600 : 400, background: fCh.includes(c) ? C.purpleDim2 : "transparent", border: `1px solid ${fCh.includes(c) ? C.purple+"40" : C.border}`, color: fCh.includes(c) ? C.purple : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{c}</button>)}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Yield</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><button key={id} onClick={()=>setFYT(fYT===id?"all":id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fYT===id&&id!=="all" ? 600 : 400, background: fYT===id&&id!=="all" ? C.tealDim : "transparent", border: `1px solid ${fYT===id&&id!=="all" ? C.teal+"40" : C.border}`, color: fYT===id&&id!=="all" ? C.teal : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{l}</button>)}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+            <SearchableSelect label="" options={PROTOCOLS} value={fPr[0] || ""} onChange={v => setFPr(v ? [v] : [])} placeholder="All protocols" />
+            {/* Right: Advanced + Sort + View */}
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+              <button onClick={()=>setMoreFilters(!moreFilters)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: moreFilters||secCount>0 ? C.purpleDim : "transparent", border: `1px solid ${moreFilters||secCount>0 ? C.purple+"30" : C.border2}`, color: moreFilters||secCount>0 ? C.purple : C.text2, transition: "all .15s" }}>
+                ⚙️ Advanced{secCount>0 && <span style={{ background: C.purple, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10 }}>{secCount}</span>}<span style={{ fontSize: 10, opacity: .6 }}>{moreFilters ? "▲" : "▼"}</span>
+              </button>
+              <div style={{ width: 1, height: 20, background: C.border }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 11, color: C.text3 }}>Sort</span>
+                <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ fontSize: 11, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "5px 8px", background: C.white, fontFamily: "'Inter',sans-serif", color: C.text, cursor: "pointer", outline: "none" }}>
+                  {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              {winW >= 640 && <div style={{ display: "flex", background: C.surfaceAlt, borderRadius: 7, border: `1px solid ${C.border}`, padding: 2, gap: 2 }}>
+                {[["grid","⊞"],["table","☰"]].map(([v,icon])=><button key={v} onClick={()=>setView(v)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "4px 8px", borderRadius: 5, border: "none", cursor: "pointer", background: view===v ? C.white : "transparent", color: view===v ? C.text : C.text3, boxShadow: view===v ? "0 1px 3px rgba(0,0,0,.08)" : "none", transition: "all .12s" }}>{icon}</button>)}
+              </div>}
+              {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.text3, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕ Clear</button>}
+            </div>
+          </div>
+        </div>
+
+        {/* ── ZONE 3: ADVANCED FILTERS ── */}
         {moreFilters && (
-          <Card style={{ padding: winW >= 768 ? "16px 20px" : "12px 14px", marginBottom: 12, marginTop: -4, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, background: C.surfaceAlt }}>
-            <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 20px", background: "#FAFAF8", maxWidth: 1600, margin: "0 auto" }}>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
               <SearchableSelect label="Curator" options={CURATORS} value={fCu[0] || ""} onChange={v => setFCu(v ? [v] : [])} placeholder="All curators" />
               <div>
                 <FL>Flags</FL>
-                <div style={{ display: "flex", gap: 5 }}>
-                  <Chip label="✓ Clean" active={fFS.includes("clean")} onClick={()=>tog(fFS,setFFS,"clean")} small/>
-                  <Chip label="🟡 Warn" active={fFS.includes("warning")} onClick={()=>tog(fFS,setFFS,"warning")} small/>
-                  <Chip label="🔴 Crit" active={fFS.includes("critical")} onClick={()=>tog(fFS,setFFS,"critical")} small/>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[["clean","✓ Clean",C.green],["warning","🟡 Warning",C.amber],["critical","🔴 Critical",C.red]].map(([id,l,col])=><button key={id} onClick={()=>tog(fFS,setFFS,id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fFS.includes(id) ? 600 : 400, background: fFS.includes(id) ? `${col}15` : "transparent", border: `1px solid ${fFS.includes(id) ? col+"40" : C.border}`, color: fFS.includes(id) ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>{l}</button>)}
                 </div>
               </div>
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
               <NumInput label="Min Score" value={fSc} onChange={v=>setFSc(v)} width={75}/>
               <NumInput label="Min APY" value={fApy} onChange={v=>setFApy(v)} suffix="%" width={70}/>
               <NumInput label="Min TVL" value={fTvl} onChange={v=>setFTvl(v)} prefix="$" width={85}/>
               <NumInput label="Min Age" value={fAge} onChange={v=>setFAge(v)} suffix="d" width={65}/>
               <NumInput label="Min Deps" value={fDep} onChange={v=>setFDep(v)} width={70}/>
             </div>
-          </Card>
+          </div>
         )}
+      </div>
+      <div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
+        <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, marginTop: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, color: C.text3 }}><strong style={{ color: C.text }}>{filtered.length}</strong> vaults</span>
