@@ -8,6 +8,54 @@ function useWindowWidth() {
   return w;
 }
 
+// DeFiLlama pool IDs for benchmark verification — matches backend third_party.py
+const BENCHMARK_URLS = {
+  // USDC
+  "usdc_1": "https://defillama.com/yields/pool/aa70268e-4b52-42bf-a116-608b370f9501",
+  "usdc_8453": "https://defillama.com/yields/pool/7e0661bf-8cf3-45e6-9424-31916d4c7b84",
+  "usdc_42161": "https://defillama.com/yields/pool/d9fa8e14-0447-4207-9ae8-7810199dfa1f",
+  "usdc_10": "https://defillama.com/yields/pool/0758c3b8-4ffb-4176-b0a9-f446e367db46",
+  // USDT
+  "usdt_1": "https://defillama.com/yields/pool/f981a304-bb6c-45b8-b0c5-fd2f515ad23a",
+  "usdt_10": "https://defillama.com/yields/pool/bde08c85-41c5-4d80-9bb1-0835a4352efa",
+  // WETH / ETH-like → Lido
+  "weth_1": "https://defillama.com/yields/pool/747c1d2a-c668-4682-b9f9-296708a3dd90",
+  "wsteth_1": "https://defillama.com/yields/pool/747c1d2a-c668-4682-b9f9-296708a3dd90",
+  "re7lrt_1": "https://defillama.com/yields/pool/747c1d2a-c668-4682-b9f9-296708a3dd90",
+  "weth_8453": "https://defillama.com/yields/pool/23405eee-97e7-4b8e-8625-19c3a36047e8",
+  "weth_42161": "https://defillama.com/yields/pool/e302de4d-952e-4e18-9749-0a9dc86e98bc",
+  "weth_10": "https://defillama.com/yields/pool/3e332a41-3a15-41bc-8d5c-438c09609349",
+  // WBTC
+  "wbtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
+  "cbbtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
+  "wbtc_42161": "https://defillama.com/yields/pool/7c5e69a4-2430-4fa2-b7cb-857f79d7d1bf",
+  // PYUSD
+  "pyusd_1": "https://defillama.com/yields/pool/d118f505-e75f-4152-bad3-49a2dc7482bf",
+  // WHYPE (HyperLend)
+  "whype_999": "https://defillama.com/yields/pool/b039004a-df3c-4813-97b8-a15ec488212c",
+};
+// Stablecoins that use USDC benchmark as fallback
+const STABLE_ASSETS = ["usdc","usdt","dai","pyusd","susd","eurc","usds","usda","ausd","usdtb"];
+function getBenchmarkUrl(asset, chainId) {
+  const a = (asset || "").toLowerCase();
+  const key = `${a}_${chainId}`;
+  if (BENCHMARK_URLS[key]) return BENCHMARK_URLS[key];
+  // Stablecoin fallback: use USDC on same chain, then USDC on ETH
+  if (STABLE_ASSETS.includes(a)) {
+    const fallback = BENCHMARK_URLS[`usdc_${chainId}`] || BENCHMARK_URLS["usdc_1"];
+    return fallback;
+  }
+  // ETH-like fallback
+  if (["eth","weth","wsteth","re7lrt","cbeth","reth"].includes(a)) {
+    return BENCHMARK_URLS[`weth_${chainId}`] || BENCHMARK_URLS["weth_1"];
+  }
+  // BTC-like fallback
+  if (["wbtc","cbbtc","lbtc","ubtc"].includes(a)) {
+    return BENCHMARK_URLS[`wbtc_${chainId}`] || BENCHMARK_URLS["wbtc_1"];
+  }
+  return "https://defillama.com/yields";
+}
+
 const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
   border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",
@@ -346,7 +394,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>vs. Benchmark</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: v.apyVsBenchmark && v.apyVsBenchmark >= 1.2 ? C.green : C.text2, marginTop: 2 }}>{v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"}</div>
-                  {v.benchAave !== null && <div style={{ fontSize: 10, color: C.text4 }}>Aave: {v.benchAave.toFixed(2)}% <a href="https://defillama.com/yields" target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div>}
+                  {v.benchAave !== null && <div style={{ fontSize: 10, color: C.text4 }}>Benchmark: {v.benchAave.toFixed(2)}% <a href={getBenchmarkUrl(v.asset, v.chain_id)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div>}
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
@@ -497,7 +545,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   </select>
                   {v.P03b && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV.warning.bg, color: SEV.warning.color }}>{SEV.warning.icon}</span>}
                 </div>
-                {v.benchAave ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>Benchmark: {v.benchAave.toFixed(2)}% <a href="https://defillama.com/yields" target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
+                {v.benchAave ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>Benchmark: {v.benchAave.toFixed(2)}% <a href={getBenchmarkUrl(v.asset, v.chain_id)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
                 {v.P03b && <div style={{ fontSize: 10, color: SEV.warning.color, marginTop: 2, fontStyle: "italic" }}>→ Below 80% of benchmark</div>}
               </div>
               <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const val = benchTf === "1d" ? v.apyVsBench1d : benchTf === "7d" ? v.apyVsBench7d : v.apyVsBench30d; return val !== null ? `${val.toFixed(2)}×` : (v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"); })()}</span>
