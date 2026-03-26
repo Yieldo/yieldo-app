@@ -96,7 +96,18 @@ const fmt = (v, suffix = "", fallback = "N/A") => {
   return `${v}${suffix}`;
 };
 
-function APYChart({ data, dates = [], benchmarkData, width = 560, height = 200 }) {
+function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, height: propHeight = 200 }) {
+  // Make chart responsive — use container width
+  const containerRef = useRef(null);
+  const [containerW, setContainerW] = useState(propWidth);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(entries => { for (const e of entries) setContainerW(e.contentRect.width); });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+  const width = Math.max(200, containerW);
+  const height = Math.min(propHeight, width * 0.4);
   const [range, setRange] = useState("All");
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
@@ -125,8 +136,8 @@ function APYChart({ data, dates = [], benchmarkData, width = 560, height = 200 }
     if (idx >= 0 && idx < sliced.length) setHover(idx);
   };
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+    <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 12, height: 2, background: C.purple, borderRadius: 1 }} /><span style={{ fontSize: 10, color: C.text3 }}>Vault APY</span></div>
           {benchSliced.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 12, height: 2, background: C.text4, borderRadius: 1, opacity: .5 }} /><span style={{ fontSize: 10, color: C.text4 }}>Benchmark</span></div>}
@@ -301,16 +312,16 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
       <div style={{ padding: pad, maxWidth: 1200, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
-          <Card style={{ flex: "1 1 0", padding: 24 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 20 }}>
-              <ScoreRing score={v.yieldoScore} size={72} sw={6} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700 }}>{v.name}</span>
+          <Card style={{ flex: "1 1 0", padding: isMobile ? 16 : 24 }}>
+            <div style={{ display: "flex", gap: isMobile ? 12 : 16, alignItems: "flex-start", marginBottom: 16 }}>
+              <ScoreRing score={v.yieldoScore} size={isMobile ? 56 : 72} sw={isMobile ? 5 : 6} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>{v.name}</span>
                   <ConfBadge age={v.age} />
                 </div>
                 <div style={{ fontSize: 13, color: C.text3, marginBottom: 6 }}>Curated by {v.curator} · {v.chain} · {v.protocol}</div>
-                <div style={{ fontSize: 11, color: C.text4, marginBottom: 8, fontFamily: "monospace" }}>{v.vault_address}</div>
+                <div style={{ fontSize: 11, color: C.text4, marginBottom: 8, fontFamily: "monospace", wordBreak: "break-all" }}>{isMobile ? `${v.vault_address?.slice(0, 10)}...${v.vault_address?.slice(-8)}` : v.vault_address}</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <Badge color={v.riskC}>{v.risk} Risk</Badge>
                   <YieldBadge t={v.yieldType} />
@@ -325,7 +336,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             </div>
             <ScoreBar subScores={v.subScores} weights={weights} finalScore={v.yieldoScore} conf={v.conf} />
           </Card>
-          <div style={{ width: 280, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
             <Card style={{ padding: "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
@@ -380,13 +391,13 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
 
         {/* APY History Chart */}
         {hasHistory && (
-          <Card style={{ padding: "20px 24px", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Card style={{ padding: isMobile ? "12px 10px" : "20px 24px", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: isMobile ? "0 6px" : 0 }}>
               <span style={{ fontSize: 16 }}>📈</span>
               <span style={{ fontSize: 15, fontWeight: 700 }}>APY History</span>
               <span style={{ fontSize: 11, color: C.text4 }}>({apyHistory.length} days)</span>
             </div>
-            <APYChart data={apyHistory} dates={apyDates} benchmarkData={null} width={1110} height={220} />
+            <APYChart data={apyHistory} dates={apyDates} benchmarkData={null} height={isMobile ? 160 : 220} />
           </Card>
         )}
 
@@ -418,7 +429,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         {/* Metric Sections */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 16 }}>
           {/* Capital */}
-          <Card style={{ padding: "20px 24px" }}>
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#6366f1" }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Capital</span>
@@ -456,7 +467,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           </Card>
 
           {/* Performance */}
-          <Card style={{ padding: "20px 24px" }}>
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Performance</span>
@@ -525,7 +536,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           </Card>
 
           {/* Risk */}
-          <Card style={{ padding: "20px 24px" }}>
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#ef4444" }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Risk</span>
@@ -568,7 +579,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           </Card>
 
           {/* Trust */}
-          <Card style={{ padding: "20px 24px" }}>
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Trust</span>
