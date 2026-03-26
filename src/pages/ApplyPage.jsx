@@ -176,7 +176,7 @@ export default function ApplyPage() {
             <div style={{ textAlign: "center", marginBottom: 48 }}>
               <Tag>Get Started</Tag>
               <h1 style={{ fontSize: 48, fontWeight: 400, textTransform: "uppercase", margin: "16px 0 0", letterSpacing: "-.02em", lineHeight: 1.15 }}>
-                Join the <GradientText style={{ fontSize: 48 }}>Yieldo Network</GradientText>
+                Join the <GradientText style={{ fontSize: 48 }}>Yieldo Ecosystem</GradientText>
               </h1>
               <p style={{ fontSize: 18, color: "rgba(0,0,0,0.5)", maxWidth: 520, margin: "16px auto 0", lineHeight: 1.6 }}>
                 Whether you're a wallet, vault protocol, or content creator — we'd love to work with you. Choose your path below.

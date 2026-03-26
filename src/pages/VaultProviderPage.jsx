@@ -279,7 +279,7 @@ export default function VaultProviderPage() {
             </div>
             <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Welcome to Yieldo for Vaults</h2>
             <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 460, textAlign: "center", lineHeight: 1.6 }}>
-              List your vaults on the Yieldo network, create campaigns, and attract AUM from wallet partners and KOLs. Connect your wallet to get started.
+              List your vaults on the Yieldo ecosystem, create campaigns, and attract AUM from wallet partners and KOLs. Connect your wallet to get started.
             </p>
             <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
               <StatCard icon="🏦" label="Vaults on Yieldo" value={vaults.length || "—"} />

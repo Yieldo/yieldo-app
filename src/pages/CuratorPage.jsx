@@ -690,7 +690,7 @@ export default function CuratorPage() {
             </Card>
             <Card style={{ padding: 24, borderColor: C.redDim }}>
               <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: C.red }}>Danger Zone</h3>
-              <p style={{ fontSize: 13, color: C.text3, margin: "0 0 14px" }}>Delist your vault from the Yieldo network. Active campaigns will be settled first.</p>
+              <p style={{ fontSize: 13, color: C.text3, margin: "0 0 14px" }}>Delist your vault from the Yieldo ecosystem. Active campaigns will be settled first.</p>
               <Btn danger>Delist Vault</Btn>
             </Card>
           </div>

@@ -172,6 +172,36 @@ const ATYPES = [
 
 
 
+function SearchableSelect({ label, options, value, onChange, placeholder = "All" }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const filtered = search ? options.filter(o => o.toLowerCase().includes(search.toLowerCase())) : options;
+  return (
+    <div style={{ minWidth: 140, position: "relative" }}>
+      {label && <FL>{label}</FL>}
+      <div onClick={() => setOpen(!open)} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${value ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: value ? C.purple : C.text3, background: value ? C.purpleDim : C.white, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{value || placeholder}</span>
+        <span style={{ fontSize: 10, color: C.text4 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: C.white, border: `1px solid ${C.border2}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)", zIndex: 30, maxHeight: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "6px 8px", borderBottom: `1px solid ${C.border}` }}>
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ width: "100%", padding: "5px 8px", borderRadius: 4, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ overflow: "auto", maxHeight: 170 }}>
+            <div onClick={() => { onChange(""); setOpen(false); setSearch(""); }} style={{ padding: "7px 12px", fontSize: 12, cursor: "pointer", color: !value ? C.purple : C.text2, fontWeight: !value ? 600 : 400, background: !value ? C.purpleDim : "transparent" }} onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = !value ? C.purpleDim : "transparent"}>{placeholder}</div>
+            {filtered.map(o => (
+              <div key={o} onClick={() => { onChange(o); setOpen(false); setSearch(""); }} style={{ padding: "7px 12px", fontSize: 12, cursor: "pointer", color: value === o ? C.purple : C.text2, fontWeight: value === o ? 600 : 400, background: value === o ? C.purpleDim : "transparent" }} onMouseEnter={e => e.currentTarget.style.background = C.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = value === o ? C.purpleDim : "transparent"}>{o}</div>
+            ))}
+            {filtered.length === 0 && <div style={{ padding: "12px", fontSize: 11, color: C.text4, textAlign: "center" }}>No matches</div>}
+          </div>
+        </div>
+      )}
+      {open && <div onClick={() => { setOpen(false); setSearch(""); }} style={{ position: "fixed", inset: 0, zIndex: 29 }} />}
+    </div>
+  );
+}
+
 const fmtNum = (n, suffix = "") => {
   if (n === null || n === undefined || n === "Insufficient Data") return "N/A";
   return typeof n === "number" ? `${n.toFixed(1)}${suffix}` : `${n}${suffix}`;
@@ -575,13 +605,7 @@ export default function VaultPage() {
                   {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
                 </div>
               </div>
-              <div style={{ minWidth: 120 }}>
-                <FL>Protocol</FL>
-                <select value={fPr.length === 1 ? fPr[0] : ""} onChange={e => setFPr(e.target.value ? [e.target.value] : [])} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fPr.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fPr.length ? C.purple : C.text3, background: fPr.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", width: "100%" }}>
-                  <option value="">All</option>
-                  {PROTOCOLS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+              <SearchableSelect label="Protocol" options={PROTOCOLS} value={fPr[0] || ""} onChange={v => setFPr(v ? [v] : [])} placeholder="All protocols" />
             </div>
           </Card>
         </div>
@@ -593,13 +617,7 @@ export default function VaultPage() {
         {moreFilters && (
           <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(3, 1fr)" : "1fr", gap: 16 }}>
-              <div>
-                <FL>Curator</FL>
-                <select value={fCu.length === 1 ? fCu[0] : ""} onChange={e => setFCu(e.target.value ? [e.target.value] : [])} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${fCu.length ? C.purple + "40" : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", color: fCu.length ? C.purple : C.text3, background: fCu.length ? C.purpleDim : C.white, cursor: "pointer", outline: "none", width: "100%" }}>
-                  <option value="">All Curators</option>
-                  {CURATORS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+              <SearchableSelect label="Curator" options={CURATORS} value={fCu[0] || ""} onChange={v => setFCu(v ? [v] : [])} placeholder="All curators" />
               <div>
                 <FL>Flag Status</FL>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>

@@ -1,6 +1,12 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useVaultDetail } from "../hooks/useVaultData.js";
+
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => { const h = () => setW(window.innerWidth); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+  return w;
+}
 
 const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
@@ -220,6 +226,9 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const { vault: detailVault, loading } = useVaultDetail(vaultId);
   const v = detailVault || listVault;
   const handleBack = onBack || (() => navigate("/vault"));
+  const winW = useWindowWidth();
+  const isMobile = winW < 768;
+  const pad = isMobile ? "14px 16px" : "24px 32px";
   const weights = { capital: .20, performance: .25, risk: .35, trust: .20 };
   const [tvlTf, setTvlTf] = useState("7d");
   const [nfTf, setNfTf] = useState("7d");
@@ -275,19 +284,23 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh" }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 30, height: 30, borderRadius: 7 }} />
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span><span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <button style={{ fontSize: 14, fontWeight: 500, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif" }} onClick={handleBack}>← Vaults</button>
-          <span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 14, fontWeight: 500, color: C.text2 }}>{v.name}</span>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "10px 12px" : "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0 }} />
+          {!isMobile && <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
+          <span style={{ color: C.text4 }}>/</span>
+          <button style={{ fontSize: 13, fontWeight: 500, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap" }} onClick={handleBack}>← Vaults</button>
+          {!isMobile && <><span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 13, fontWeight: 500, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span></>}
         </div>
-        <div style={{ display: "flex", gap: 8 }}><Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn><Btn small onClick={() => navigate("/vault")}>Dashboard</Btn><Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn></div>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
+          <Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn>
+        </div>
       </div>
-      {loading && <div style={{ padding: "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
-      <div style={{ padding: "24px 32px", maxWidth: 1200, margin: "0 auto" }}>
+      {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
+      <div style={{ padding: pad, maxWidth: 1200, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
           <Card style={{ flex: "1 1 0", padding: 24 }}>
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 20 }}>
               <ScoreRing score={v.yieldoScore} size={72} sw={6} />
@@ -403,7 +416,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         )}
 
         {/* Metric Sections */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 16 }}>
           {/* Capital */}
           <Card style={{ padding: "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
@@ -605,7 +618,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             <span style={{ fontSize: 16 }}>📊</span>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Data Confidence</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: isMobile ? 8 : 16 }}>
             {[
               { lbl: "Vault Age", val: `${v.age}`, unit: "days", sub: v.maturity, col: v.age >= 90 ? C.green : C.blue },
               { lbl: "Maturity", val: v.maturity, sub: v.age >= 90 ? "Full metrics available" : "Limited data", col: v.age >= 90 ? C.green : C.amber },
