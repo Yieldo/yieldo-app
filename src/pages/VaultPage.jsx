@@ -419,7 +419,11 @@ export default function VaultPage() {
   const togCmp = v => { cmpList.find(c=>c.id===v.id)?setCmpList(cmpList.filter(c=>c.id!==v.id)):cmpList.length<4&&setCmpList([...cmpList,v]); };
   const togEnr = id => { const n=new Set(enrolled); n.has(id)?n.delete(id):n.add(id); setEnrolled(n); };
 
-  const CHAINS = useMemo(() => [...new Set(ALL.map(v => v.chain))].sort(), [ALL]);
+  const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Hyperliquid"];
+  const CHAINS = useMemo(() => {
+    const all = [...new Set(ALL.map(v => v.chain))].sort();
+    return all.filter(c => SUPPORTED_CHAINS.includes(c));
+  }, [ALL]);
   const PROTOCOLS = useMemo(() => [...new Set(ALL.map(v => v.protocol))].filter(Boolean).sort(), [ALL]);
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
@@ -525,35 +529,26 @@ export default function VaultPage() {
       {/* Vaults Tab */}
       {activeTab === "vaults" && <><div style={{ padding: pad, maxWidth: 1600, margin: "0 auto" }}>
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Wallet Presets</div>
-          <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(3, 1fr)" : "1fr", gap: 10 }}>
-            {Object.entries(PRESETS).map(([key, p]) => {
-              const active = activePreset === key;
-              return (
-                <Card key={key} onClick={() => applyPreset(key)} style={{ padding: "12px 16px", cursor: "pointer", border: active ? `1.5px solid ${C.purple}` : `1px solid ${C.border}`, background: active ? C.purpleDim : C.white, transition: "all .15s" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 15 }}>{p.icon}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: active ? C.purple : C.text }}>{p.label}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.4 }}>{p.desc}</div>
-                </Card>
-              );
-            })}
+        {/* Presets */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {Object.entries(PRESETS).map(([key, p]) => {
+            const active = activePreset === key;
+            return (
+              <button key={key} onClick={() => applyPreset(key)} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? C.purpleDim : C.white, border: `1px solid ${active ? C.purple + "50" : C.border}`, color: active ? C.purple : C.text3, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" }}>
+                <span style={{ fontSize: 13 }}>{p.icon}</span>{p.label}
+              </button>
+            );
+          })}
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <button onClick={() => { setShowComingSoon(!showComingSoon); fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet_address: "auto-curate-click", event: "auto_curate_click" }) }).catch(() => {}); }} style={{ padding: "8px 16px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: C.white, border: `1px solid ${C.border}`, color: C.text3, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 13 }}>✨</span>Auto-Curate
+            </button>
+            {showComingSoon && <div style={{ position: "absolute", left: 0, top: "100%", marginTop: 6, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 10, padding: "14px 18px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", width: 240 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
+              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile.</div>
+              <button onClick={() => setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
+            </div>}
           </div>
-        </div>
-        <div style={{ position: "relative" }}>
-        <Card style={{ padding: "10px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${C.border}`, background: C.white }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 16 }}>🤖</span><div><div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Auto-Curate</div><div style={{ fontSize: 11, color: C.text3 }}>Top 12 by Yieldo Score within risk tolerance</div></div></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div onClick={()=>setShowComingSoon(true)} style={{ width: 40, height: 22, borderRadius: 11, background: "rgba(0,0,0,.1)", position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.15)" }}/></div>
-          </div>
-        </Card>
-        {showComingSoon && <div style={{ position: "absolute", right: 12, top: "100%", marginTop: -8, zIndex: 20, background: C.white, border: `1px solid ${C.purple}30`, borderRadius: 8, padding: "12px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.1)", maxWidth: 260 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.purple, marginBottom: 4 }}>Coming Soon</div>
-          <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Auto-Curate will automatically select the best vaults for your risk profile. Stay tuned!</div>
-          <button onClick={()=>setShowComingSoon(false)} style={{ marginTop: 8, fontSize: 11, fontWeight: 500, color: C.purple, background: C.purpleDim, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Got it</button>
-        </div>}
         </div>
         {/* Search + Sort + View */}
         <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
