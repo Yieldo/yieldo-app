@@ -574,65 +574,57 @@ export default function VaultPage() {
         </div>
 
         {/* Filters */}
-        <div style={{ display: "grid", gridTemplateColumns: winW >= 768 ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 10 }}>
-          {/* Asset Type */}
-          <Card style={{ padding: "10px 14px" }}>
-            <FL>Asset</FL>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        <Card style={{ padding: winW >= 768 ? "16px 20px" : "12px 14px", marginBottom: 12, border: `1px solid ${C.border}` }}>
+          {/* Row 1: Asset + Chain */}
+          <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Asset</span>
               {ATYPES.map(a=><Chip key={a.id} label={a.label} icon={a.icon} active={fAt.includes(a.id)} onClick={()=>tog(fAt,setFAt,a.id)} small/>)}
             </div>
-          </Card>
-          {/* Chain */}
-          <Card style={{ padding: "10px 14px" }}>
-            <FL>Chain</FL>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Chain</span>
               {CHAINS.map(c=><Chip key={c} label={c} active={fCh.includes(c)} onClick={()=>tog(fCh,setFCh,c)} small/>)}
             </div>
-          </Card>
-          {/* Risk */}
-          <Card style={{ padding: "10px 14px" }}>
-            <FL>Risk</FL>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          </div>
+          {/* Row 2: Risk + Yield + Protocol */}
+          <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Risk</span>
               {["Low","Medium","High"].map(r=><Chip key={r} label={r} active={fRi.includes(r)} onClick={()=>tog(fRi,setFRi,r)} small/>)}
             </div>
-          </Card>
-          {/* Yield + Protocol + More */}
-          <Card style={{ padding: "10px 14px" }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 100 }}>
-                <FL>Yield Type</FL>
-                <div style={{ display: "flex", gap: 5 }}>
-                  {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
-                </div>
-              </div>
-              <SearchableSelect label="Protocol" options={PROTOCOLS} value={fPr[0] || ""} onChange={v => setFPr(v ? [v] : [])} placeholder="All protocols" />
+            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".03em" }}>Yield</span>
+              {[["all","All"],["real","Real"],["incentivized","Incent."]].map(([id,l])=><Chip key={id} label={l} active={fYT===id} onClick={()=>setFYT(fYT===id?"all":id)} small/>)}
             </div>
-          </Card>
-        </div>
-        {/* More filters toggle + clear */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <Chip label={moreFilters?"Less filters":"More filters"} icon={moreFilters?"▲":"▼"} active={moreFilters||secCount>0} onClick={()=>setMoreFilters(!moreFilters)} small/>
-          {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "4px 12px", borderRadius: 6, fontWeight: 500 }}>Clear all ({totalActive})</button>}
-        </div>
+            {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border }} />}
+            <SearchableSelect label="" options={PROTOCOLS} value={fPr[0] || ""} onChange={v => setFPr(v ? [v] : [])} placeholder="All protocols" />
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+              <Chip label={moreFilters?"Less ▲":"More ▼"} active={moreFilters||secCount>0} onClick={()=>setMoreFilters(!moreFilters)} small/>
+              {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.purple, background: C.purpleDim, border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: "5px 12px", borderRadius: 6, fontWeight: 600 }}>Clear ({totalActive})</button>}
+            </div>
+          </div>
+        </Card>
         {moreFilters && (
-          <Card style={{ padding: "14px 18px", marginBottom: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(3, 1fr)" : "1fr", gap: 16 }}>
+          <Card style={{ padding: winW >= 768 ? "16px 20px" : "12px 14px", marginBottom: 12, marginTop: -4, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0, background: C.surfaceAlt }}>
+            <div style={{ display: "flex", gap: winW >= 768 ? 24 : 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
               <SearchableSelect label="Curator" options={CURATORS} value={fCu[0] || ""} onChange={v => setFCu(v ? [v] : [])} placeholder="All curators" />
               <div>
-                <FL>Flag Status</FL>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <Chip label="Clean" icon="✓" active={fFS.includes("clean")} onClick={()=>tog(fFS,setFFS,"clean")} small/>
-                  <Chip label="Warning" icon="🟡" active={fFS.includes("warning")} onClick={()=>tog(fFS,setFFS,"warning")} small/>
-                  <Chip label="Critical" icon="🔴" active={fFS.includes("critical")} onClick={()=>tog(fFS,setFFS,"critical")} small/>
+                <FL>Flags</FL>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <Chip label="✓ Clean" active={fFS.includes("clean")} onClick={()=>tog(fFS,setFFS,"clean")} small/>
+                  <Chip label="🟡 Warn" active={fFS.includes("warning")} onClick={()=>tog(fFS,setFFS,"warning")} small/>
+                  <Chip label="🔴 Crit" active={fFS.includes("critical")} onClick={()=>tog(fFS,setFFS,"critical")} small/>
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(5, 1fr)" : "repeat(2, 1fr) 1fr", gap: 12 }}>
-              <NumInput label="Min Score" value={fSc} onChange={v=>setFSc(v)}/>
-              <NumInput label="Min APY" value={fApy} onChange={v=>setFApy(v)} suffix="%"/>
-              <NumInput label="Min TVL" value={fTvl} onChange={v=>setFTvl(v)} prefix="$"/>
-              <NumInput label="Min Age" value={fAge} onChange={v=>setFAge(v)} suffix="d"/>
-              <NumInput label="Min Depositors" value={fDep} onChange={v=>setFDep(v)}/>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <NumInput label="Min Score" value={fSc} onChange={v=>setFSc(v)} width={75}/>
+              <NumInput label="Min APY" value={fApy} onChange={v=>setFApy(v)} suffix="%" width={70}/>
+              <NumInput label="Min TVL" value={fTvl} onChange={v=>setFTvl(v)} prefix="$" width={85}/>
+              <NumInput label="Min Age" value={fAge} onChange={v=>setFAge(v)} suffix="d" width={65}/>
+              <NumInput label="Min Deps" value={fDep} onChange={v=>setFDep(v)} width={70}/>
             </div>
           </Card>
         )}
