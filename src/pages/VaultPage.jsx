@@ -382,6 +382,7 @@ export default function VaultPage() {
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
   const [showComingSoon, setShowComingSoon] = useState(false);
+  const [autoCurateTracked, setAutoCurateTracked] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
   const [cmpList, setCmpList] = useState([]), [enrolled, setEnrolled] = useState(new Set());
   const [fbOpen, setFbOpen] = useState(false);
@@ -436,7 +437,14 @@ export default function VaultPage() {
   };
   const applyPreset = (key) => {
     const p = PRESETS[key];
-    if (p.isComingSoon) { setShowComingSoon(true); return; }
+    if (p.isComingSoon) {
+      setShowComingSoon(true);
+      if (!autoCurateTracked) {
+        setAutoCurateTracked(true);
+        fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet_address: address || "anonymous", event: "auto_curate_click" }) }).catch(() => {});
+      }
+      return;
+    }
     if (activePreset === key) { clearAll(); setActivePreset(null); return; }
     setSearch(""); setFCu([]); setFFS([]); setFRi([]);
     setFPr(p.fPr || []);
@@ -535,7 +543,7 @@ export default function VaultPage() {
         <div style={{ padding: "10px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginBottom: 16, display: "flex", gap: 10 }}><span style={{ fontSize: 14 }}>⚠️</span><div style={{ fontSize: 12, color: "rgba(0,0,0,.55)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice.</div></div>
         {/* ── WALLET PRESETS ── */}
         <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Wallet Presets</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, position: "relative" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, position: "relative", overflowX: winW < 768 ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: winW < 768 ? 4 : 0 }}>
           {Object.entries(PRESETS).map(([key, p]) => {
             const active = activePreset === key;
             return (
@@ -557,13 +565,13 @@ export default function VaultPage() {
         </div>
 
         {/* ── SEARCH + FILTERS + CONTROLS ── */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", gap: winW >= 768 ? 10 : 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12, padding: "12px 0", borderTop: `1px solid ${C.border}`, rowGap: 8 }}>
           {/* Search */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
             <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…" style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: winW >= 768 ? 220 : 160, color: C.text, background: C.white, transition: "border-color .15s" }} />
           </div>
-          <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+          {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />}
 
           {/* Asset */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -572,7 +580,7 @@ export default function VaultPage() {
               {ATYPES.map(a=><button key={a.id} onClick={()=>tog(fAt,setFAt,a.id)} style={{ padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: fAt.includes(a.id) ? 700 : 400, backgroundImage: fAt.includes(a.id) ? C.purpleGrad : "none", background: fAt.includes(a.id) ? undefined : "transparent", border: `1px solid ${fAt.includes(a.id) ? "transparent" : C.border}`, color: fAt.includes(a.id) ? "#fff" : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ fontSize: 10 }}>{a.icon}</span>{a.label}</button>)}
             </div>
           </div>
-          <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
+          {winW >= 768 && <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />}
 
           {/* Risk */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
