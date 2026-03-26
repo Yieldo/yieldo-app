@@ -31,8 +31,8 @@ const BENCHMARK_URLS = {
   "wbtc_42161": "https://defillama.com/yields/pool/7c5e69a4-2430-4fa2-b7cb-857f79d7d1bf",
   // PYUSD
   "pyusd_1": "https://defillama.com/yields/pool/d118f505-e75f-4152-bad3-49a2dc7482bf",
-  // WHYPE (HyperLend)
-  "whype_999": "https://defillama.com/yields/pool/b039004a-df3c-4813-97b8-a15ec488212c",
+  // WHYPE → Hyperliquid Foundation staking
+  "whype_999": "https://app.hyperliquid.xyz/staking",
 };
 // Stablecoins that use USDC benchmark as fallback
 const STABLE_ASSETS = ["usdc","usdt","dai","pyusd","susd","eurc","usds","usda","ausd","usdtb"];
