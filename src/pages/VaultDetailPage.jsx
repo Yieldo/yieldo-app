@@ -346,7 +346,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>vs. Benchmark</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: v.apyVsBenchmark && v.apyVsBenchmark >= 1.2 ? C.green : C.text2, marginTop: 2 }}>{v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"}</div>
-                  {v.benchAave !== null && <div style={{ fontSize: 10, color: C.text4 }}>Aave: {v.benchAave.toFixed(2)}%</div>}
+                  {v.benchAave !== null && <div style={{ fontSize: 10, color: C.text4 }}>Aave: {v.benchAave.toFixed(2)}% <a href="https://defillama.com/yields" target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div>}
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
@@ -497,7 +497,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   </select>
                   {v.P03b && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV.warning.bg, color: SEV.warning.color }}>{SEV.warning.icon}</span>}
                 </div>
-                {v.benchAave ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>Aave: {v.benchAave.toFixed(2)}%</div> : null}
+                {v.benchAave ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>Benchmark: {v.benchAave.toFixed(2)}% <a href="https://defillama.com/yields" target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
                 {v.P03b && <div style={{ fontSize: 10, color: SEV.warning.color, marginTop: 2, fontStyle: "italic" }}>→ Below 80% of benchmark</div>}
               </div>
               <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const val = benchTf === "1d" ? v.apyVsBench1d : benchTf === "7d" ? v.apyVsBench7d : v.apyVsBench30d; return val !== null ? `${val.toFixed(2)}×` : (v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"); })()}</span>
