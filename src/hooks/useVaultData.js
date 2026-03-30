@@ -554,8 +554,7 @@ function deriveFlags(v) {
   if (v.R06 === "Async")
     flags.push({ id: "F25", severity: "info", label: "Async Withdrawals", penalty: 0 });
 
-  if (v.T06b === "info" || v.T06b === "warning")
-    flags.push({ id: "F33", severity: "info", label: "Elevated Quick Exit Rate", penalty: 0 });
+  // F33 removed — redundant with quick exit rate warning flag on metric
 
   // Concentration flags — display only, no penalty, no risk label impact
   const top5r = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
@@ -563,11 +562,13 @@ function deriveFlags(v) {
   const top5 = top5r > 1 ? top5r / 100 : top5r;
   const top1 = top1r > 1 ? top1r / 100 : top1r;
   if (top5 >= 0.8)
-    flags.push({ id: "CONC5", severity: "info", label: "Top-5 Concentration ≥80%", penalty: 0 });
+    flags.push({ id: "CONC5", severity: "critical", label: "Top-5 Concentration ≥80%", penalty: 0 });
   else if (top5 >= 0.5)
-    flags.push({ id: "CONC5", severity: "info", label: "Top-5 Concentration ≥50%", penalty: 0 });
+    flags.push({ id: "CONC5", severity: "warning", label: "Top-5 Concentration ≥50%", penalty: 0 });
   if (top1 >= 0.5)
-    flags.push({ id: "CONC1", severity: "info", label: "Top-1 Depositor ≥50%", penalty: 0 });
+    flags.push({ id: "CONC1", severity: "critical", label: "Top-1 Depositor ≥50%", penalty: 0 });
+  else if (top1 >= 0.25)
+    flags.push({ id: "CONC1", severity: "warning", label: "Top-1 Depositor ≥25%", penalty: 0 });
 
   return flags;
 }
