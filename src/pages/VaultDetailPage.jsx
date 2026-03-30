@@ -17,6 +17,7 @@ const BENCHMARK_URLS = {
   "usdc_10": "https://defillama.com/yields/pool/0758c3b8-4ffb-4176-b0a9-f446e367db46",
   // USDT
   "usdt_1": "https://defillama.com/yields/pool/f981a304-bb6c-45b8-b0c5-fd2f515ad23a",
+  "usdt_42161": "https://defillama.com/yields/pool/f981a304-bb6c-45b8-b0c5-fd2f515ad23a",
   "usdt_10": "https://defillama.com/yields/pool/bde08c85-41c5-4d80-9bb1-0835a4352efa",
   // WETH / ETH-like → Lido
   "weth_1": "https://defillama.com/yields/pool/747c1d2a-c668-4682-b9f9-296708a3dd90",
@@ -25,10 +26,14 @@ const BENCHMARK_URLS = {
   "weth_8453": "https://defillama.com/yields/pool/23405eee-97e7-4b8e-8625-19c3a36047e8",
   "weth_42161": "https://defillama.com/yields/pool/e302de4d-952e-4e18-9749-0a9dc86e98bc",
   "weth_10": "https://defillama.com/yields/pool/3e332a41-3a15-41bc-8d5c-438c09609349",
-  // WBTC
+  // WBTC / BTC-like
   "wbtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
   "cbbtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
+  "lbtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
+  "ubtc_1": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
+  "ubtc_999": "https://defillama.com/yields/pool/7e382157-b1bc-406d-b17b-facba43b716e",
   "wbtc_42161": "https://defillama.com/yields/pool/7c5e69a4-2430-4fa2-b7cb-857f79d7d1bf",
+  "wbtc_10": "https://defillama.com/yields/pool/e053590b-54f1-40aa-ae0d-14e701ca734c",
   // PYUSD
   "pyusd_1": "https://defillama.com/yields/pool/d118f505-e75f-4152-bad3-49a2dc7482bf",
   // WHYPE → Hyperliquid Foundation staking
