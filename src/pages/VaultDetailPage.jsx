@@ -593,7 +593,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             </div>
             <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
             {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
-            <MR label="Pause Events" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "critical" : undefined} />
+            <MR label="Pause Events" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "info" : undefined} desc={v.pauseEvents > 0 ? "Historical pause count — check Active Flags for current status" : undefined} />
             {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
             <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
             {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
