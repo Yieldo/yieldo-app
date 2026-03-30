@@ -554,7 +554,9 @@ function deriveFlags(v) {
   if (v.R06 === "Async")
     flags.push({ id: "F25", severity: "info", label: "Async Withdrawals", penalty: 0 });
 
-  // F33 removed — redundant with quick exit rate warning flag on metric
+  const quickExit = typeof v.T06 === "number" ? v.T06 : 0;
+  if (quickExit > 25)
+    flags.push({ id: "QE", severity: "warning", label: "High Quick Exit Rate", penalty: 0 });
 
   // Concentration flags — display only, no penalty, no risk label impact
   const top5r = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
