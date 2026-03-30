@@ -562,7 +562,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             </div>
             <MR label="Sharpe Ratio" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : "Excess return per unit of volatility vs Aave"} />
             <MR label="Win Rate" value={v.winRate !== null ? `${(v.winRate * 100).toFixed(1)}%` : "N/A"} desc={v.perfDetail?.win_rate ? `Beat benchmark ${v.perfDetail.win_rate.win_weeks} / ${v.perfDetail.win_rate.total_weeks} weeks` : "% of weeks outperforming benchmark"} />
-            <MR label="Worst Week" value={v.worstWeek !== null ? `${(v.worstWeek * 100).toFixed(2)}%` : "N/A"} desc="Largest single-week underperformance vs benchmark" flag={v.worstWeek !== null && v.worstWeek < -0.02 ? "critical" : v.worstWeek !== null && v.worstWeek < 0 ? "warning" : undefined} />
+            <MR label="Worst Week" value={v.worstWeek !== null ? `${(v.worstWeek * 100).toFixed(2)}%` : "N/A"} desc="Largest single-week underperformance vs benchmark" />
             <MR label="Alpha Consistency" value={v.alphaConsistency !== null ? `${(v.alphaConsistency * 100).toFixed(1)}%` : "N/A"} desc="Higher = steadier outperformance (1 - CV of positive spreads)" />
             {(() => { const val = ddTf === "30d" ? v.maxDD30d : ddTf === "90d" ? v.maxDD90d : v.maxDD365d; const flag = val !== null && val < -10 ? "critical" : val !== null && val < -5 ? "warning" : undefined; return (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -579,7 +579,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               </div>
             ); })()}
             <MR label="Drawdown Duration" value={fmt(v.P09)} />
-            <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} flag={v.incRatio > 50 ? "critical" : v.incRatio > 25 ? "warning" : undefined} />
+            <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} />
             <MR label="Yield Type" value={v._raw?.P12 || v.yieldType} />
           </Card>
 
@@ -593,7 +593,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             </div>
             <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
             {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
-            <MR label="Pause Events" value={v.pauseEvents} flag={v.pauseEvents > 0 ? "info" : undefined} desc={v.pauseEvents > 0 ? "Historical pause count — check Active Flags for current status" : undefined} />
+            <MR label="Pause Events" value={v.pauseEvents} />
             {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
             <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
             {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
