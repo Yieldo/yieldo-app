@@ -568,21 +568,6 @@ function deriveFlags(v) {
   else if (ddVal < -5)
     flags.push({ id: "DD_flag", severity: "warning", label: "Elevated Drawdown", penalty: 0 });
 
-  const quickExit = typeof v.T06 === "number" ? v.T06 : 0;
-  if (quickExit > 25)
-    flags.push({ id: "QE_flag", severity: "warning", label: "High Quick Exit Rate", penalty: 0 });
-
-  const top5r = typeof v.R09_top5 === "number" ? v.R09_top5 : 0;
-  const top1r = typeof v.R09_top1 === "number" ? v.R09_top1 : 0;
-  const top5 = top5r > 1 ? top5r / 100 : top5r;
-  const top1 = top1r > 1 ? top1r / 100 : top1r;
-  if (v.R09_top5_flag === "critical" || top5 >= 0.8)
-    flags.push({ id: "CONC_flag", severity: "critical", label: "High Concentration (Top 5)", penalty: 0 });
-  else if (v.R09_top5_flag === "warning" || top5 >= 0.5)
-    flags.push({ id: "CONC_flag", severity: "warning", label: "Concentrated Deposits (Top 5)", penalty: 0 });
-  if (v.R09_top1_flag === "critical" || top1 >= 0.5)
-    flags.push({ id: "CONC1_flag", severity: "critical", label: "Single Depositor ≥50%", penalty: 0 });
-
   return flags;
 }
 
