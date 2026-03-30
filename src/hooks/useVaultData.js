@@ -517,7 +517,9 @@ function deriveFlags(v) {
   if (v.C05)
     flags.push({ id: "F13", severity: "warning", label: "Net Capital Outflow", penalty: -5 });
 
-  if (v.P02)
+  if (v.P02 === "sustained" || v.P02_sustained)
+    flags.push({ id: "F16", severity: "critical", label: "Sustained Negative APY (3d+)", penalty: -20 });
+  else if (v.P02)
     flags.push({ id: "F15", severity: "warning", label: "Negative APY", penalty: -5 });
 
   if (v.T05_short_hold === true || v.T05_short_hold === "critical")
@@ -554,19 +556,6 @@ function deriveFlags(v) {
 
   if (v.T06b === "info" || v.T06b === "warning")
     flags.push({ id: "F33", severity: "info", label: "Elevated Quick Exit Rate", penalty: 0 });
-
-  const r10val = v.R10;
-  const incidents = typeof r10val === "number" ? r10val : (r10val && typeof r10val === "object" ? (r10val["90d"] ?? 0) : 0);
-  if (incidents > 0)
-    flags.push({ id: "R10_flag", severity: "critical", label: `${incidents} Incident${incidents > 1 ? "s" : ""} (90d)`, penalty: 0 });
-
-  const p08raw = v.P08;
-  const ddVal = typeof p08raw === "number" ? p08raw
-    : (p08raw && typeof p08raw === "object" ? (p08raw["90d"] ?? p08raw["30d"] ?? 0) : 0);
-  if (ddVal < -10)
-    flags.push({ id: "DD_flag", severity: "critical", label: "Severe Drawdown", penalty: 0 });
-  else if (ddVal < -5)
-    flags.push({ id: "DD_flag", severity: "warning", label: "Elevated Drawdown", penalty: 0 });
 
   return flags;
 }
