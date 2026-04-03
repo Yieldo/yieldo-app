@@ -132,54 +132,67 @@ function VaultCatalogCard({ vault, enrolled, onToggle }) {
 // ============ SIGNATURE VERIFICATION ============
 function SignatureVerify({ address, onVerified }) {
   const { signMessageAsync } = useSignMessage();
-  const [status, setStatus] = useState("idle"); // idle | signing | verifying | error
+  const [status, setStatus] = useState("checking"); // checking | idle | signing | error
+  const [isRegistered, setIsRegistered] = useState(null);
   const [error, setError] = useState("");
+
+  // Check if already registered on mount
+  useEffect(() => {
+    fetch(`${PARTNER_API}/v1/partners/nonce`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setIsRegistered(data.message.includes("login"));
+        setStatus("idle");
+      })
+      .catch(() => setStatus("idle"));
+  }, [address]);
 
   const verify = async () => {
     setStatus("signing");
     setError("");
     try {
-      // Get nonce from API
+      // Get a fresh nonce
       const nonceRes = await fetch(`${PARTNER_API}/v1/partners/nonce`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
       });
+      if (!nonceRes.ok) throw new Error("Failed to get nonce");
       const { nonce, message } = await nonceRes.json();
 
       // Sign with wallet
       const signature = await signMessageAsync({ message });
-      setStatus("verifying");
 
-      // Try login first
-      let res = await fetch(`${PARTNER_API}/v1/partners/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        sessionStorage.setItem("yieldo_partner_token", data.session_token);
-        onVerified({ type: "login", partner: data.partner });
-        return;
-      }
-
-      // Not registered — need to register
-      if (res.status === 404) {
+      if (isRegistered) {
+        // Login
+        const res = await fetch(`${PARTNER_API}/v1/partners/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address, signature }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sessionStorage.setItem("yieldo_partner_token", data.session_token);
+          onVerified({ type: "login", partner: data.partner });
+        } else {
+          const err = await res.json();
+          throw new Error(err.detail || "Login failed");
+        }
+      } else {
+        // Not registered — pass nonce+signature to registration form (no double sign)
         onVerified({ type: "register", nonce, signature });
-        return;
       }
-
-      const err = await res.json();
-      throw new Error(err.detail || "Verification failed");
     } catch (e) {
-      if (e.message?.includes("User rejected")) {
+      if (e.message?.includes("User rejected") || e.message?.includes("User denied")) {
         setStatus("idle");
         return;
       }
       setError(e.message || "Verification failed");
-      setStatus("error");
+      setStatus("idle");
     }
   };
 
@@ -188,16 +201,20 @@ function SignatureVerify({ address, onVerified }) {
       <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
         <span style={{ color: "#fff", fontWeight: 700 }}>Y</span>
       </div>
-      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>Verify Wallet Ownership</h2>
+      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
+        {isRegistered ? "Welcome Back" : "Verify Wallet Ownership"}
+      </h2>
       <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 420, textAlign: "center", lineHeight: 1.6 }}>
-        Sign a message with your wallet to prove ownership. This does not cost any gas.
+        {isRegistered
+          ? "Sign a message to login to your partner dashboard."
+          : "Sign a message with your wallet to prove ownership. This does not cost any gas."}
       </p>
       <div style={{ padding: "10px 16px", background: C.purpleDim, borderRadius: 8, fontSize: 12, color: C.text2 }}>
         <span style={{ fontFamily: "monospace", fontWeight: 600, color: C.purple }}>{address}</span>
       </div>
       {error && <div style={{ fontSize: 13, color: C.red, maxWidth: 400, textAlign: "center" }}>{error}</div>}
-      <Btn primary onClick={verify} disabled={status === "signing" || status === "verifying"} style={{ padding: "14px 32px", fontSize: 15 }}>
-        {status === "signing" ? "Sign in wallet..." : status === "verifying" ? "Verifying..." : "Sign to Verify"}
+      <Btn primary onClick={verify} disabled={status === "checking" || status === "signing"} style={{ padding: "14px 32px", fontSize: 15 }}>
+        {status === "checking" ? "Checking..." : status === "signing" ? "Sign in wallet..." : isRegistered ? "Sign to Login" : "Sign to Verify"}
       </Btn>
     </div>
   );
@@ -216,14 +233,17 @@ function RegistrationForm({ address, signature, onRegistered }) {
     setLoading(true);
     setError("");
     try {
-      // Need fresh nonce + signature for registration
-      const nonceRes = await fetch(`${PARTNER_API}/v1/partners/nonce`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
-      const { message } = await nonceRes.json();
-      const sig = await signMessageAsync({ message });
+      // Use the signature from SignatureVerify if available, otherwise get fresh one
+      let sig = signature;
+      if (!sig) {
+        const nonceRes = await fetch(`${PARTNER_API}/v1/partners/nonce`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+        });
+        const { message } = await nonceRes.json();
+        sig = await signMessageAsync({ message });
+      }
 
       const res = await fetch(`${PARTNER_API}/v1/partners/register`, {
         method: "POST",
