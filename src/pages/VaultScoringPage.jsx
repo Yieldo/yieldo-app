@@ -269,16 +269,16 @@ function ScoringDetail({ vault }) {
 
   const b = calcBreakdown(raw);
   const flagPenalty = vault.flags.reduce((s, f) => s + (f.penalty || 0), 0);
-  const weighted = b.capTotal * 0.20 + b.perfTotal * 0.25 + b.riskTotal * 0.35 + b.trustTotal * 0.20;
+  const weighted = b.capTotal * 0.20 + b.perfTotal * 0.20 + b.riskTotal * 0.35 + b.trustTotal * 0.25;
   const afterConf = weighted * b.conf;
   const finalScore = Math.max(0, Math.min(100, Math.round(afterConf + flagPenalty + b.extBonus)));
 
   return (
     <div style={{ padding: "16px 20px", background: C.surfaceAlt, borderTop: `1px solid ${C.border2}` }}>
       <MetricTable title="Capital Score" rows={b.capital} totalScore={b.capTotal} weight={0.20} color="#6366f1" />
-      <MetricTable title="Performance Score" rows={b.performance} totalScore={b.perfTotal} weight={0.25} color={C.teal} />
+      <MetricTable title="Performance Score" rows={b.performance} totalScore={b.perfTotal} weight={0.20} color={C.teal} />
       <MetricTable title="Risk Score" rows={b.risk} totalScore={b.riskTotal} weight={0.35} color="#ef4444" />
-      <MetricTable title="Trust Score" rows={b.trust} totalScore={b.trustRaw} weight={0.20} color={C.gold} />
+      <MetricTable title="Trust Score" rows={b.trust} totalScore={b.trustRaw} weight={0.25} color={C.gold} />
 
       {b.trustBoost > 1 && (
         <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: `${C.gold}10`, border: `1px solid ${C.gold}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -303,7 +303,7 @@ function ScoringDetail({ vault }) {
             <tr style={{ borderBottom: `1px solid ${C.border}` }}>
               <td style={td}>Weighted Sum</td>
               <td style={{ ...td, textAlign: "right", fontFamily: "monospace" }}>
-                ({b.capTotal.toFixed(1)} × 0.20) + ({b.perfTotal.toFixed(1)} × 0.25) + ({b.riskTotal.toFixed(1)} × 0.35) + ({b.trustTotal.toFixed(1)} × 0.20)
+                ({b.capTotal.toFixed(1)} × 0.20) + ({b.perfTotal.toFixed(1)} × 0.20) + ({b.riskTotal.toFixed(1)} × 0.35) + ({b.trustTotal.toFixed(1)} × 0.25)
               </td>
               <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{weighted.toFixed(2)}</td>
             </tr>

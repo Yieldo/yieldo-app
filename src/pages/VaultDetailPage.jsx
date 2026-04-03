@@ -527,7 +527,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Performance</span>
               <ScoreRing score={v.subScores.performance} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -639,7 +639,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Trust</span>
               <ScoreRing score={v.subScores.trust} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
             </div>
             {(() => { const val = v.capitalRetention?.[capRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; const flag = d !== null && d < 50 ? "critical" : d !== null && d < 70 ? "warning" : undefined; return (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>

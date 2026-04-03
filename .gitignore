@@ -3,6 +3,9 @@
 .env.local
 .env.production
 
+# Google Service Account key (NEVER commit)
+gen-lang-client-*.json
+
 # Logs
 logs
 *.log
