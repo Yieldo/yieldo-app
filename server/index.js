@@ -184,9 +184,23 @@ app.get("/api/wallet-catalog", async (req, res) => {
       const m = entry.metrics || {};
       const val = (key) => {
         const d = m[key];
-        if (d && typeof d === "object" && "value" in d) return d.value;
-        return d ?? null;
+        if (d == null) return null;
+        if (typeof d === "object" && "value" in d) return d.value;
+        if (typeof d === "number") return d;
+        return null;
       };
+      const p01 = m.P01;
+      let apy_7d = null, apy_30d = null;
+      if (p01 && typeof p01 === "object") {
+        if ("value" in p01 && typeof p01.value === "object") {
+          apy_7d = p01.value["7d"] ?? null;
+          apy_30d = p01.value["30d"] ?? null;
+        } else {
+          apy_7d = p01["7d"] ?? null;
+          apy_30d = p01["30d"] ?? null;
+        }
+      }
+      if (apy_7d == null) apy_7d = entry.net_apy ?? null;
       return {
         vault_id: entry._id,
         vault_name: entry.name || (entry._id || "").slice(0, 12) + "...",
@@ -194,8 +208,8 @@ app.get("/api/wallet-catalog", async (req, res) => {
         chain_id: entry.chain_id || 1,
         asset: entry.asset || "usdc",
         source: entry.source || null,
-        apy_7d: val("P01_APIN_7D"),
-        apy_30d: val("P01_APIN_30D"),
+        apy_7d,
+        apy_30d,
         tvl_usd: val("C01_USD"),
       };
     });
