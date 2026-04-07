@@ -172,12 +172,33 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
   const benchSliced = benchmarkData ? benchmarkData.slice(-ranges[range]) : [];
   const allVals = [...sliced, ...(benchSliced || [])].filter(v => typeof v === "number");
   if (allVals.length < 2) return <div style={{ fontSize: 12, color: C.text4, padding: 20, textAlign: "center" }}>Insufficient APY history data</div>;
-  const mx = Math.max(...allVals), mn = Math.min(...allVals);
+
+  // Compute clipping ceiling so spikes don't squash the chart.
+  // Use median × 4 as a reasonable headroom. Clamp to [5%, 50%] for stables, more for high-yield.
+  const sortedVals = [...allVals].sort((a, b) => a - b);
+  const median = sortedVals[Math.floor(sortedVals.length / 2)];
+  const rawMax = Math.max(...allVals);
+  const rawMin = Math.min(...allVals);
+  // Default cap: 4× median, with 5% floor and 50% ceiling
+  let cap = Math.max(Math.abs(median) * 4, 5);
+  cap = Math.min(cap, 50);
+  // If the data never reaches the cap, just use rawMax (no clipping needed)
+  const needsClipping = rawMax > cap;
+  const mx = needsClipping ? cap : rawMax;
+  const mn = Math.min(rawMin, 0);
   const pad = { t: 20, r: 16, b: 32, l: 44 };
   const cw = width - pad.l - pad.r, ch = height - pad.t - pad.b;
   const rng = mx - mn || 1;
   const toX = i => pad.l + (i / (sliced.length - 1)) * cw;
-  const toY = v => pad.t + ch - ((v - mn) / rng) * ch;
+  // Clamp y to chart bounds — values above cap pin to top of chart
+  const toY = v => {
+    const clamped = Math.min(Math.max(v, mn), mx);
+    return pad.t + ch - ((clamped - mn) / rng) * ch;
+  };
+  // Identify outliers so we can render them as labeled markers at the top
+  const outliers = needsClipping
+    ? sliced.map((v, i) => (typeof v === "number" && v > cap ? { i, v } : null)).filter(Boolean)
+    : [];
   const mainPath = sliced.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
   const benchPath = benchSliced.length > 0 ? benchSliced.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ") : "";
   const areaPath = mainPath + ` L${toX(sliced.length-1).toFixed(1)},${(pad.t+ch).toFixed(1)} L${toX(0).toFixed(1)},${(pad.t+ch).toFixed(1)} Z`;
@@ -196,6 +217,7 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 12, height: 2, background: C.purple, borderRadius: 1 }} /><span style={{ fontSize: 10, color: C.text3 }}>Vault APY</span></div>
           {benchSliced.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 12, height: 2, background: C.text4, borderRadius: 1, opacity: .5 }} /><span style={{ fontSize: 10, color: C.text4 }}>Benchmark</span></div>}
+          {needsClipping && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: "rgba(217,119,6,.08)", border: "1px solid rgba(217,119,6,.2)" }}>⚠ Y-axis clipped at {cap.toFixed(0)}% — outliers labeled above</span>}
         </div>
         <div style={{ display: "flex", gap: 2 }}>
           {Object.keys(ranges).filter(k => ranges[k] <= data.length || k === "All").map(k => (
@@ -223,14 +245,61 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
         <defs><linearGradient id="apyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.purple} stopOpacity=".12" /><stop offset="100%" stopColor={C.purple} stopOpacity=".01" /></linearGradient></defs>
         {benchPath && <path d={benchPath} fill="none" stroke={C.text4} strokeWidth="1" strokeDasharray="4 3" opacity=".4" />}
         <path d={mainPath} fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {hover !== null && hover < sliced.length && (
-          <g>
-            <line x1={toX(hover)} y1={pad.t} x2={toX(hover)} y2={pad.t + ch} stroke={C.purple} strokeWidth="1" opacity=".3" strokeDasharray="3 2" />
-            <circle cx={toX(hover)} cy={toY(sliced[hover])} r="4" fill={C.purple} stroke="#fff" strokeWidth="2" />
-            <rect x={toX(hover) - 48} y={pad.t - 18} width="96" height="16" rx="4" fill={C.white} stroke={C.border2} />
-            <text x={toX(hover)} y={pad.t - 7} textAnchor="middle" fontSize="10" fontWeight="600" fill={C.purple} fontFamily="'Inter',sans-serif">{slicedDates[hover] ? slicedDates[hover].slice(5) + " · " : ""}{sliced[hover].toFixed(2)}%</text>
-          </g>
-        )}
+        {/* Outlier markers — pinned to top of chart with value labels */}
+        {outliers.map(({ i, v }) => {
+          const x = toX(i);
+          const y = pad.t + 2;
+          // Format very large values: 4117% as "4,117%", 1.72e14 as "172T%"
+          const fmtOutlier = (val) => {
+            const abs = Math.abs(val);
+            if (abs >= 1e12) return `${(val / 1e12).toFixed(1)}T%`;
+            if (abs >= 1e9) return `${(val / 1e9).toFixed(1)}B%`;
+            if (abs >= 1e6) return `${(val / 1e6).toFixed(1)}M%`;
+            if (abs >= 1e3) return `${(val / 1e3).toFixed(1)}K%`;
+            return `${val.toFixed(0)}%`;
+          };
+          const label = fmtOutlier(v);
+          const date = slicedDates[i] ? slicedDates[i].slice(5) : "";
+          const labelW = label.length * 6 + 14;
+          return (
+            <g key={`outlier-${i}`}>
+              {/* Vertical dashed line connecting outlier to chart */}
+              <line x1={x} y1={pad.t} x2={x} y2={pad.t + ch} stroke={C.amber} strokeWidth="1" strokeDasharray="2 2" opacity=".35" />
+              {/* Triangle marker pointing up */}
+              <polygon points={`${x - 4},${y + 6} ${x + 4},${y + 6} ${x},${y - 1}`} fill={C.amber} stroke="#fff" strokeWidth="1" />
+              {/* Label background */}
+              <rect x={x - labelW / 2} y={y + 8} width={labelW} height="13" rx="3" fill="#fff" stroke={C.amber} strokeWidth="0.8" />
+              <text x={x} y={y + 17} textAnchor="middle" fontSize="9" fontWeight="700" fill={C.amber} fontFamily="'Inter',sans-serif">{label}{date && ` · ${date}`}</text>
+            </g>
+          );
+        })}
+        {hover !== null && hover < sliced.length && (() => {
+          const hv = sliced[hover];
+          const isOutlier = needsClipping && hv > cap;
+          // Format outlier values with abbreviation, normal values with 2 decimals
+          const fmtHover = (val) => {
+            const abs = Math.abs(val);
+            if (abs >= 1e12) return `${(val / 1e12).toFixed(1)}T%`;
+            if (abs >= 1e9) return `${(val / 1e9).toFixed(1)}B%`;
+            if (abs >= 1e6) return `${(val / 1e6).toFixed(1)}M%`;
+            if (abs >= 1e3) return `${(val / 1e3).toFixed(1)}K%`;
+            return `${val.toFixed(2)}%`;
+          };
+          const valueLabel = fmtHover(hv);
+          const dateLabel = slicedDates[hover] ? slicedDates[hover].slice(5) + " · " : "";
+          const fullLabel = `${dateLabel}${valueLabel}`;
+          const tipW = Math.max(96, fullLabel.length * 6 + 16);
+          // Pin tooltip to chart top if value is an outlier (clamped)
+          const cy = isOutlier ? pad.t : toY(hv);
+          return (
+            <g>
+              <line x1={toX(hover)} y1={pad.t} x2={toX(hover)} y2={pad.t + ch} stroke={C.purple} strokeWidth="1" opacity=".3" strokeDasharray="3 2" />
+              <circle cx={toX(hover)} cy={cy} r="4" fill={isOutlier ? C.amber : C.purple} stroke="#fff" strokeWidth="2" />
+              <rect x={Math.max(2, Math.min(width - tipW - 2, toX(hover) - tipW / 2))} y={pad.t - 18} width={tipW} height="16" rx="4" fill={C.white} stroke={C.border2} />
+              <text x={Math.max(tipW / 2 + 2, Math.min(width - tipW / 2 - 2, toX(hover)))} y={pad.t - 7} textAnchor="middle" fontSize="10" fontWeight="600" fill={isOutlier ? C.amber : C.purple} fontFamily="'Inter',sans-serif">{fullLabel}</text>
+            </g>
+          );
+        })()}
       </svg>
     </div>
   );
@@ -291,7 +360,14 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const vaultId = listVault?.id || params.vaultId || null;
   const { vault: detailVault, loading } = useVaultDetail(vaultId);
   const v = detailVault || listVault;
-  const handleBack = onBack || (() => navigate("/vault"));
+  // Go back via history if there's somewhere to return to (e.g. /wallets), otherwise default to /vault
+  const handleBack = onBack || (() => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/vault");
+    }
+  });
   const winW = useWindowWidth();
   const isMobile = winW < 768;
   const pad = isMobile ? "14px 16px" : "24px 32px";

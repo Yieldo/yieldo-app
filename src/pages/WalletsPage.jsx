@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useVaults } from "../hooks/useVaultData.js";
+import { VaultExplorer } from "../components/VaultExplorer.jsx";
 
 const PARTNER_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -86,71 +89,6 @@ function Toggle({ on, onToggle }) {
     <div onClick={onToggle} style={{ width: 38, height: 22, borderRadius: 11, background: on ? C.purpleDim2 : C.border, position: "relative", cursor: "pointer", transition: "background .2s" }}>
       <div style={{ width: 16, height: 16, borderRadius: "50%", background: on ? C.purple : "rgba(0,0,0,0.15)", position: "absolute", top: 3, left: on ? 19 : 3, transition: "left .2s" }} />
     </div>
-  );
-}
-
-// ============ VAULT CATALOG CARD ============
-function VaultCatalogCard({ vault, enrolled, onToggle }) {
-  const proto = PROTOCOL_COLORS[vault.source] || { color: C.purple, bg: C.purpleDim };
-  const tvl = vault.tvl_usd || 0;
-  const apy = vault.apy_7d || vault.apy_30d || 0;
-  const chain = CHAINS[vault.chain_id] || `Chain ${vault.chain_id}`;
-
-  const enrollBtnStyle = enrolled
-    ? { flex: 1, padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: C.greenDim, border: `1px solid rgba(26,157,63,0.2)`, color: C.green }
-    : { flex: 1, padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: C.purple, border: "none", color: "#fff" };
-
-  return (
-    <Card style={{ padding: 0, overflow: "hidden", border: enrolled ? `1.5px solid rgba(122,28,203,0.15)` : `1px solid ${C.border}`, transition: "all .2s" }}>
-      <div style={{ padding: "18px 20px" }}>
-        {/* Header: icon + name + APY */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, minWidth: 0 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: proto.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: proto.color, flexShrink: 0 }}>
-              {vault.asset?.slice(0, 2).toUpperCase() || "??"}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vault.vault_name}</div>
-              <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{vault.source || "Unknown"}</div>
-            </div>
-          </div>
-          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: C.purple }}>{fmtApy(apy)}</div>
-            <div style={{ fontSize: 10, color: C.text4, fontWeight: 500 }}>APY</div>
-          </div>
-        </div>
-
-        {/* Tags */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-          <span style={{ padding: "4px 10px", borderRadius: 6, background: proto.bg, color: proto.color, fontSize: 11, fontWeight: 600 }}>{vault.source || "—"}</span>
-          <span style={{ padding: "4px 10px", borderRadius: 6, background: C.surfaceAlt, color: C.text3, fontSize: 11, fontWeight: 500 }}>{chain}</span>
-          <span style={{ padding: "4px 10px", borderRadius: 6, background: C.surfaceAlt, color: C.text3, fontSize: 11, fontWeight: 500 }}>{vault.asset?.toUpperCase()}</span>
-        </div>
-
-        {/* TVL + Rev share */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, padding: "8px 12px", background: C.surfaceAlt, borderRadius: 8 }}>
-          <div>
-            <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".04em" }}>TVL</div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{fmtTvl(tvl)}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".04em" }}>Rev Share</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: C.purple }}>5 bps</div>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onToggle} style={enrollBtnStyle}>
-            {enrolled ? "Enrolled" : "+ Enroll"}
-          </button>
-          <a href={`/vault/${encodeURIComponent(vault.vault_id)}`} target="_blank" rel="noopener noreferrer"
-            style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 500, fontFamily: "'Inter',sans-serif", background: C.white, border: `1px solid ${C.border2}`, color: C.purple, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-            View
-          </a>
-        </div>
-      </div>
-    </Card>
   );
 }
 
@@ -684,8 +622,6 @@ function ComingSoon({ icon, title }) {
 // ============ MAIN APP ============
 export default function WalletsPage() {
   const [page, setPage] = useState("catalog");
-  const [catalogFilter, setCatalogFilter] = useState("all");
-  const [catalogChain, setCatalogChain] = useState("All");
   const [enrolledVaults, setEnrolledVaults] = useState(new Set());
   const [partner, setPartner] = useState(null);
   const [authState, setAuthState] = useState("checking"); // checking | not_connected | verify | register | authenticated
@@ -695,16 +631,8 @@ export default function WalletsPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
-  const [vaults, setVaults] = useState([]);
-  const [vaultsLoading, setVaultsLoading] = useState(true);
-
-  // Fetch lightweight vault catalog
-  useEffect(() => {
-    fetch("/api/wallet-catalog")
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { setVaults(data); setVaultsLoading(false); })
-      .catch(() => setVaultsLoading(false));
-  }, []);
+  const navigate = useNavigate();
+  const { vaults, loading: vaultsLoading } = useVaults();
 
   // Check session on mount / address change
   useEffect(() => {
@@ -760,15 +688,6 @@ export default function WalletsPage() {
   const refreshPartner = () => {
     partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(data => { if (data) setPartner(data); });
   };
-
-  const chainFilteredVaults = catalogChain === "All" ? vaults
-    : vaults.filter(v => (CHAINS[v.chain_id] || `Chain ${v.chain_id}`) === catalogChain);
-
-  const filteredVaults = catalogFilter === "all" ? chainFilteredVaults
-    : catalogFilter === "enrolled" ? chainFilteredVaults.filter(v => enrolledVaults.has(v.vault_id))
-    : catalogFilter === "high_apy" ? [...chainFilteredVaults].sort((a, b) => (b.apy_7d || 0) - (a.apy_7d || 0))
-    : catalogFilter === "high_tvl" ? [...chainFilteredVaults].sort((a, b) => (b.tvl_usd || 0) - (a.tvl_usd || 0))
-    : chainFilteredVaults;
 
   const navItems = [
     { id: "catalog", icon: "🏦", label: "Vault Catalog" },
@@ -833,7 +752,7 @@ export default function WalletsPage() {
             </p>
             <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
               <StatCard icon="🏦" label="Available Vaults" value={vaults.length || "—"} />
-              <StatCard icon="📈" label="Avg APY" value={vaults.length ? fmtApy(vaults.reduce((s, v) => s + (v.apy_7d || 0), 0) / vaults.length) : "—"} />
+              <StatCard icon="📈" label="Avg APY" value={vaults.length ? `${(vaults.reduce((s, v) => s + (v.apy || 0), 0) / vaults.length).toFixed(2)}%` : "—"} />
               <StatCard icon="🔗" label="Chains" value={new Set(vaults.map(v => v.chain_id)).size || "—"} />
             </div>
             <Btn primary onClick={openConnectModal} style={{ marginTop: 12, padding: "14px 32px", fontSize: 16 }}>
@@ -860,45 +779,31 @@ export default function WalletsPage() {
         {/* Authenticated dashboard */}
         {authState === "authenticated" && partner && (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: page === "catalog" ? 16 : 24 }}>
               <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-.01em" }}>
                 {navItems.find(n => n.id === page)?.icon} {navItems.find(n => n.id === page)?.label}
               </h1>
-              {page === "catalog" && (
-                <Tabs tabs={[{ id: "all", label: "All Vaults" }, { id: "enrolled", label: "My Vaults" }, { id: "high_apy", label: "Top APY" }, { id: "high_tvl", label: "Top TVL" }]} active={catalogFilter} onChange={setCatalogFilter} />
-              )}
             </div>
 
             {page === "catalog" && (
               <>
-                <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
-                  <StatCard icon="🏦" label="Total Vaults" value={filteredVaults.length} />
+                <div style={{ display: "flex", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+                  <StatCard icon="🏦" label="Total Vaults" value={vaults.length} />
                   <StatCard icon="✅" label="Enrolled" value={enrolledVaults.size} />
                   <StatCard icon="🔗" label="Chains" value={new Set(vaults.map(v => v.chain_id)).size} />
-                  <StatCard icon="📈" label="Avg APY" value={filteredVaults.length ? fmtApy(filteredVaults.reduce((s, v) => s + (v.apy_7d || 0), 0) / filteredVaults.length) : "—"} />
-                </div>
-
-                {/* Chain filter */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
-                  {["All", ...Object.entries(CHAINS).filter(([id]) => vaults.some(v => v.chain_id === Number(id))).map(([, name]) => name)].map(ch => (
-                    <button key={ch} onClick={() => setCatalogChain(ch)} style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: catalogChain === ch ? 600 : 400, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: catalogChain === ch ? C.purpleDim : C.white, border: `1px solid ${catalogChain === ch ? C.purple + "30" : C.border2}`, color: catalogChain === ch ? C.purple : C.text3, transition: "all .15s" }}>
-                      {ch}
-                    </button>
-                  ))}
+                  <StatCard icon="📈" label="Avg APY" value={vaults.length ? `${(vaults.reduce((s, v) => s + (v.apy || 0), 0) / vaults.length).toFixed(2)}%` : "—"} />
                 </div>
 
                 {vaultsLoading ? (
                   <div style={{ textAlign: "center", padding: 60, color: C.text3, fontSize: 14 }}>Loading vaults...</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                    {filteredVaults.map(v => <VaultCatalogCard key={v.vault_id} vault={v} enrolled={enrolledVaults.has(v.vault_id)} onToggle={() => toggleVault(v.vault_id)} />)}
-                  </div>
-                )}
-                {!vaultsLoading && filteredVaults.length === 0 && (
-                  <div style={{ textAlign: "center", padding: 60, color: C.text3 }}>
-                    <div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div>
-                    <div style={{ fontSize: 14 }}>{catalogFilter === "enrolled" ? "No vaults enrolled yet." : "No vaults found."}</div>
-                  </div>
+                  <VaultExplorer
+                    vaults={vaults}
+                    onRowClick={v => navigate(`/vault/${encodeURIComponent(v.id)}`)}
+                    variant="enroll"
+                    enrolled={enrolledVaults}
+                    onToggleEnroll={toggleVault}
+                  />
                 )}
               </>
             )}
