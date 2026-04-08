@@ -10,7 +10,6 @@ import VaultPage from './pages/VaultPage.jsx'
 import VaultDetailPage from './pages/VaultDetailPage.jsx'
 import KolPage from './pages/KolPage.jsx'
 import KolLandingPage from './pages/KolLandingPage.jsx'
-import WalletPage from './pages/WalletPage.jsx'
 import WalletsPage from './pages/WalletsPage.jsx'
 import VaultProviderPage from './pages/VaultProviderPage.jsx'
 import CuratorPage from './pages/CuratorPage.jsx'
@@ -44,22 +43,7 @@ createRoot(document.getElementById('root')).render(
                   </ProtectedRoute>
                 )}
               />
-              <Route
-                path="/kol"
-                element={(
-                  <ProtectedRoute type="kol">
-                    <KolPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="/wallet"
-                element={(
-                  <ProtectedRoute type="wallet">
-                    <WalletPage />
-                  </ProtectedRoute>
-                )}
-              />
+              <Route path="/kol" element={<KolPage />} />
               <Route
                 path="/curator"
                 element={(
