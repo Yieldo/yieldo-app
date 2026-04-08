@@ -602,14 +602,10 @@ export function VaultExplorer({
                     {v.flags.filter(f => f.severity !== "info").length > 0 && (
                       <div style={{ marginBottom: 10 }}><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 10, padding: "10px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 10, padding: "10px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ color: C.text4, fontWeight: 600 }}>TVL</div>
                         <div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtTvl(v.tvl)}</div>
-                      </div>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ color: C.text4, fontWeight: 600 }}>SHARPE</div>
-                        <div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtNum(v.sharpe)}</div>
                       </div>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div>

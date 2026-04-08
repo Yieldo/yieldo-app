@@ -900,31 +900,6 @@ export default function WalletsPage() {
                     onToggleEnroll={toggleVault}
                   />
                 )}
-                {/* Sticky save bar — appears when there are unsaved enrollment changes */}
-                {enrollDiff.dirty && (
-                  <div style={{ position: "sticky", bottom: 16, marginTop: 24, display: "flex", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
-                    <div style={{ pointerEvents: "auto", background: C.white, borderRadius: 12, border: `1.5px solid ${C.purple}30`, boxShadow: "0 8px 32px rgba(122,28,203,.18)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 14, fontFamily: "'Inter',sans-serif" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 5, background: C.purple, flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, color: C.text2, fontWeight: 500 }}>
-                          Unsaved changes:
-                          {enrollDiff.toAdd.length > 0 && <strong style={{ color: C.green, marginLeft: 6 }}>+{enrollDiff.toAdd.length}</strong>}
-                          {enrollDiff.toRemove.length > 0 && <strong style={{ color: C.red, marginLeft: 6 }}>−{enrollDiff.toRemove.length}</strong>}
-                        </span>
-                      </div>
-                      <div style={{ width: 1, height: 22, background: C.border }} />
-                      <button onClick={discardEnrollment} disabled={savingEnroll} style={{ fontSize: 12, fontWeight: 500, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 14px", cursor: savingEnroll ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: savingEnroll ? 0.5 : 1 }}>Discard</button>
-                      <Btn primary small onClick={saveEnrollment} disabled={savingEnroll}>{savingEnroll ? "Saving..." : "Save Changes"}</Btn>
-                    </div>
-                  </div>
-                )}
-                {enrollSavedAt && !enrollDiff.dirty && (
-                  <div style={{ position: "sticky", bottom: 16, marginTop: 24, display: "flex", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
-                    <div style={{ background: C.greenDim, color: C.green, padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, border: `1px solid rgba(26,157,63,.25)`, boxShadow: "0 4px 16px rgba(26,157,63,.12)" }}>
-                      ✓ Enrollment saved
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
@@ -938,6 +913,80 @@ export default function WalletsPage() {
           </>
         )}
       </main>
+
+      {/* Floating enrollment save bar — fixed to viewport bottom, only on /catalog tab */}
+      {authState === "authenticated" && page === "catalog" && enrollDiff.dirty && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: `calc(50% + ${sidebarWidth / 2}px)`,
+            transform: "translateX(-50%)",
+            zIndex: 100,
+            pointerEvents: "auto",
+            background: C.white,
+            borderRadius: 14,
+            border: `1.5px solid ${C.purple}40`,
+            boxShadow: "0 12px 40px rgba(122,28,203,.22)",
+            padding: "14px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            fontFamily: "'Inter',sans-serif",
+            animation: "yieldoSlideUp .25s ease-out",
+            maxWidth: "calc(100vw - 40px)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 5, background: C.purple, flexShrink: 0, animation: "yieldoPulse 1.6s ease-in-out infinite" }} />
+            <span style={{ fontSize: 13, color: C.text2, fontWeight: 500 }}>
+              Unsaved changes:
+              {enrollDiff.toAdd.length > 0 && <strong style={{ color: C.green, marginLeft: 6 }}>+{enrollDiff.toAdd.length} added</strong>}
+              {enrollDiff.toAdd.length > 0 && enrollDiff.toRemove.length > 0 && <span style={{ color: C.text4, margin: "0 4px" }}>·</span>}
+              {enrollDiff.toRemove.length > 0 && <strong style={{ color: C.red, marginLeft: enrollDiff.toAdd.length > 0 ? 0 : 6 }}>−{enrollDiff.toRemove.length} removed</strong>}
+            </span>
+          </div>
+          <div style={{ width: 1, height: 22, background: C.border }} />
+          <button onClick={discardEnrollment} disabled={savingEnroll} style={{ fontSize: 12, fontWeight: 500, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 14px", cursor: savingEnroll ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: savingEnroll ? 0.5 : 1 }}>Discard</button>
+          <Btn primary small onClick={saveEnrollment} disabled={savingEnroll}>{savingEnroll ? "Saving..." : "Save Changes"}</Btn>
+        </div>
+      )}
+
+      {/* Floating saved confirmation toast */}
+      {authState === "authenticated" && page === "catalog" && enrollSavedAt && !enrollDiff.dirty && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: `calc(50% + ${sidebarWidth / 2}px)`,
+            transform: "translateX(-50%)",
+            zIndex: 100,
+            background: C.greenDim,
+            color: C.green,
+            padding: "12px 22px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            border: `1px solid rgba(26,157,63,.3)`,
+            boxShadow: "0 8px 24px rgba(26,157,63,.18)",
+            animation: "yieldoSlideUp .25s ease-out",
+          }}
+        >
+          ✓ Enrollment saved
+        </div>
+      )}
+
+      {/* Inline keyframes for the floating bar animations */}
+      <style>{`
+        @keyframes yieldoSlideUp {
+          from { opacity: 0; transform: translate(-50%, 12px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes yieldoPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .35; }
+        }
+      `}</style>
     </div>
   );
 }
