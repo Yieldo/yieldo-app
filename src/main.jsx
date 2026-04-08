@@ -9,6 +9,7 @@ import { config } from './walletConfig.jsx'
 import VaultPage from './pages/VaultPage.jsx'
 import VaultDetailPage from './pages/VaultDetailPage.jsx'
 import KolPage from './pages/KolPage.jsx'
+import KolLandingPage from './pages/KolLandingPage.jsx'
 import WalletPage from './pages/WalletPage.jsx'
 import WalletsPage from './pages/WalletsPage.jsx'
 import VaultProviderPage from './pages/VaultProviderPage.jsx'
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />
+              <Route path="/kol/:handle" element={<KolLandingPage />} />
               <Route path="/vault-provider" element={<VaultProviderPage />} />
               <Route
                 path="/vaultscoring"
