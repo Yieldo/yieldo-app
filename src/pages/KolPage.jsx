@@ -92,8 +92,13 @@ function SignatureVerify({ address, onVerified }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address }),
     })
-      .then(r => r.json())
-      .then(data => {
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) {
+          setError(data.detail || "Cannot register with this address");
+          setStatus("blocked");
+          return;
+        }
         setIsRegistered(data.message.includes("login"));
         setStatus("idle");
       })
@@ -156,10 +161,12 @@ function SignatureVerify({ address, onVerified }) {
       <div style={{ padding: "10px 16px", background: C.purpleDim, borderRadius: 8, fontSize: 12, color: C.text2 }}>
         <span style={{ fontFamily: "monospace", fontWeight: 600, color: C.purple }}>{address}</span>
       </div>
-      {error && <div style={{ fontSize: 13, color: C.red, maxWidth: 400, textAlign: "center" }}>{error}</div>}
-      <Btn primary onClick={verify} disabled={status === "checking" || status === "signing"} style={{ padding: "14px 32px", fontSize: 15 }}>
-        {status === "checking" ? "Checking..." : status === "signing" ? "Sign in wallet..." : isRegistered ? "Sign to Login" : "Sign to Verify"}
-      </Btn>
+      {error && <div style={{ fontSize: 13, color: C.red, maxWidth: 400, textAlign: "center", background: C.redDim, padding: "10px 16px", borderRadius: 8 }}>{error}</div>}
+      {status !== "blocked" && (
+        <Btn primary onClick={verify} disabled={status === "checking" || status === "signing"} style={{ padding: "14px 32px", fontSize: 15 }}>
+          {status === "checking" ? "Checking..." : status === "signing" ? "Sign in wallet..." : isRegistered ? "Sign to Login" : "Sign to Verify"}
+        </Btn>
+      )}
     </div>
   );
 }
