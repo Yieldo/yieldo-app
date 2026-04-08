@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -622,7 +622,14 @@ function ComingSoon({ icon, title }) {
 // ============ MAIN APP ============
 export default function WalletsPage() {
   const [page, setPage] = useState("catalog");
+  // savedEnrolled = the set persisted server-side. enrolledVaults = current local pending state.
+  const [savedEnrolled, setSavedEnrolled] = useState(new Set());
   const [enrolledVaults, setEnrolledVaults] = useState(new Set());
+  const [savingEnroll, setSavingEnroll] = useState(false);
+  const [enrollSavedAt, setEnrollSavedAt] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("yieldo_partner_sidebar_collapsed") === "1"; } catch { return false; }
+  });
   const [partner, setPartner] = useState(null);
   const [authState, setAuthState] = useState("checking"); // checking | not_connected | verify | register | authenticated
   const [registerData, setRegisterData] = useState(null);
@@ -633,6 +640,21 @@ export default function WalletsPage() {
   const { openConnectModal } = useConnectModal();
   const navigate = useNavigate();
   const { vaults, loading: vaultsLoading } = useVaults();
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem("yieldo_partner_sidebar_collapsed", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Helper: set both enrollment states from server data
+  const applyServerEnrollment = (list) => {
+    const set = new Set(list || []);
+    setSavedEnrolled(set);
+    setEnrolledVaults(new Set(set));
+  };
 
   // Check session on mount / address change
   useEffect(() => {
@@ -647,7 +669,7 @@ export default function WalletsPage() {
     if (token) {
       partnerFetch("/v1/partners/me")
         .then(r => { if (r.ok) return r.json(); throw new Error(); })
-        .then(data => { setPartner(data); setAuthState("authenticated"); if (data.enrolled_vaults) setEnrolledVaults(new Set(data.enrolled_vaults)); })
+        .then(data => { setPartner(data); setAuthState("authenticated"); applyServerEnrollment(data.enrolled_vaults); })
         .catch(() => { sessionStorage.removeItem("yieldo_partner_token"); setAuthState("verify"); });
     } else {
       setAuthState("verify");
@@ -659,7 +681,7 @@ export default function WalletsPage() {
       setPartner(result.partner);
       // Fetch full profile
       partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(data => {
-        if (data) { setPartner(data); if (data.enrolled_vaults) setEnrolledVaults(new Set(data.enrolled_vaults)); }
+        if (data) { setPartner(data); applyServerEnrollment(data.enrolled_vaults); }
       });
       setAuthState("authenticated");
     } else if (result.type === "register") {
@@ -671,18 +693,52 @@ export default function WalletsPage() {
   const handleRegistered = useCallback((data) => {
     setNewKeys({ api_key: data.api_key, api_secret: data.api_secret });
     partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(p => {
-      if (p) { setPartner(p); if (p.enrolled_vaults) setEnrolledVaults(new Set(p.enrolled_vaults)); }
+      if (p) { setPartner(p); applyServerEnrollment(p.enrolled_vaults); }
     });
     setAuthState("authenticated");
   }, []);
 
-  const toggleVault = async (vaultId) => {
-    const next = new Set(enrolledVaults);
-    next.has(vaultId) ? next.delete(vaultId) : next.add(vaultId);
-    setEnrolledVaults(next);
-    if (partner) {
-      try { await partnerFetch("/v1/partners/vaults", { method: "PUT", body: JSON.stringify({ enrolled_vaults: [...next] }) }); } catch { /* silent */ }
+  // Local-only toggle — no API call. User clicks Save to persist all changes.
+  const toggleVault = (vaultId) => {
+    setEnrolledVaults(prev => {
+      const next = new Set(prev);
+      next.has(vaultId) ? next.delete(vaultId) : next.add(vaultId);
+      return next;
+    });
+  };
+
+  // Diff between current local state and last-saved state
+  const enrollDiff = useMemo(() => {
+    const toAdd = [];
+    const toRemove = [];
+    for (const id of enrolledVaults) if (!savedEnrolled.has(id)) toAdd.push(id);
+    for (const id of savedEnrolled) if (!enrolledVaults.has(id)) toRemove.push(id);
+    return { toAdd, toRemove, dirty: toAdd.length > 0 || toRemove.length > 0 };
+  }, [enrolledVaults, savedEnrolled]);
+
+  const saveEnrollment = async () => {
+    setSavingEnroll(true);
+    try {
+      const res = await partnerFetch("/v1/partners/vaults", {
+        method: "PUT",
+        body: JSON.stringify({ enrolled_vaults: [...enrolledVaults] }),
+      });
+      if (res.ok) {
+        setSavedEnrolled(new Set(enrolledVaults));
+        setEnrollSavedAt(Date.now());
+        setTimeout(() => setEnrollSavedAt(null), 2500);
+      } else {
+        alert("Failed to save enrollment changes. Please try again.");
+      }
+    } catch {
+      alert("Failed to save enrollment changes. Please try again.");
+    } finally {
+      setSavingEnroll(false);
     }
+  };
+
+  const discardEnrollment = () => {
+    setEnrolledVaults(new Set(savedEnrolled));
   };
 
   const refreshPartner = () => {
@@ -699,45 +755,85 @@ export default function WalletsPage() {
     { id: "settings", icon: "⚙️", label: "Settings" },
   ];
 
+  const sidebarWidth = sidebarCollapsed ? 64 : 230;
+
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", display: "flex" }}>
       {/* SIDEBAR */}
-      <aside style={{ width: 230, background: C.white, borderRight: `1px solid ${C.border}`, padding: "20px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxShadow: "1px 0 8px rgba(0,0,0,0.02)" }}>
-        <div style={{ padding: "0 20px 20px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}`, marginBottom: 8, paddingBottom: 18 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain" }} />
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>
-          <Badge color={C.teal}>Wallet</Badge>
+      <aside style={{ width: sidebarWidth, background: C.white, borderRight: `1px solid ${C.border}`, padding: "20px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxShadow: "1px 0 8px rgba(0,0,0,0.02)", transition: "width .2s ease" }}>
+        <div style={{ padding: sidebarCollapsed ? "0 12px 18px" : "0 20px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}`, marginBottom: 8, justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+          {!sidebarCollapsed && <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
+          {!sidebarCollapsed && <Badge color={C.teal}>Wallet</Badge>}
         </div>
+        {/* Collapse toggle */}
+        <button
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          style={{
+            position: "absolute", top: 22, right: -12, width: 24, height: 24, borderRadius: 12,
+            background: C.white, border: `1px solid ${C.border2}`, color: C.text3,
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontFamily: "'Inter',sans-serif", boxShadow: "0 1px 4px rgba(0,0,0,.06)",
+            zIndex: 5,
+          }}
+        >
+          {sidebarCollapsed ? "›" : "‹"}
+        </button>
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, padding: "0 8px" }}>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => setPage(item.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: page === item.id ? C.purpleDim : "transparent", border: "none", borderRadius: 8, color: page === item.id ? C.purple : C.text3, fontSize: 14, fontWeight: page === item.id ? 600 : 400, cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s" }}>
-              <span style={{ fontSize: 15 }}>{item.icon}</span>
-              {item.label}
-              {item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
+            <button
+              key={item.id}
+              onClick={() => setPage(item.id)}
+              title={sidebarCollapsed ? item.label : undefined}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: sidebarCollapsed ? "10px 0" : "9px 14px",
+                justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                background: page === item.id ? C.purpleDim : "transparent",
+                border: "none", borderRadius: 8,
+                color: page === item.id ? C.purple : C.text3,
+                fontSize: 14, fontWeight: page === item.id ? 600 : 400,
+                cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s",
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{item.icon}</span>
+              {!sidebarCollapsed && item.label}
+              {!sidebarCollapsed && item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
             </button>
           ))}
         </nav>
-        <div style={{ padding: "14px 16px", borderTop: `1px solid ${C.border}`, margin: "0 8px" }}>
+        <div style={{ padding: sidebarCollapsed ? "14px 8px" : "14px 16px", borderTop: `1px solid ${C.border}`, margin: "0 8px" }}>
           {isConnected && address ? (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 4, background: authState === "authenticated" ? C.green : C.gold }} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{authState === "authenticated" ? "Connected" : "Unverified"}</span>
+            sidebarCollapsed ? (
+              <div title={`${address.slice(0, 6)}...${address.slice(-4)}`} style={{ display: "flex", justifyContent: "center" }}>
+                <div style={{ width: 10, height: 10, borderRadius: 5, background: authState === "authenticated" ? C.green : C.gold }} />
               </div>
-              <div style={{ fontSize: 11, color: C.text3, fontFamily: "monospace", marginBottom: 8 }}>{address.slice(0, 6)}...{address.slice(-4)}</div>
-              {partner && <div style={{ fontSize: 11, color: C.purple, fontWeight: 500, marginBottom: 8 }}>{partner.name}</div>}
-              <button onClick={() => { disconnect(); sessionStorage.removeItem("yieldo_partner_token"); }} style={{ fontSize: 11, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: 0 }}>Disconnect</button>
-            </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: authState === "authenticated" ? C.green : C.gold }} />
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{authState === "authenticated" ? "Connected" : "Unverified"}</span>
+                </div>
+                <div style={{ fontSize: 11, color: C.text3, fontFamily: "monospace", marginBottom: 8 }}>{address.slice(0, 6)}...{address.slice(-4)}</div>
+                {partner && <div style={{ fontSize: 11, color: C.purple, fontWeight: 500, marginBottom: 8 }}>{partner.name}</div>}
+                <button onClick={() => { disconnect(); sessionStorage.removeItem("yieldo_partner_token"); }} style={{ fontSize: 11, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: 0 }}>Disconnect</button>
+              </div>
+            )
           ) : (
-            <button onClick={openConnectModal} style={{ width: "100%", padding: "10px", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>
-              Connect Wallet
-            </button>
+            sidebarCollapsed ? (
+              <button onClick={openConnectModal} title="Connect Wallet" style={{ width: "100%", padding: "10px 0", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 16, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>↗</button>
+            ) : (
+              <button onClick={openConnectModal} style={{ width: "100%", padding: "10px", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>
+                Connect Wallet
+              </button>
+            )
           )}
         </div>
       </aside>
 
       {/* MAIN */}
-      <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", maxWidth: 1200 }}>
+      <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", minWidth: 0 }}>
         {newKeys && <APIKeysModal keys={newKeys} onClose={() => setNewKeys(null)} />}
 
         {/* Not connected */}
@@ -799,11 +895,35 @@ export default function WalletsPage() {
                 ) : (
                   <VaultExplorer
                     vaults={vaults}
-                    onRowClick={v => navigate(`/vault/${encodeURIComponent(v.id)}`)}
                     variant="enroll"
                     enrolled={enrolledVaults}
                     onToggleEnroll={toggleVault}
                   />
+                )}
+                {/* Sticky save bar — appears when there are unsaved enrollment changes */}
+                {enrollDiff.dirty && (
+                  <div style={{ position: "sticky", bottom: 16, marginTop: 24, display: "flex", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
+                    <div style={{ pointerEvents: "auto", background: C.white, borderRadius: 12, border: `1.5px solid ${C.purple}30`, boxShadow: "0 8px 32px rgba(122,28,203,.18)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 14, fontFamily: "'Inter',sans-serif" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 5, background: C.purple, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, color: C.text2, fontWeight: 500 }}>
+                          Unsaved changes:
+                          {enrollDiff.toAdd.length > 0 && <strong style={{ color: C.green, marginLeft: 6 }}>+{enrollDiff.toAdd.length}</strong>}
+                          {enrollDiff.toRemove.length > 0 && <strong style={{ color: C.red, marginLeft: 6 }}>−{enrollDiff.toRemove.length}</strong>}
+                        </span>
+                      </div>
+                      <div style={{ width: 1, height: 22, background: C.border }} />
+                      <button onClick={discardEnrollment} disabled={savingEnroll} style={{ fontSize: 12, fontWeight: 500, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 14px", cursor: savingEnroll ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: savingEnroll ? 0.5 : 1 }}>Discard</button>
+                      <Btn primary small onClick={saveEnrollment} disabled={savingEnroll}>{savingEnroll ? "Saving..." : "Save Changes"}</Btn>
+                    </div>
+                  </div>
+                )}
+                {enrollSavedAt && !enrollDiff.dirty && (
+                  <div style={{ position: "sticky", bottom: 16, marginTop: 24, display: "flex", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
+                    <div style={{ background: C.greenDim, color: C.green, padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, border: `1px solid rgba(26,157,63,.25)`, boxShadow: "0 4px 16px rgba(26,157,63,.12)" }}>
+                      ✓ Enrollment saved
+                    </div>
+                  </div>
                 )}
               </>
             )}

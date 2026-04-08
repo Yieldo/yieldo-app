@@ -1,5 +1,6 @@
 // Shared vault filter + table used by VaultPage and WalletsPage
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 export const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
@@ -267,26 +268,25 @@ export const ActivePill = ({ label, onRemove }) => (
 );
 
 /**
- * VaultExplorer — filter bar + table for vault listings
+ * VaultExplorer — filter bar + (table | grid) for vault listings
  *
  * Props:
  *   vaults: array (mapped from useVaults)
- *   onRowClick: (vault) => void
- *   variant: "explore" (default — vault page, has compare) | "enroll" (wallet page, has enroll checkbox)
+ *   variant: "explore" (default — no per-row checkbox) | "enroll" (per-row checkbox for wallet partner enrollment)
  *   enrolled: Set<vaultId> — only used when variant === "enroll"
  *   onToggleEnroll: (vaultId) => void
- *   compareList: array — only used when variant === "explore"
+ *   compareList: array — optional compare functionality (kept for future)
  *   onToggleCompare: (vault) => void
  */
 export function VaultExplorer({
   vaults: ALL,
-  onRowClick,
   variant = "explore",
   enrolled,
   onToggleEnroll,
   compareList = [],
   onToggleCompare,
 }) {
+  const [view, setView] = useState("table"); // table | grid
   const [search, setSearch] = useState("");
   const [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]);
@@ -435,6 +435,11 @@ export function VaultExplorer({
                   {[["yieldoScore", "Yieldo Score"], ["apy", "APY"], ["tvl", "TVL"], ["risk", "Risk"], ["sharpe", "Sharpe"], ["retention", "Retention"], ["depositors", "Depositors"], ["age", "Age"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
+              <div style={{ display: "flex", background: C.surfaceAlt, borderRadius: 7, border: `1px solid ${C.border}`, padding: 2, gap: 2 }}>
+                {[["table","☰","Table"],["grid","⊞","Cards"]].map(([v, icon, label]) => (
+                  <button key={v} onClick={() => setView(v)} title={label} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "4px 9px", borderRadius: 5, border: "none", cursor: "pointer", background: view === v ? C.white : "transparent", color: view === v ? C.text : C.text3, boxShadow: view === v ? "0 1px 3px rgba(0,0,0,.08)" : "none", transition: "all .12s" }}>{icon}</button>
+                ))}
+              </div>
               {totalActive > 0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.text3, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕ Clear</button>}
             </div>
           </div>
@@ -476,71 +481,179 @@ export function VaultExplorer({
           )}
         </div>
 
-        {/* Table */}
-        <Card><div style={{ overflow: "auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 1000 }}>
-            <div></div>
-            <div>Vault</div>
-            <div>Score</div>
-            <div>APY</div>
-            <div>Risk</div>
-            <div>Flags</div>
-            <div>Sharpe</div>
-            <div>TVL</div>
-            <div>Dep.</div>
-            <div>Yield</div>
-            <div>Age</div>
-            <div></div>
-          </div>
-          {filtered.map(v => {
-            const isEnr = enrolled?.has(v.id);
-            const isCmp = !!compareList.find(c => c.id === v.id);
-            return (
-              <div key={v.id} onClick={() => onRowClick?.(v)} style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: isCmp ? C.purpleDim : isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent", minWidth: 1000, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e => { if (!isCmp) e.currentTarget.style.background = C.surfaceAlt }} onMouseLeave={e => { if (!isCmp) e.currentTarget.style.background = isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent" }}>
-                {/* Stop propagation so clicking the checkbox only enrolls, doesn't open the vault */}
-                <div onClick={e => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={isEnr || false}
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => { e.stopPropagation(); onToggleEnroll?.(v.id); }}
-                    style={{ accentColor: C.purple, cursor: "pointer", width: 16, height: 16 }}
-                  />
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  <AssetIcon asset={v.asset} size={14} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div>
-                    <div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div>
-                  </div>
-                </div>
-                <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
-                <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
-                <div><Badge color={v.riskC}>{v.risk}</Badge></div>
-                <div><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
-                <div style={{ fontSize: 11, color: C.text2 }}>{fmtNum(v.sharpe)}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</span>
-                  {v.tvlSpark && <Sparkline data={v.tvlSpark} width={40} height={16}/>}
-                </div>
-                <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
-                <div><YieldBadge t={v.yieldType}/></div>
-                <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
-                <div>
-                  {variant === "explore" && onToggleCompare && (
-                    <button onClick={e => { e.stopPropagation(); onToggleCompare(v); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: isCmp ? C.purple : C.text4 }}>⚖️</button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div style={{ padding: 60, textAlign: "center", color: C.text3 }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div>
-              <div style={{ fontSize: 14 }}>No vaults match the current filters.</div>
+        {/* TABLE VIEW */}
+        {view === "table" && (
+          <Card><div style={{ overflow: "auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: variant === "enroll"
+              ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr"
+              : "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr",
+              padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: variant === "enroll" ? 1000 : 960 }}>
+              {variant === "enroll" && <div></div>}
+              <div>Vault</div>
+              <div>Score</div>
+              <div>APY</div>
+              <div>Risk</div>
+              <div>Flags</div>
+              <div>Sharpe</div>
+              <div>TVL</div>
+              <div>Dep.</div>
+              <div>Yield</div>
+              <div>Age</div>
             </div>
-          )}
-        </div></Card>
+            {filtered.map(v => {
+              const isEnr = enrolled?.has(v.id);
+              const rowStyle = {
+                display: "grid",
+                gridTemplateColumns: variant === "enroll"
+                  ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr"
+                  : "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr",
+                padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center",
+                background: isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent",
+                minWidth: variant === "enroll" ? 1000 : 960, cursor: "pointer", transition: "background .1s",
+                textDecoration: "none", color: "inherit",
+              };
+              return (
+                <Link
+                  key={v.id}
+                  to={`/vault/${encodeURIComponent(v.id)}`}
+                  style={rowStyle}
+                  onMouseEnter={e => { e.currentTarget.style.background = C.surfaceAlt; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent"; }}
+                >
+                  {variant === "enroll" && (
+                    /* Stop click + prevent default so checkbox doesn't trigger Link navigation */
+                    <div onClick={e => { e.stopPropagation(); e.preventDefault(); }}>
+                      <input
+                        type="checkbox"
+                        checked={isEnr || false}
+                        onClick={e => { e.stopPropagation(); }}
+                        onChange={e => { e.stopPropagation(); onToggleEnroll?.(v.id); }}
+                        style={{ accentColor: C.purple, cursor: "pointer", width: 16, height: 16 }}
+                      />
+                    </div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <AssetIcon asset={v.asset} size={14} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div>
+                      <div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div>
+                    </div>
+                  </div>
+                  <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
+                  <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
+                  <div><Badge color={v.riskC}>{v.risk}</Badge></div>
+                  <div><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>{fmtNum(v.sharpe)}</div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
+                  <div><YieldBadge t={v.yieldType}/></div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
+                </Link>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div style={{ padding: 60, textAlign: "center", color: C.text3 }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div>
+                <div style={{ fontSize: 14 }}>No vaults match the current filters.</div>
+              </div>
+            )}
+          </div></Card>
+        )}
+
+        {/* GRID / CARD VIEW */}
+        {view === "grid" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+            {filtered.map(v => {
+              const isEnr = enrolled?.has(v.id);
+              return (
+                <Link
+                  key={v.id}
+                  to={`/vault/${encodeURIComponent(v.id)}`}
+                  style={{
+                    background: C.white, borderRadius: 12, overflow: "hidden",
+                    border: isEnr && variant === "enroll" ? `1.5px solid ${C.purple}40` : `1px solid ${C.border}`,
+                    boxShadow: "0 1px 3px rgba(0,0,0,.03)", cursor: "pointer",
+                    textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column",
+                    transition: "all .15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(122,28,203,.1)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,.03)"; e.currentTarget.style.transform = "none"; }}
+                >
+                  <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}>
+                        <ScoreRing score={v.yieldoScore} size={40} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                        <div style={{ fontSize: 17, fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</div>
+                        <div style={{ fontSize: 10, color: C.text4 }}>APY</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+                      <Badge color={v.riskC}>{v.risk}</Badge>
+                      <YieldBadge t={v.yieldType}/>
+                      <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
+                      <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
+                    </div>
+                    {v.flags.filter(f => f.severity !== "info").length > 0 && (
+                      <div style={{ marginBottom: 10 }}><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 10, padding: "10px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ color: C.text4, fontWeight: 600 }}>TVL</div>
+                        <div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtTvl(v.tvl)}</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ color: C.text4, fontWeight: 600 }}>SHARPE</div>
+                        <div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtNum(v.sharpe)}</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div>
+                        <div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{v.depositors.toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: "auto", alignItems: "center" }}>
+                      {variant === "enroll" ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); e.preventDefault(); onToggleEnroll?.(v.id); }}
+                          style={{
+                            flex: 1, padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                            background: isEnr ? C.greenDim : undefined,
+                            backgroundImage: isEnr ? "none" : C.purpleGrad,
+                            border: isEnr ? `1px solid rgba(26,157,63,.25)` : "none",
+                            color: isEnr ? C.green : "#fff",
+                            boxShadow: isEnr ? "none" : C.purpleShadow,
+                          }}
+                        >
+                          {isEnr ? "✓ Enrolled" : "+ Enroll"}
+                        </button>
+                      ) : (
+                        <div
+                          style={{
+                            flex: 1, padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            fontFamily: "'Inter',sans-serif", textAlign: "center",
+                            backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow,
+                          }}
+                        >Explore →</div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div style={{ gridColumn: "1 / -1", padding: 60, textAlign: "center", color: C.text3 }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div>
+                <div style={{ fontSize: 14 }}>No vaults match the current filters.</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

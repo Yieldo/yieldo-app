@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
@@ -376,7 +376,7 @@ export default function VaultPage() {
     }).catch(() => {});
   }, [isConnected, address]);
 
-  const [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
+  const [view, setView] = useState("table"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
@@ -384,7 +384,6 @@ export default function VaultPage() {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [autoCurateTracked, setAutoCurateTracked] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
-  const [cmpList, setCmpList] = useState([]), [enrolled, setEnrolled] = useState(new Set());
   const [fbOpen, setFbOpen] = useState(false);
   const [fbVault, setFbVault] = useState("");
   const [fbField, setFbField] = useState("");
@@ -417,8 +416,6 @@ export default function VaultPage() {
   };
 
   const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); setActivePreset(null); };
-  const togCmp = v => { cmpList.find(c=>c.id===v.id)?setCmpList(cmpList.filter(c=>c.id!==v.id)):cmpList.length<4&&setCmpList([...cmpList,v]); };
-  const togEnr = id => { const n=new Set(enrolled); n.has(id)?n.delete(id):n.add(id); setEnrolled(n); };
 
   const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Hyperliquid"];
   const CHAINS = useMemo(() => {
@@ -507,7 +504,7 @@ export default function VaultPage() {
   );
 
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", paddingBottom: cmpList.length>0?400:0 }}>
+    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh" }}>
       {/* Header */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${winW >= 640 ? "20px" : "12px"}`, display: "flex", justifyContent: "space-between", alignItems: "center", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 6px rgba(0,0,0,.04)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -617,6 +614,9 @@ export default function VaultPage() {
                   {[["yieldoScore","Yieldo Score"],["apy","APY"],["tvl","TVL"],["risk","Risk"],["sharpe","Sharpe"],["retention","Retention"],["depositors","Depositors"],["age","Age"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
+              <div style={{ display: "flex", background: C.surfaceAlt, borderRadius: 7, border: `1px solid ${C.border}`, padding: 2, gap: 2 }}>
+                {[["table","☰","Table"],["grid","⊞","Cards"]].map(([v,icon,title])=><button key={v} title={title} onClick={()=>setView(v)} style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "4px 9px", borderRadius: 5, border: "none", cursor: "pointer", background: view===v ? C.white : "transparent", color: view===v ? C.text : C.text3, boxShadow: view===v ? "0 1px 3px rgba(0,0,0,.08)" : "none", transition: "all .12s" }}>{icon}</button>)}
+              </div>
               {totalActive>0 && <button onClick={clearAll} style={{ fontSize: 11, color: C.text3, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕ Clear</button>}
             </div>
           </div>
@@ -650,38 +650,66 @@ export default function VaultPage() {
             {pills.length>0 && <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }}/>}
             {pills.map((p,i) => <ActivePill key={i} label={p.label} onRemove={p.remove}/>)}
           </div>
-          {cmpList.length>0&&<Badge color={C.purple}>⚖️ {cmpList.length} comparing</Badge>}
         </div>
-        <Card><div style={{ overflow: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 1000 }}><div></div><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div><div></div></div>
-            {filtered.map(v=>{const isEnr=enrolled.has(v.id),isCmp=!!cmpList.find(c=>c.id===v.id);return(
-              <div key={v.id} onClick={()=>navigate(`/vault/${v.id}`)} style={{ display: "grid", gridTemplateColumns: ".25fr 1.4fr .4fr .5fr .4fr .45fr .5fr .45fr .45fr .5fr .4fr .35fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: isCmp?C.purpleDim:"transparent", minWidth: 1000, cursor: "pointer", transition: "background .1s" }} onMouseEnter={e=>{if(!isCmp)e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{if(!isCmp)e.currentTarget.style.background="transparent"}}>
-                <div onClick={e=>e.stopPropagation()}><input type="checkbox" checked={isEnr || false} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();togEnr(v.id)}} style={{ accentColor: C.purple, cursor: "pointer", width: 16, height: 16 }}/></div>
+        {view === "table" && (
+          <Card><div style={{ overflow: "auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960 }}><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div></div>
+            {filtered.map(v=>(
+              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
                 <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
                 <div><Badge color={v.riskC}>{v.risk}</Badge></div>
                 <div><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{fmtNum(v.sharpe)}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</span>{v.tvlSpark && <Sparkline data={v.tvlSpark} width={40} height={16}/>}</div>
+                <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                 <div><YieldBadge t={v.yieldType}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
-                <div><button onClick={e=>{e.stopPropagation();togCmp(v)}} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: isCmp?C.purple:C.text4 }}>⚖️</button></div>
-              </div>
-            )})}
+              </Link>
+            ))}
           </div></Card>
+        )}
+        {view === "grid" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+            {filtered.map(v=>(
+              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ background: C.white, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,.03)", cursor: "pointer", textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", transition: "all .15s" }}
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(122,28,203,.1)";e.currentTarget.style.transform="translateY(-1px)"}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.03)";e.currentTarget.style.transform="none"}}>
+                <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}>
+                      <ScoreRing score={v.yieldoScore} size={40}/>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</div>
+                      <div style={{ fontSize: 10, color: C.text4 }}>APY</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+                    <Badge color={v.riskC}>{v.risk}</Badge>
+                    <YieldBadge t={v.yieldType}/>
+                    <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
+                    <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
+                  </div>
+                  {v.flags.filter(f=>f.severity!=="info").length>0 && <div style={{ marginBottom: 10 }}><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, fontSize: 10, padding: "10px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
+                    <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>TVL</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtTvl(v.tvl)}</div></div>
+                    <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>SHARPE</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtNum(v.sharpe)}</div></div>
+                    <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{v.depositors.toLocaleString()}</div></div>
+                  </div>
+                  <div style={{ marginTop: "auto", padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", textAlign: "center", backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>Explore →</div>
+                </div>
+              </Link>
+            ))}
+            {filtered.length === 0 && <div style={{ gridColumn: "1 / -1", padding: 60, textAlign: "center", color: C.text3 }}><div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div><div style={{ fontSize: 14 }}>No vaults match the current filters.</div></div>}
+          </div>
+        )}
       </div>
-      {cmpList.length>0&&<div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.white, borderTop: `2px solid ${C.purple}`, boxShadow: "0 -8px 32px rgba(0,0,0,.1)", padding: winW >= 1000 ? "14px 32px 18px" : "10px 16px 14px", fontFamily: "'Inter',sans-serif" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 14, fontWeight: 600 }}>⚖️ Comparing {cmpList.length}</span><Badge color={C.purple}>{cmpList.length}/4</Badge></div><div style={{ display: "flex", gap: 8 }}><Btn primary small>✓ Add All</Btn><Btn ghost small onClick={()=>setCmpList([])}>✕ Clear</Btn></div></div>
-        <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${cmpList.length}, 1fr)`, gap: 0, fontSize: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column" }}><div style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}`, height: 36 }}/>{["Score","APY","Yield","Risk","Flags","Sharpe","TVL","Retention","Dep."].map((l,i)=><div key={i} style={{ padding: "4px 0", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, minHeight: 24, display: "flex", alignItems: "center" }}>{l}</div>)}</div>
-          {cmpList.map((v,vi)=><div key={vi} style={{ display: "flex", flexDirection: "column", borderLeft: `1px solid ${C.border}`, paddingLeft: 10 }}>
-            <div style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}`, height: 36, display: "flex", alignItems: "center", gap: 6 }}><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div></div><button onClick={()=>setCmpList(cmpList.filter(c=>c.id!==v.id))} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: C.text4 }}>✕</button></div>
-            {[<div style={{ display: "flex", alignItems: "center", gap: 4 }}><ScoreRing score={v.yieldoScore} size={22} sw={2.5}/><span style={{ fontWeight: 600 }}>{v.yieldoScore}</span></div>,<span style={{ fontWeight: 700, color: C.purple }}>{v.apy.toFixed(2)}%</span>,<YieldBadge t={v.yieldType}/>,<Badge color={v.riskC}>{v.risk}</Badge>,<FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/>,<span>{fmtNum(v.sharpe)}</span>,<span>{fmtTvl(v.tvl)}</span>,<span style={{ color: (v.capRet||0)<60?C.red:C.text2 }}>{v.capRet||"N/A"}%</span>,<span>{v.depositors.toLocaleString()}</span>].map((el,i)=><div key={i} style={{ padding: "4px 0", borderBottom: `1px solid ${C.border}`, minHeight: 24, display: "flex", alignItems: "center" }}>{el}</div>)}
-          </div>)}
-        </div>
-      </div>}
       </>}
 
       {/* Floating Idle Balance Widget — shown on Vaults tab when wallet connected */}
