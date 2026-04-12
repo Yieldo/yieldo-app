@@ -16,6 +16,7 @@ import CuratorPage from './pages/CuratorPage.jsx'
 import ApplyPage from './pages/ApplyPage.jsx'
 import VaultScoringPage from './pages/VaultScoringPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
+import TxTracker from './components/TxTracker.jsx'
 import './index.css'
 
 const queryClient = new QueryClient()
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <BrowserRouter>
+            <TxTracker />
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />

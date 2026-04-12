@@ -85,6 +85,8 @@ function saveDepositLocal(deposit) {
     existing.unshift(deposit);
     if (existing.length > 100) existing.length = 100;
     localStorage.setItem(key, JSON.stringify(existing));
+    // Notify TxTracker
+    window.dispatchEvent(new Event("yieldo_deposit_update"));
   } catch {}
 }
 
