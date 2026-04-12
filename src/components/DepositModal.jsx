@@ -416,10 +416,10 @@ function DepositModal({ vault, onClose }) {
 
 /* =========== Sub-components =========== */
 
-function Overlay({ children, onClose }) {
+function Overlay({ children }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)", fontFamily: "'Inter',sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+      <div style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)", fontFamily: "'Inter',sans-serif" }}>
         {children}
       </div>
     </div>
@@ -596,25 +596,56 @@ function InputStep({
   );
 }
 
+function fmtToken(raw, decimals) {
+  const n = parseFloat(formatUnits(BigInt(raw), decimals));
+  if (n === 0) return "0";
+  if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
+  if (n >= 1) return n.toFixed(4);
+  if (n >= 0.0001) return n.toFixed(6);
+  return n.toExponential(2);
+}
+
+function fmtShares(raw) {
+  // Shares are raw 18-decimal integers — convert to human-readable
+  const n = parseFloat(raw);
+  if (isNaN(n) || n === 0) return null;
+  // If it looks like a raw wei value (> 1e12), divide by 1e18
+  if (n > 1e12) {
+    const human = n / 1e18;
+    if (human >= 1000) return human.toLocaleString("en", { maximumFractionDigits: 2 });
+    if (human >= 0.01) return human.toFixed(4);
+    return human.toExponential(2);
+  }
+  if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
+  return n.toFixed(4);
+}
+
 function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack }) {
   const est = quote.estimate;
   const vaultDecimals = quote.vault?.asset?.decimals || fromToken?.decimals || 6;
   const outDecimals = quote.quote_type === "direct" ? fromToken.decimals : vaultDecimals;
-  const depositAmt = formatUnits(BigInt(est.deposit_amount), outDecimals);
-  const feeAmt = formatUnits(BigInt(est.fee_amount), outDecimals);
   const isSwap = quote.quote_type !== "direct";
-  const outSymbol = isSwap ? vault.asset : fromToken?.symbol;
+  const outSymbol = isSwap ? (vault.asset || vault.assetLower || "").toUpperCase() : fromToken?.symbol;
+
+  // Build route description from steps if available
+  let routeDesc = quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap" : "Cross-chain";
+  const steps = est.steps;
+  if (steps && steps.length > 0) {
+    const tools = steps.map(s => s.tool).filter(Boolean);
+    if (tools.length > 0) routeDesc += ` via ${tools.join(" → ")}`;
+  }
 
   const rows = [
-    { label: "You deposit", value: `${parseFloat(amount).toFixed(6)} ${fromToken?.symbol}` },
-    isSwap && { label: "Est. receive", value: `${parseFloat(formatUnits(BigInt(est.to_amount), vaultDecimals)).toFixed(6)} ${vault.asset}` },
-    { label: "Fee (0.1%)", value: `${parseFloat(feeAmt).toFixed(6)} ${outSymbol}`, light: true },
-    { label: "Net deposit", value: `${parseFloat(depositAmt).toFixed(6)} ${outSymbol}`, bold: true, color: C.purple },
-    est.estimated_shares && { label: "Est. shares", value: parseFloat(est.estimated_shares).toLocaleString(), light: true },
+    { label: "You deposit", value: `${fmtToken(parseUnits(amount, fromToken.decimals).toString(), fromToken.decimals)} ${fromToken?.symbol}` },
+    isSwap && { label: "Est. receive", value: `${fmtToken(est.to_amount, vaultDecimals)} ${outSymbol}` },
+    { label: "Fee (0.1%)", value: `${fmtToken(est.fee_amount, outDecimals)} ${outSymbol}`, light: true },
+    { label: "Net deposit", value: `${fmtToken(est.deposit_amount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
+    est.estimated_shares && fmtShares(est.estimated_shares) && { label: "Est. shares", value: fmtShares(est.estimated_shares), light: true },
     est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `~${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)} min`, light: true },
     est.gas_cost_usd && { label: "Est. gas cost", value: `$${est.gas_cost_usd}`, light: true },
+    est.price_impact != null && { label: "Price impact", value: `${est.price_impact > 0 ? "-" : ""}${Math.abs(est.price_impact).toFixed(2)}%`, light: true, color: Math.abs(est.price_impact) > 1 ? C.amber : undefined },
     referralResolved && { label: "Referrer", value: referralResolved.handle ? `@${referralResolved.handle}` : `${referralResolved.address.slice(0, 10)}...`, color: C.green },
-    { label: "Route", value: quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap (LiFi)" : "Cross-chain (LiFi)" },
+    { label: "Route", value: routeDesc },
   ].filter(Boolean);
 
   return (
