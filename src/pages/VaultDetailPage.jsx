@@ -1,6 +1,9 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaultDetail } from "../hooks/useVaultData.js";
+import { useUserAuth } from "../hooks/useUserAuth.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 
@@ -390,6 +393,18 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [fbSending, setFbSending] = useState(false);
   const [fbDone, setFbDone] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
+
+  const handleDeposit = useCallback(async () => {
+    if (!isConnected) { openConnectModal(); return; }
+    if (!isAuthenticated) {
+      const ok = await userLogin();
+      if (!ok) return;
+    }
+    setDepositOpen(true);
+  }, [isConnected, isAuthenticated, userLogin, openConnectModal]);
 
   const submitFeedback = async () => {
     setFbSending(true);
@@ -439,7 +454,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
-          <Btn primary small onClick={() => setDepositOpen(true)}>Deposit</Btn>
+          <Btn primary small onClick={handleDeposit}>{authLoading ? "Signing in..." : "Deposit"}</Btn>
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}

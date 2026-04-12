@@ -1,10 +1,14 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { useWalletBalances } from "../hooks/useWalletBalances.js";
+import { useUserAuth } from "../hooks/useUserAuth.js";
 import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplorer.jsx";
+const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
+
+const DEPOSITABLE_CHAINS = [1, 8453];
 
 function useWindowWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
@@ -365,16 +369,19 @@ export default function VaultPage() {
   const setActiveTab = (tab) => navigate(tab === "dashboard" ? "/dashboard" : "/vault");
   const [widgetDismissed, setWidgetDismissed] = useState(false);
   const { balances, totalIdle } = useWalletBalances();
+  const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
+  const [depositVault, setDepositVault] = useState(null);
 
-  // Track wallet connections in DB
-  useEffect(() => {
-    if (!isConnected || !address) return;
-    fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet_address: address }),
-    }).catch(() => {});
-  }, [isConnected, address]);
+  const handleDeposit = useCallback(async (e, vault) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isConnected) { openConnectModal(); return; }
+    if (!isAuthenticated) {
+      const ok = await userLogin();
+      if (!ok) return;
+    }
+    setDepositVault(vault);
+  }, [isConnected, isAuthenticated, userLogin, openConnectModal]);
 
   const [view, setView] = useState("table"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
@@ -653,9 +660,9 @@ export default function VaultPage() {
         </div>
         {view === "table" && (
           <Card><div style={{ overflow: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960 }}><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div></div>
-            {filtered.map(v=>(
-              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 1020 }}><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div><div></div></div>
+            {filtered.map(v=>{ const depositable = DEPOSITABLE_CHAINS.includes(v.chain_id); return (
+              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr .5fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 1020, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
                 <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
@@ -666,7 +673,9 @@ export default function VaultPage() {
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                 <div><YieldBadge t={v.yieldType}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
+                <div><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (depositable) handleDeposit(e, v); }} disabled={!depositable} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: depositable ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: depositable ? C.purpleDim : C.surfaceAlt, color: depositable ? C.purple : C.text4, cursor: depositable ? "pointer" : "not-allowed" }}>{depositable ? "Deposit" : "N/A"}</button></div>
               </Link>
+            ); })}
             ))}
           </div></Card>
         )}
@@ -701,7 +710,15 @@ export default function VaultPage() {
                     <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>TVL</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{fmtTvl(v.tvl)}</div></div>
                     <div style={{ textAlign: "center" }}><div style={{ color: C.text4, fontWeight: 600 }}>DEPOSITORS</div><div style={{ color: C.text2, fontWeight: 600, fontSize: 12 }}>{v.depositors.toLocaleString()}</div></div>
                   </div>
-                  <div style={{ marginTop: "auto", padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", textAlign: "center", backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>Explore →</div>
+                  <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
+                    <div style={{ flex: 1, padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", textAlign: "center", backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>Explore →</div>
+                    {(() => { const depositable = DEPOSITABLE_CHAINS.includes(v.chain_id); return (
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (depositable) handleDeposit(e, v); }} disabled={!depositable}
+                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: depositable ? "none" : `1px solid ${C.border}`, background: depositable ? C.white : C.surfaceAlt, color: depositable ? C.purple : C.text4, cursor: depositable ? "pointer" : "not-allowed", boxShadow: depositable ? "0 1px 4px rgba(0,0,0,.08)" : "none" }}>
+                        {authLoading ? "..." : depositable ? "Deposit" : "N/A"}
+                      </button>
+                    ); })()}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -772,6 +789,12 @@ export default function VaultPage() {
             )}
           </div>
         </div>
+      )}
+
+      {depositVault && (
+        <Suspense fallback={null}>
+          <DepositModal vault={depositVault} onClose={() => setDepositVault(null)} />
+        </Suspense>
       )}
     </div>
   );
