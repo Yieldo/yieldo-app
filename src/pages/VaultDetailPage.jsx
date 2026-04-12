@@ -1,6 +1,8 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useVaultDetail } from "../hooks/useVaultData.js";
+const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
+const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 
 function useWindowWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
@@ -387,6 +389,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [fbEmail, setFbEmail] = useState("");
   const [fbSending, setFbSending] = useState(false);
   const [fbDone, setFbDone] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
 
   const submitFeedback = async () => {
     setFbSending(true);
@@ -436,7 +439,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
-          <Btn primary small onClick={() => navigate("/apply")}>Integrate Now</Btn>
+          <Btn primary small onClick={() => setDepositOpen(true)}>Deposit</Btn>
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
@@ -802,6 +805,10 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           </div>
         </Card>
 
+        <Suspense fallback={null}>
+          <UserDeposits vaultId={v.id} />
+        </Suspense>
+
         <div style={{ padding: "12px 16px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, marginTop: 16, display: "flex", gap: 10 }}>
           <span style={{ fontSize: 14 }}>⚠️</span>
           <div style={{ fontSize: 11, color: "rgba(0,0,0,.5)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice. Past performance ≠ future results.</div>
@@ -854,6 +861,11 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             )}
           </div>
         </div>
+      )}
+      {depositOpen && v && (
+        <Suspense fallback={null}>
+          <DepositModal vault={v} onClose={() => setDepositOpen(false)} />
+        </Suspense>
       )}
     </div>
   );

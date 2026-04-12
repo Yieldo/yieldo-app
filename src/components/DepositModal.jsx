@@ -1,0 +1,602 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAccount, useReadContracts, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { parseUnits, formatUnits, erc20Abi } from "viem";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+
+const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
+
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism" };
+const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io" };
+
+const SOURCE_TOKENS = {
+  1: [
+    { symbol: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+    { symbol: "USDT", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+    { symbol: "WETH", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
+    { symbol: "WBTC", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+    { symbol: "DAI", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+  ],
+  8453: [
+    { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+    { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+  ],
+  42161: [
+    { symbol: "USDC", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
+    { symbol: "USDT", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+  ],
+  10: [
+    { symbol: "USDC", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+  ],
+};
+
+// Chains that have a deposit router deployed — update after deploying to new chains
+const DEPOSITABLE_CHAINS = [1, 8453];
+
+const C = {
+  bg: "#f8f7fc", white: "#fff", black: "#121212",
+  border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",
+  text: "#121212", text2: "rgba(0,0,0,.65)", text3: "rgba(0,0,0,.4)", text4: "rgba(0,0,0,.25)",
+  purple: "#7A1CCB", purpleLight: "#9E3BFF", purpleDim: "rgba(122,28,203,.06)",
+  purpleGrad: "linear-gradient(100deg,#4B0CA6 0%,#7A1CCB 58%,#9E3BFF 114%)",
+  purpleShadow: "0 0 17px rgba(80,14,170,.12)",
+  green: "#1a9d3f", greenDim: "rgba(26,157,63,.07)",
+  red: "#d93636", redBg: "#FFF0F0",
+  amber: "#d97706",
+};
+
+const ERC20_ABI = [
+  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+];
+
+const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
+const getLifiExplorer = (hash) => `https://explorer.li.fi/tx/${hash}`;
+
+// Save deposit to localStorage for dashboard
+function saveDepositLocal(deposit) {
+  try {
+    const key = "yieldo_deposits";
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    existing.unshift(deposit);
+    if (existing.length > 100) existing.length = 100;
+    localStorage.setItem(key, JSON.stringify(existing));
+  } catch {}
+}
+
+function DepositModal({ vault, onClose }) {
+  const { address, isConnected, chainId: walletChainId } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { switchChain } = useSwitchChain();
+
+  const vaultChainId = vault.chain_id;
+  const vaultId = vault.id;
+  const vaultAsset = (vault.assetLower || vault.asset || "").toLowerCase();
+  const isDepositable = DEPOSITABLE_CHAINS.includes(vaultChainId);
+
+  const [step, setStep] = useState("input");
+  const [fromChainId, setFromChainId] = useState(vaultChainId);
+  const [fromToken, setFromToken] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [referral, setReferral] = useState("");
+  const [referralResolved, setReferralResolved] = useState(null);
+  const [referralError, setReferralError] = useState("");
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState("");
+  const [txHash, setTxHash] = useState(null);
+  const [approvalTxHash, setApprovalTxHash] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [buildData, setBuildData] = useState(null);
+  const [lifiStatus, setLifiStatus] = useState(null); // { status, substatus, sending, receiving, bridge, lifi_explorer }
+  const referralTimer = useRef(null);
+  const statusPollRef = useRef(null);
+
+  const sourceTokens = useMemo(() => SOURCE_TOKENS[fromChainId] || [], [fromChainId]);
+
+  useEffect(() => {
+    const match = sourceTokens.find(t => t.symbol.toLowerCase() === vaultAsset);
+    setFromToken(match || sourceTokens[0] || null);
+  }, [fromChainId, sourceTokens, vaultAsset]);
+
+  const tokenContracts = useMemo(() => {
+    if (!isConnected || !address || !fromToken) return [];
+    return [{ address: fromToken.address, abi: ERC20_ABI, functionName: "balanceOf", args: [address], chainId: fromChainId }];
+  }, [isConnected, address, fromToken, fromChainId]);
+
+  const { data: balanceResults } = useReadContracts({
+    contracts: tokenContracts,
+    query: { enabled: tokenContracts.length > 0, staleTime: 30_000 },
+  });
+
+  const tokenBalance = useMemo(() => {
+    if (!balanceResults?.[0] || balanceResults[0].status !== "success" || !fromToken) return null;
+    const raw = BigInt(balanceResults[0].result);
+    return { raw, formatted: formatUnits(raw, fromToken.decimals) };
+  }, [balanceResults, fromToken]);
+
+  // Referral resolution (debounced)
+  useEffect(() => {
+    if (referralTimer.current) clearTimeout(referralTimer.current);
+    setReferralResolved(null);
+    setReferralError("");
+    const val = referral.trim();
+    if (!val) return;
+    if (/^0x[0-9a-fA-F]{40}$/.test(val)) {
+      setReferralResolved({ handle: null, name: "Custom Address", address: val });
+      return;
+    }
+    setReferralLoading(true);
+    referralTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/v1/kols/resolve/${encodeURIComponent(val)}`);
+        if (!res.ok) { setReferralError("KOL not found"); setReferralLoading(false); return; }
+        setReferralResolved(await res.json());
+      } catch { setReferralError("Failed to resolve"); }
+      setReferralLoading(false);
+    }, 500);
+    return () => clearTimeout(referralTimer.current);
+  }, [referral]);
+
+  const { writeContractAsync: writeApproval } = useWriteContract();
+  const { sendTransactionAsync: sendDeposit } = useSendTransaction();
+
+  const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({
+    hash: approvalTxHash, query: { enabled: !!approvalTxHash },
+  });
+  const { isSuccess: depositConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash, query: { enabled: !!txHash },
+  });
+
+  useEffect(() => {
+    if (approvalConfirmed && buildData && step === "approving") executeDepositWithBuild(buildData);
+  }, [approvalConfirmed]);
+
+  // When on-chain confirm comes (direct deposits) or lifi status is DONE
+  useEffect(() => {
+    if (depositConfirmed && step === "tracking") {
+      const isCrossChain = buildData?.tracking?.from_chain_id !== buildData?.tracking?.to_chain_id;
+      if (!isCrossChain) finishDeposit("completed");
+    }
+  }, [depositConfirmed]);
+
+  // Poll LiFi status for cross-chain deposits
+  useEffect(() => {
+    if (step !== "tracking" || !txHash || !buildData) return;
+    const isCrossChain = buildData.tracking?.from_chain_id !== buildData.tracking?.to_chain_id;
+    if (!isCrossChain) return;
+
+    const poll = async () => {
+      try {
+        const params = new URLSearchParams({
+          tx_hash: txHash,
+          from_chain_id: String(buildData.tracking.from_chain_id),
+          to_chain_id: String(buildData.tracking.to_chain_id),
+        });
+        const res = await fetch(`${API}/v1/status?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLifiStatus(data);
+          if (data.status === "DONE") { finishDeposit("completed"); return; }
+          if (data.status === "FAILED") { finishDeposit("failed"); return; }
+        }
+      } catch {}
+      statusPollRef.current = setTimeout(poll, 8000);
+    };
+    statusPollRef.current = setTimeout(poll, 5000);
+    return () => clearTimeout(statusPollRef.current);
+  }, [step, txHash, buildData]);
+
+  const finishDeposit = (status) => {
+    clearTimeout(statusPollRef.current);
+    saveDepositLocal({
+      tx_hash: txHash,
+      vault_id: vaultId,
+      vault_name: vault.name,
+      from_chain_id: fromChainId,
+      to_chain_id: vaultChainId,
+      from_token: fromToken?.symbol,
+      from_amount: amount,
+      referrer: referralResolved?.address || "",
+      referrer_handle: referralResolved?.handle || "",
+      quote_type: quote?.quote_type || "direct",
+      status,
+      created_at: new Date().toISOString(),
+    });
+    setStep(status === "completed" ? "done" : "error");
+    if (status === "failed") setErrorMsg("Cross-chain transfer failed. Check LiFi explorer for details.");
+  };
+
+  // Fetch quote
+  const fetchQuote = useCallback(async () => {
+    if (!fromToken || !amount || !address) return;
+    setStep("quoting"); setQuoteError("");
+    try {
+      const res = await fetch(`${API}/v1/quote`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from_chain_id: fromChainId, from_token: fromToken.address,
+          from_amount: parseUnits(amount, fromToken.decimals).toString(),
+          vault_id: vaultId, user_address: address, slippage: 0.03,
+          referrer: referralResolved?.address || "0x0000000000000000000000000000000000000000",
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Quote failed (${res.status})`); }
+      setQuote(await res.json()); setStep("review");
+    } catch (e) { setQuoteError(e.message); setStep("input"); }
+  }, [fromToken, amount, address, fromChainId, vaultId, referralResolved]);
+
+  // Build + execute
+  const executeBuild = useCallback(async () => {
+    if (!quote || !fromToken || !address) return;
+    setStep("approving"); setErrorMsg("");
+    try {
+      const res = await fetch(`${API}/v1/quote/build`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from_chain_id: fromChainId, from_token: fromToken.address,
+          from_amount: parseUnits(amount, fromToken.decimals).toString(),
+          vault_id: vaultId, user_address: address,
+          signature: quote.signature, intent_amount: quote.intent.amount,
+          nonce: quote.intent.nonce, deadline: quote.intent.deadline,
+          fee_bps: quote.intent.fee_bps, slippage: 0.03,
+          referrer: referralResolved?.address || "0x0000000000000000000000000000000000000000",
+          referrer_handle: referralResolved?.handle || "",
+        }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Build failed (${res.status})`); }
+      const build = await res.json();
+      setBuildData(build);
+      if (build.approval) {
+        const hash = await writeApproval({
+          address: build.approval.token_address, abi: erc20Abi, functionName: "approve",
+          args: [build.approval.spender_address, BigInt(build.approval.amount)], chainId: fromChainId,
+        });
+        setApprovalTxHash(hash);
+      } else {
+        await executeDepositWithBuild(build);
+      }
+    } catch (e) { setErrorMsg(e.message || "Transaction failed"); setStep("error"); }
+  }, [quote, fromToken, address, fromChainId, amount, vaultId, referralResolved]);
+
+  const executeDepositWithBuild = async (build) => {
+    try {
+      setStep("sending");
+      const txReq = build.transaction_request;
+      const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
+      setTxHash(hash);
+      setStep("tracking");
+    } catch (e) { setErrorMsg(e.message || "Transaction failed"); setStep("error"); }
+  };
+
+  const needsChainSwitch = isConnected && walletChainId !== fromChainId;
+  const amountBigInt = useMemo(() => {
+    if (!amount || !fromToken) return 0n;
+    try { return parseUnits(amount, fromToken.decimals); } catch { return 0n; }
+  }, [amount, fromToken]);
+  const insufficientBalance = tokenBalance && amountBigInt > tokenBalance.raw;
+  const canQuote = isConnected && fromToken && amount && parseFloat(amount) > 0 && !insufficientBalance && !needsChainSwitch;
+
+  const txChainId = buildData?.transaction_request?.chain_id || fromChainId;
+  const isCrossChain = buildData && buildData.tracking?.from_chain_id !== buildData.tracking?.to_chain_id;
+
+  if (!isDepositable) {
+    return (
+      <Overlay onClose={onClose}>
+        <div style={{ textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Deposits Not Available</div>
+          <div style={{ fontSize: 14, color: C.text3, marginBottom: 20 }}>
+            This vault is on {CHAINS[vaultChainId] || `Chain ${vaultChainId}`} which doesn't have our deposit router deployed yet.
+          </div>
+          <ActionBtn onClick={onClose}>Close</ActionBtn>
+        </div>
+      </Overlay>
+    );
+  }
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>Deposit</div>
+          <div style={{ fontSize: 12, color: C.text3 }}>{vault.name} · {CHAINS[vaultChainId]}</div>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.text3, padding: 4 }}>✕</button>
+      </div>
+
+      <div style={{ padding: 20 }}>
+        {step === "input" && (
+          <InputStep
+            fromChainId={fromChainId} setFromChainId={setFromChainId}
+            fromToken={fromToken} setFromToken={setFromToken} sourceTokens={sourceTokens}
+            amount={amount} setAmount={setAmount} tokenBalance={tokenBalance}
+            referral={referral} setReferral={setReferral}
+            referralResolved={referralResolved} referralError={referralError} referralLoading={referralLoading}
+            vaultChainId={vaultChainId} vaultAsset={vaultAsset}
+            isConnected={isConnected} openConnectModal={openConnectModal}
+            needsChainSwitch={needsChainSwitch} switchChain={switchChain}
+            insufficientBalance={insufficientBalance} canQuote={canQuote}
+            onQuote={fetchQuote} quoteError={quoteError}
+          />
+        )}
+
+        {step === "quoting" && <StatusPane icon={<Spinner />} title="Fetching quote..." />}
+
+        {step === "review" && quote && (
+          <ReviewStep quote={quote} fromToken={fromToken} amount={amount} vault={vault}
+            referralResolved={referralResolved} onConfirm={executeBuild} onBack={() => setStep("input")} />
+        )}
+
+        {step === "approving" && (
+          <StatusPane icon={<Spinner />} title="Approving token..." sub="Confirm the approval in your wallet">
+            {approvalTxHash && <ExplorerLinks chainId={fromChainId} hash={approvalTxHash} />}
+          </StatusPane>
+        )}
+
+        {step === "sending" && <StatusPane icon={<Spinner />} title="Sending deposit..." sub="Confirm the transaction in your wallet" />}
+
+        {step === "tracking" && (
+          <StatusPane icon={<Spinner />} title="Transaction submitted" sub={isCrossChain ? "Bridging in progress — this may take a few minutes" : "Waiting for on-chain confirmation..."}>
+            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={isCrossChain} />}
+            {isCrossChain && lifiStatus && (
+              <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: C.bg, fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: C.text3 }}>Bridge status</span>
+                  <StatusBadge status={lifiStatus.status} />
+                </div>
+                {lifiStatus.bridge && <div style={{ color: C.text4, fontSize: 11 }}>via {lifiStatus.bridge}</div>}
+                {lifiStatus.sending?.tx_hash && (
+                  <div style={{ marginTop: 4, fontSize: 11 }}>
+                    <span style={{ color: C.text3 }}>Sending: </span>
+                    <a href={getExplorerTx(lifiStatus.sending.chain_id || fromChainId, lifiStatus.sending.tx_hash)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none" }}>
+                      {lifiStatus.sending.tx_hash.slice(0, 10)}... ↗
+                    </a>
+                  </div>
+                )}
+                {lifiStatus.receiving?.tx_hash && (
+                  <div style={{ marginTop: 2, fontSize: 11 }}>
+                    <span style={{ color: C.text3 }}>Receiving: </span>
+                    <a href={getExplorerTx(lifiStatus.receiving.chain_id || vaultChainId, lifiStatus.receiving.tx_hash)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none" }}>
+                      {lifiStatus.receiving.tx_hash.slice(0, 10)}... ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </StatusPane>
+        )}
+
+        {step === "done" && (
+          <StatusPane icon={<div style={{ fontSize: 48 }}>✅</div>} title="Deposit Successful!" sub={`${amount} ${fromToken?.symbol} deposited into ${vault.name}`}>
+            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={isCrossChain} />}
+            {lifiStatus?.receiving?.tx_hash && (
+              <div style={{ marginTop: 4, fontSize: 12 }}>
+                <a href={getExplorerTx(vaultChainId, lifiStatus.receiving.tx_hash)} target="_blank" rel="noopener noreferrer" style={{ color: C.green, textDecoration: "none" }}>
+                  View destination tx ↗
+                </a>
+              </div>
+            )}
+            <div style={{ marginTop: 20 }}><ActionBtn onClick={onClose}>Done</ActionBtn></div>
+          </StatusPane>
+        )}
+
+        {step === "error" && (
+          <StatusPane icon={<div style={{ fontSize: 48 }}>❌</div>} title="Transaction Failed">
+            <div style={{ fontSize: 13, color: C.red, marginBottom: 16, wordBreak: "break-word", maxHeight: 80, overflow: "auto", textAlign: "left" }}>{errorMsg}</div>
+            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={isCrossChain} />}
+            <div style={{ marginTop: 16 }}>
+              <ActionBtn onClick={() => { setStep("input"); setErrorMsg(""); setQuote(null); setBuildData(null); setApprovalTxHash(null); setTxHash(null); setLifiStatus(null); }}>Try Again</ActionBtn>
+            </div>
+          </StatusPane>
+        )}
+      </div>
+    </Overlay>
+  );
+}
+
+/* =========== Sub-components =========== */
+
+function Overlay({ children, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)", fontFamily: "'Inter',sans-serif" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return <div style={{ width: 32, height: 32, border: `3px solid ${C.border}`, borderTopColor: C.purple, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }}>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </div>;
+}
+
+function StatusPane({ icon, title, sub, children }) {
+  return (
+    <div style={{ textAlign: "center", padding: "30px 0" }}>
+      {icon}
+      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 12 }}>{title}</div>
+      {sub && <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{sub}</div>}
+      {children}
+    </div>
+  );
+}
+
+function ExplorerLinks({ chainId, hash, isCrossChain }) {
+  return (
+    <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
+      <a href={getExplorerTx(chainId, hash)} target="_blank" rel="noopener noreferrer"
+        style={{ fontSize: 12, color: C.purple, textDecoration: "none" }}>
+        {CHAINS[chainId] || "Chain"} Explorer ↗
+      </a>
+      {isCrossChain && (
+        <a href={getLifiExplorer(hash)} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 12, color: C.purple, textDecoration: "none" }}>
+          LiFi Explorer ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = { DONE: { c: C.green, t: "Completed" }, FAILED: { c: C.red, t: "Failed" }, PENDING: { c: C.amber, t: "Pending" }, NOT_FOUND: { c: C.text4, t: "Waiting..." } };
+  const s = map[status] || map.NOT_FOUND;
+  return <span style={{ fontSize: 11, fontWeight: 600, color: s.c }}>{s.t}</span>;
+}
+
+function ActionBtn({ onClick, disabled, children, secondary }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width: "100%", padding: "12px 20px", borderRadius: 10, border: "none",
+      cursor: disabled ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600,
+      fontFamily: "'Inter',sans-serif", transition: "all .15s",
+      ...(secondary
+        ? { background: C.bg, color: C.text2, border: `1px solid ${C.border2}` }
+        : { backgroundImage: disabled ? "none" : C.purpleGrad, background: disabled ? C.border : undefined,
+            color: disabled ? C.text4 : "#fff", boxShadow: disabled ? "none" : C.purpleShadow }),
+    }}>{children}</button>
+  );
+}
+
+function InputStep({
+  fromChainId, setFromChainId, fromToken, setFromToken, sourceTokens,
+  amount, setAmount, tokenBalance,
+  referral, setReferral, referralResolved, referralError, referralLoading,
+  vaultChainId, vaultAsset,
+  isConnected, openConnectModal, needsChainSwitch, switchChain,
+  insufficientBalance, canQuote, onQuote, quoteError,
+}) {
+  const isDirect = fromChainId === vaultChainId && fromToken?.symbol?.toLowerCase() === vaultAsset;
+  return (
+    <div>
+      <Label>From Chain</Label>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+        {Object.entries(CHAINS).map(([id, name]) => (
+          <ChipBtn key={id} active={fromChainId === Number(id)} onClick={() => setFromChainId(Number(id))}>{name}</ChipBtn>
+        ))}
+      </div>
+
+      <Label>Token</Label>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+        {sourceTokens.map(t => (
+          <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => setFromToken(t)}>
+            {t.symbol}
+            {t.symbol.toLowerCase() === vaultAsset && <span style={{ fontSize: 9, marginLeft: 3, color: C.green }}>direct</span>}
+          </ChipBtn>
+        ))}
+      </div>
+
+      <Label>
+        Amount
+        {tokenBalance && (
+          <span style={{ fontSize: 11, color: C.text3, fontWeight: 400, marginLeft: 8 }}>
+            Bal: {parseFloat(tokenBalance.formatted).toFixed(4)}
+            <button onClick={() => setAmount(tokenBalance.formatted)} style={{ marginLeft: 4, fontSize: 10, color: C.purple, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: "'Inter',sans-serif" }}>MAX</button>
+          </span>
+        )}
+      </Label>
+      <input type="text" inputMode="decimal" value={amount}
+        onChange={e => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
+        placeholder="0.00"
+        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${insufficientBalance ? C.red : C.border2}`, fontSize: 16, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", background: C.bg }} />
+      {insufficientBalance && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>Insufficient balance</div>}
+
+      {fromToken && (
+        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: C.bg, fontSize: 12, color: C.text3 }}>
+          {isDirect ? "Direct deposit — no swap needed"
+            : fromChainId === vaultChainId ? `Same-chain swap via LiFi → ${vaultAsset.toUpperCase()}`
+            : `Cross-chain bridge via LiFi → ${CHAINS[vaultChainId]} ${vaultAsset.toUpperCase()}`}
+        </div>
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <Label>Referral (optional)</Label>
+        <input type="text" value={referral} onChange={e => setReferral(e.target.value)} placeholder="KOL username or 0x address"
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border2}`, fontSize: 13, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", background: C.bg }} />
+        {referralLoading && <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>Resolving...</div>}
+        {referralResolved && !referralError && (
+          <div style={{ fontSize: 11, color: C.green, marginTop: 4 }}>
+            {referralResolved.handle ? `@${referralResolved.handle} (${referralResolved.name})` : `Address: ${referralResolved.address.slice(0, 8)}...`}
+          </div>
+        )}
+        {referralError && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>{referralError}</div>}
+      </div>
+
+      <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, background: referralResolved ? C.greenDim : C.bg, fontSize: 11, color: C.text3, display: "flex", justifyContent: "space-between" }}>
+        <span>Protocol fee</span>
+        <span>0.1%{referralResolved ? " (50% to referrer)" : ""}</span>
+      </div>
+
+      {quoteError && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: C.redBg, fontSize: 12, color: C.red }}>{quoteError}</div>}
+
+      <div style={{ marginTop: 20 }}>
+        {!isConnected ? <ActionBtn onClick={openConnectModal}>Connect Wallet</ActionBtn>
+          : needsChainSwitch ? <ActionBtn onClick={() => switchChain({ chainId: fromChainId })}>Switch to {CHAINS[fromChainId]}</ActionBtn>
+          : <ActionBtn disabled={!canQuote} onClick={onQuote}>
+              {!amount || parseFloat(amount) === 0 ? "Enter Amount" : insufficientBalance ? "Insufficient Balance" : "Get Quote"}
+            </ActionBtn>}
+      </div>
+    </div>
+  );
+}
+
+function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack }) {
+  const est = quote.estimate;
+  const vaultDecimals = quote.vault?.asset?.decimals || fromToken?.decimals || 6;
+  const outDecimals = quote.quote_type === "direct" ? fromToken.decimals : vaultDecimals;
+  const depositAmt = formatUnits(BigInt(est.deposit_amount), outDecimals);
+  const feeAmt = formatUnits(BigInt(est.fee_amount), outDecimals);
+  const isSwap = quote.quote_type !== "direct";
+  const outSymbol = isSwap ? vault.asset : fromToken?.symbol;
+
+  const rows = [
+    { label: "You deposit", value: `${parseFloat(amount).toFixed(6)} ${fromToken?.symbol}` },
+    isSwap && { label: "Est. receive", value: `${parseFloat(formatUnits(BigInt(est.to_amount), vaultDecimals)).toFixed(6)} ${vault.asset}` },
+    { label: "Fee (0.1%)", value: `${parseFloat(feeAmt).toFixed(6)} ${outSymbol}`, light: true },
+    { label: "Net deposit", value: `${parseFloat(depositAmt).toFixed(6)} ${outSymbol}`, bold: true, color: C.purple },
+    est.estimated_shares && { label: "Est. shares", value: parseFloat(est.estimated_shares).toLocaleString(), light: true },
+    est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)}m`, light: true },
+    referralResolved && { label: "Referrer", value: referralResolved.handle ? `@${referralResolved.handle}` : `${referralResolved.address.slice(0, 10)}...`, color: C.green },
+    { label: "Route", value: quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap (LiFi)" : "Cross-chain (LiFi)" },
+  ].filter(Boolean);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 16 }}>
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <span style={{ fontSize: 13, color: C.text3 }}>{r.label}</span>
+            <span style={{ fontSize: r.bold ? 14 : 13, fontWeight: r.bold ? 700 : r.light ? 400 : 600, color: r.color || C.text }}>{r.value}</span>
+          </div>
+        ))}
+      </div>
+      {quote.quote_type === "cross_chain" && (
+        <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,.06)", fontSize: 11, color: C.amber, marginBottom: 16 }}>
+          Cross-chain deposits may take a few minutes. You can track progress via LiFi explorer.
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}><ActionBtn secondary onClick={onBack}>Back</ActionBtn></div>
+        <div style={{ flex: 2 }}><ActionBtn onClick={onConfirm}>Confirm Deposit</ActionBtn></div>
+      </div>
+    </div>
+  );
+}
+
+function Label({ children }) {
+  return <div style={{ fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 6, display: "flex", alignItems: "center" }}>{children}</div>;
+}
+
+function ChipBtn({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: active ? 600 : 400,
+      border: `1px solid ${active ? C.purple + "40" : C.border2}`,
+      background: active ? C.purpleDim : C.white, color: active ? C.purple : C.text2,
+      cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 2,
+    }}>{children}</button>
+  );
+}
+
+export default DepositModal;
