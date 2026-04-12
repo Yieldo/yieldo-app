@@ -467,17 +467,10 @@ function StatusBadge({ status }) {
 }
 
 function ActionBtn({ onClick, disabled, children, secondary }) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      width: "100%", padding: "12px 20px", borderRadius: 10, border: "none",
-      cursor: disabled ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600,
-      fontFamily: "'Inter',sans-serif", transition: "all .15s",
-      ...(secondary
-        ? { background: C.bg, color: C.text2, border: `1px solid ${C.border2}` }
-        : { backgroundImage: disabled ? "none" : C.purpleGrad, background: disabled ? C.border : undefined,
-            color: disabled ? C.text4 : "#fff", boxShadow: disabled ? "none" : C.purpleShadow }),
-    }}>{children}</button>
-  );
+  const base = { width: "100%", padding: "12px 20px", borderRadius: 10, border: "none", cursor: disabled ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontFamily: "'Inter',sans-serif", transition: "all .15s" };
+  if (secondary) return <button onClick={onClick} disabled={disabled} style={{ ...base, background: C.bg, color: C.text2, border: `1px solid ${C.border2}` }}>{children}</button>;
+  if (disabled) return <button onClick={onClick} disabled style={{ ...base, background: "rgba(0,0,0,.08)", color: "rgba(0,0,0,.25)" }}>{children}</button>;
+  return <button onClick={onClick} style={{ ...base, background: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>{children}</button>;
 }
 
 function InputStep({
