@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -23,25 +23,41 @@ export function useUserAuth() {
   const [session, setSession] = useState(getStored);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoLoginAttempted = useRef(false);
 
   // Clear session if wallet disconnects or address changes
   useEffect(() => {
     if (!isConnected || !address) {
       setSession(null);
+      autoLoginAttempted.current = false;
       return;
     }
     const stored = getStored();
     if (stored && stored.address?.toLowerCase() !== address.toLowerCase()) {
       localStorage.removeItem(STORAGE_KEY);
       setSession(null);
+      autoLoginAttempted.current = false;
     }
   }, [address, isConnected]);
 
-  // Check session validity on mount
+  // Auto-login when wallet connects and no session exists
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    if (autoLoginAttempted.current) return;
+    const stored = getStored();
+    if (stored && stored.address?.toLowerCase() === address.toLowerCase()) {
+      setSession(stored);
+      return;
+    }
+    // Auto-trigger login on wallet connect
+    autoLoginAttempted.current = true;
+    doLogin();
+  }, [isConnected, address]);
+
+  // Validate session on mount
   useEffect(() => {
     const stored = getStored();
     if (!stored) { setSession(null); return; }
-    // Verify session is still valid with backend
     fetch(`${API}/v1/users/me`, {
       headers: { Authorization: `Bearer ${stored.token}` },
     }).then(res => {
@@ -52,12 +68,11 @@ export function useUserAuth() {
     }).catch(() => {});
   }, []);
 
-  const login = useCallback(async () => {
-    if (!isConnected || !address) return false;
+  const doLogin = async () => {
+    if (!address) return false;
     setLoading(true);
     setError("");
     try {
-      // 1. Get nonce
       const nonceRes = await fetch(`${API}/v1/users/nonce`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,10 +81,8 @@ export function useUserAuth() {
       if (!nonceRes.ok) throw new Error("Failed to get nonce");
       const { message } = await nonceRes.json();
 
-      // 2. Sign message
       const signature = await signMessageAsync({ message });
 
-      // 3. Login (auto-registers on first time)
       const loginRes = await fetch(`${API}/v1/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,7 +109,9 @@ export function useUserAuth() {
       setLoading(false);
       return false;
     }
-  }, [address, isConnected, signMessageAsync]);
+  };
+
+  const login = useCallback(doLogin, [address, signMessageAsync]);
 
   const logout = useCallback(() => {
     const stored = getStored();

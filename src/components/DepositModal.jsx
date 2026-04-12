@@ -6,30 +6,57 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism" };
+const CHAIN_ICONS = { 1: "\u039E", 8453: "\ud83d\udd35", 42161: "\ud83d\udfe0", 10: "\ud83d\udd34" };
 const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io" };
 
-const SOURCE_TOKENS = {
+// Popular tokens shown as chips, rest go in dropdown
+const POPULAR_TOKENS = {
+  1: ["USDC", "USDT", "WETH", "WBTC", "DAI"],
+  8453: ["USDC", "WETH", "cbETH"],
+  42161: ["USDC", "USDT", "WETH", "WBTC"],
+  10: ["USDC", "USDT", "WETH"],
+};
+
+const ALL_TOKENS = {
   1: [
     { symbol: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
     { symbol: "USDT", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
     { symbol: "WETH", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
     { symbol: "WBTC", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
     { symbol: "DAI", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+    { symbol: "wstETH", address: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", decimals: 18 },
+    { symbol: "cbETH", address: "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704", decimals: 18 },
+    { symbol: "rETH", address: "0xae78736Cd615f374D3085123A210448E74Fc6393", decimals: 18 },
+    { symbol: "PYUSD", address: "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8", decimals: 6 },
+    { symbol: "LINK", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
+    { symbol: "UNI", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
+    { symbol: "AAVE", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18 },
   ],
   8453: [
     { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
     { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+    { symbol: "cbETH", address: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", decimals: 18 },
+    { symbol: "DAI", address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
+    { symbol: "USDbC", address: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6 },
   ],
   42161: [
     { symbol: "USDC", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
     { symbol: "USDT", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+    { symbol: "WETH", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 },
+    { symbol: "WBTC", address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", decimals: 8 },
+    { symbol: "DAI", address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { symbol: "ARB", address: "0x912CE59144191C1204E64559FE8253a0e49E6548", decimals: 18 },
   ],
   10: [
     { symbol: "USDC", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+    { symbol: "USDT", address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6 },
+    { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+    { symbol: "DAI", address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { symbol: "OP", address: "0x4200000000000000000000000000000000000042", decimals: 18 },
+    { symbol: "wstETH", address: "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb", decimals: 18 },
   ],
 };
 
-// Chains that have a deposit router deployed — update after deploying to new chains
 const DEPOSITABLE_CHAINS = [1, 8453];
 
 const C = {
@@ -51,7 +78,6 @@ const ERC20_ABI = [
 const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
 const getLifiExplorer = (hash) => `https://explorer.li.fi/tx/${hash}`;
 
-// Save deposit to localStorage for dashboard
 function saveDepositLocal(deposit) {
   try {
     const key = "yieldo_deposits";
@@ -86,16 +112,19 @@ function DepositModal({ vault, onClose }) {
   const [approvalTxHash, setApprovalTxHash] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [buildData, setBuildData] = useState(null);
-  const [lifiStatus, setLifiStatus] = useState(null); // { status, substatus, sending, receiving, bridge, lifi_explorer }
+  const [lifiStatus, setLifiStatus] = useState(null);
   const referralTimer = useRef(null);
   const statusPollRef = useRef(null);
 
-  const sourceTokens = useMemo(() => SOURCE_TOKENS[fromChainId] || [], [fromChainId]);
+  const allTokens = useMemo(() => ALL_TOKENS[fromChainId] || [], [fromChainId]);
+  const popularSymbols = POPULAR_TOKENS[fromChainId] || [];
+  const popularTokens = useMemo(() => allTokens.filter(t => popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
+  const dropdownTokens = useMemo(() => allTokens.filter(t => !popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
 
   useEffect(() => {
-    const match = sourceTokens.find(t => t.symbol.toLowerCase() === vaultAsset);
-    setFromToken(match || sourceTokens[0] || null);
-  }, [fromChainId, sourceTokens, vaultAsset]);
+    const match = allTokens.find(t => t.symbol.toLowerCase() === vaultAsset);
+    setFromToken(match || allTokens[0] || null);
+  }, [fromChainId, allTokens, vaultAsset]);
 
   const tokenContracts = useMemo(() => {
     if (!isConnected || !address || !fromToken) return [];
@@ -150,7 +179,6 @@ function DepositModal({ vault, onClose }) {
     if (approvalConfirmed && buildData && step === "approving") executeDepositWithBuild(buildData);
   }, [approvalConfirmed]);
 
-  // When on-chain confirm comes (direct deposits) or lifi status is DONE
   useEffect(() => {
     if (depositConfirmed && step === "tracking") {
       const isCrossChain = buildData?.tracking?.from_chain_id !== buildData?.tracking?.to_chain_id;
@@ -158,12 +186,11 @@ function DepositModal({ vault, onClose }) {
     }
   }, [depositConfirmed]);
 
-  // Poll LiFi status for cross-chain deposits
+  // Poll LiFi status for cross-chain
   useEffect(() => {
     if (step !== "tracking" || !txHash || !buildData) return;
     const isCrossChain = buildData.tracking?.from_chain_id !== buildData.tracking?.to_chain_id;
     if (!isCrossChain) return;
-
     const poll = async () => {
       try {
         const params = new URLSearchParams({
@@ -188,24 +215,18 @@ function DepositModal({ vault, onClose }) {
   const finishDeposit = (status) => {
     clearTimeout(statusPollRef.current);
     saveDepositLocal({
-      tx_hash: txHash,
-      vault_id: vaultId,
-      vault_name: vault.name,
-      from_chain_id: fromChainId,
-      to_chain_id: vaultChainId,
-      from_token: fromToken?.symbol,
-      from_amount: amount,
+      tx_hash: txHash, vault_id: vaultId, vault_name: vault.name,
+      from_chain_id: fromChainId, to_chain_id: vaultChainId,
+      from_token: fromToken?.symbol, from_amount: amount,
       referrer: referralResolved?.address || "",
       referrer_handle: referralResolved?.handle || "",
-      quote_type: quote?.quote_type || "direct",
-      status,
+      quote_type: quote?.quote_type || "direct", status,
       created_at: new Date().toISOString(),
     });
     setStep(status === "completed" ? "done" : "error");
     if (status === "failed") setErrorMsg("Cross-chain transfer failed. Check LiFi explorer for details.");
   };
 
-  // Fetch quote
   const fetchQuote = useCallback(async () => {
     if (!fromToken || !amount || !address) return;
     setStep("quoting"); setQuoteError("");
@@ -224,7 +245,6 @@ function DepositModal({ vault, onClose }) {
     } catch (e) { setQuoteError(e.message); setStep("input"); }
   }, [fromToken, amount, address, fromChainId, vaultId, referralResolved]);
 
-  // Build + execute
   const executeBuild = useCallback(async () => {
     if (!quote || !fromToken || !address) return;
     setStep("approving"); setErrorMsg("");
@@ -307,13 +327,14 @@ function DepositModal({ vault, onClose }) {
         {step === "input" && (
           <InputStep
             fromChainId={fromChainId} setFromChainId={setFromChainId}
-            fromToken={fromToken} setFromToken={setFromToken} sourceTokens={sourceTokens}
+            fromToken={fromToken} setFromToken={setFromToken}
+            popularTokens={popularTokens} dropdownTokens={dropdownTokens}
             amount={amount} setAmount={setAmount} tokenBalance={tokenBalance}
             referral={referral} setReferral={setReferral}
             referralResolved={referralResolved} referralError={referralError} referralLoading={referralLoading}
             vaultChainId={vaultChainId} vaultAsset={vaultAsset}
             isConnected={isConnected} openConnectModal={openConnectModal}
-            needsChainSwitch={needsChainSwitch} switchChain={switchChain}
+            needsChainSwitch={needsChainSwitch} switchChain={switchChain} fromChainName={CHAINS[fromChainId]}
             insufficientBalance={insufficientBalance} canQuote={canQuote}
             onQuote={fetchQuote} quoteError={quoteError}
           />
@@ -460,31 +481,67 @@ function ActionBtn({ onClick, disabled, children, secondary }) {
 }
 
 function InputStep({
-  fromChainId, setFromChainId, fromToken, setFromToken, sourceTokens,
+  fromChainId, setFromChainId, fromToken, setFromToken,
+  popularTokens, dropdownTokens,
   amount, setAmount, tokenBalance,
   referral, setReferral, referralResolved, referralError, referralLoading,
   vaultChainId, vaultAsset,
-  isConnected, openConnectModal, needsChainSwitch, switchChain,
+  isConnected, openConnectModal, needsChainSwitch, switchChain, fromChainName,
   insufficientBalance, canQuote, onQuote, quoteError,
 }) {
+  const [showMore, setShowMore] = useState(false);
   const isDirect = fromChainId === vaultChainId && fromToken?.symbol?.toLowerCase() === vaultAsset;
   return (
     <div>
       <Label>From Chain</Label>
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
         {Object.entries(CHAINS).map(([id, name]) => (
-          <ChipBtn key={id} active={fromChainId === Number(id)} onClick={() => setFromChainId(Number(id))}>{name}</ChipBtn>
+          <ChipBtn key={id} active={fromChainId === Number(id)} onClick={() => setFromChainId(Number(id))}>
+            <span style={{ fontSize: 11 }}>{CHAIN_ICONS[id] || ""}</span> {name}
+          </ChipBtn>
         ))}
       </div>
 
       <Label>Token</Label>
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-        {sourceTokens.map(t => (
-          <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => setFromToken(t)}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+        {popularTokens.map(t => (
+          <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}>
             {t.symbol}
-            {t.symbol.toLowerCase() === vaultAsset && <span style={{ fontSize: 9, marginLeft: 3, color: C.green }}>direct</span>}
+            {t.symbol.toLowerCase() === vaultAsset && fromChainId === vaultChainId && <span style={{ fontSize: 9, marginLeft: 3, color: C.green, fontWeight: 700 }}>direct</span>}
           </ChipBtn>
         ))}
+        {dropdownTokens.length > 0 && (
+          <div style={{ position: "relative" }}>
+            <ChipBtn active={showMore || dropdownTokens.some(t => t.symbol === fromToken?.symbol)} onClick={() => setShowMore(!showMore)}>
+              {dropdownTokens.some(t => t.symbol === fromToken?.symbol) ? fromToken.symbol : "More"} ▾
+            </ChipBtn>
+            {showMore && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 10,
+                background: C.white, borderRadius: 10, border: `1px solid ${C.border2}`,
+                boxShadow: "0 8px 24px rgba(0,0,0,.12)", minWidth: 160, overflow: "hidden",
+              }}>
+                {dropdownTokens.map(t => (
+                  <button key={t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8, width: "100%",
+                      padding: "10px 14px", border: "none", background: fromToken?.symbol === t.symbol ? C.purpleDim : "transparent",
+                      cursor: "pointer", fontSize: 13, fontFamily: "'Inter',sans-serif",
+                      color: fromToken?.symbol === t.symbol ? C.purple : C.text,
+                      fontWeight: fromToken?.symbol === t.symbol ? 600 : 400,
+                      borderBottom: `1px solid ${C.border}`,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                    onMouseLeave={e => e.currentTarget.style.background = fromToken?.symbol === t.symbol ? C.purpleDim : "transparent"}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.purple }}>{t.symbol[0]}</span>
+                    {t.symbol}
+                    {t.symbol.toLowerCase() === vaultAsset && fromChainId === vaultChainId && <span style={{ fontSize: 9, marginLeft: "auto", color: C.green, fontWeight: 700 }}>direct</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <Label>
@@ -503,10 +560,11 @@ function InputStep({
       {insufficientBalance && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>Insufficient balance</div>}
 
       {fromToken && (
-        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: C.bg, fontSize: 12, color: C.text3 }}>
-          {isDirect ? "Direct deposit — no swap needed"
-            : fromChainId === vaultChainId ? `Same-chain swap via LiFi → ${vaultAsset.toUpperCase()}`
-            : `Cross-chain bridge via LiFi → ${CHAINS[vaultChainId]} ${vaultAsset.toUpperCase()}`}
+        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: isDirect ? C.greenDim : C.bg, fontSize: 12, color: isDirect ? C.green : C.text3, display: "flex", alignItems: "center", gap: 6 }}>
+          {isDirect && <span style={{ fontWeight: 700 }}>Direct deposit</span>}
+          {isDirect ? " — no swap or bridge needed"
+            : fromChainId === vaultChainId ? `Same-chain swap via LiFi \u2192 ${vaultAsset.toUpperCase()}`
+            : `Cross-chain bridge via LiFi \u2192 ${CHAINS[vaultChainId]} ${vaultAsset.toUpperCase()}`}
         </div>
       )}
 
@@ -532,7 +590,11 @@ function InputStep({
 
       <div style={{ marginTop: 20 }}>
         {!isConnected ? <ActionBtn onClick={openConnectModal}>Connect Wallet</ActionBtn>
-          : needsChainSwitch ? <ActionBtn onClick={() => switchChain({ chainId: fromChainId })}>Switch to {CHAINS[fromChainId]}</ActionBtn>
+          : needsChainSwitch ? (
+            <ActionBtn onClick={() => switchChain({ chainId: fromChainId })}>
+              Switch to {fromChainName}
+            </ActionBtn>
+          )
           : <ActionBtn disabled={!canQuote} onClick={onQuote}>
               {!amount || parseFloat(amount) === 0 ? "Enter Amount" : insufficientBalance ? "Insufficient Balance" : "Get Quote"}
             </ActionBtn>}
@@ -556,7 +618,8 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
     { label: "Fee (0.1%)", value: `${parseFloat(feeAmt).toFixed(6)} ${outSymbol}`, light: true },
     { label: "Net deposit", value: `${parseFloat(depositAmt).toFixed(6)} ${outSymbol}`, bold: true, color: C.purple },
     est.estimated_shares && { label: "Est. shares", value: parseFloat(est.estimated_shares).toLocaleString(), light: true },
-    est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)}m`, light: true },
+    est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `~${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)} min`, light: true },
+    est.gas_cost_usd && { label: "Est. gas cost", value: `$${est.gas_cost_usd}`, light: true },
     referralResolved && { label: "Referrer", value: referralResolved.handle ? `@${referralResolved.handle}` : `${referralResolved.address.slice(0, 10)}...`, color: C.green },
     { label: "Route", value: quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap (LiFi)" : "Cross-chain (LiFi)" },
   ].filter(Boolean);
@@ -594,7 +657,7 @@ function ChipBtn({ active, onClick, children }) {
       padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: active ? 600 : 400,
       border: `1px solid ${active ? C.purple + "40" : C.border2}`,
       background: active ? C.purpleDim : C.white, color: active ? C.purple : C.text2,
-      cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 2,
+      cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 4,
     }}>{children}</button>
   );
 }
