@@ -76,6 +76,14 @@ const ERC20_ABI = [
 ];
 
 const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
+
+function smartFmtAmount(raw, decimals = 6) {
+  const n = Number(raw) / (10 ** decimals);
+  if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
+  if (n >= 1) return n.toFixed(2);
+  if (n >= 0.0001) return n.toFixed(4);
+  return n.toExponential(2);
+}
 const getLifiExplorer = (hash) => `https://explorer.li.fi/tx/${hash}`;
 
 function saveDepositLocal(deposit) {
@@ -204,6 +212,7 @@ function DepositModal({ vault, onClose }) {
         if (res.ok) {
           const data = await res.json();
           setLifiStatus(data);
+          if (data.status === "DONE" && data.substatus === "PARTIAL") { finishDeposit("partial"); return; }
           if (data.status === "DONE") { finishDeposit("completed"); return; }
           if (data.status === "FAILED") { finishDeposit("failed"); return; }
         }
@@ -225,6 +234,7 @@ function DepositModal({ vault, onClose }) {
       quote_type: quote?.quote_type || "direct", status,
       created_at: new Date().toISOString(),
     });
+    if (status === "partial") { setStep("partial"); return; }
     setStep(status === "completed" ? "done" : "error");
     if (status === "failed") setErrorMsg("Cross-chain transfer failed. Check LiFi explorer for details.");
   };
@@ -399,6 +409,34 @@ function DepositModal({ vault, onClose }) {
               </div>
             )}
             <div style={{ marginTop: 20 }}><ActionBtn onClick={onClose}>Done</ActionBtn></div>
+          </StatusPane>
+        )}
+
+        {step === "partial" && (
+          <StatusPane icon={<div style={{ fontSize: 48 }}>⚠️</div>} title="Bridge Succeeded, Vault Deposit Failed">
+            <div style={{ fontSize: 13, color: C.amber, marginBottom: 12, textAlign: "left", lineHeight: 1.5 }}>
+              Your tokens were bridged to {CHAINS[vaultChainId] || "the destination chain"} but the vault deposit didn't go through.
+              <strong> Your funds are safe in your wallet</strong> on {CHAINS[vaultChainId]}.
+            </div>
+            {lifiStatus?.receiving?.amount && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: C.bg, fontSize: 13, marginBottom: 12 }}>
+                <span style={{ color: C.text3 }}>Received: </span>
+                <span style={{ fontWeight: 700 }}>{smartFmtAmount(lifiStatus.receiving.amount, 6)} {fromToken?.symbol || "tokens"}</span>
+                <span style={{ color: C.text3 }}> on {CHAINS[lifiStatus.receiving.chain_id] || "dest chain"}</span>
+              </div>
+            )}
+            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={true} />}
+            {lifiStatus?.receiving?.tx_hash && (
+              <div style={{ marginTop: 4, fontSize: 12 }}>
+                <a href={getExplorerTx(vaultChainId, lifiStatus.receiving.tx_hash)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none" }}>
+                  View receiving tx on {CHAINS[vaultChainId]} ↗
+                </a>
+              </div>
+            )}
+            <div style={{ marginTop: 16, fontSize: 11, color: C.text3, textAlign: "left" }}>
+              You can deposit directly from {CHAINS[vaultChainId]} by selecting it as source chain and using the same token.
+            </div>
+            <div style={{ marginTop: 12 }}><ActionBtn onClick={onClose}>Close</ActionBtn></div>
           </StatusPane>
         )}
 

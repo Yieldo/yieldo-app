@@ -22,6 +22,7 @@ const STATUS = {
   submitted: { label: "Pending", color: C.amber, bg: C.amberDim, icon: "\u23f3" },
   pending: { label: "Pending", color: C.amber, bg: C.amberDim, icon: "\u23f3" },
   completed: { label: "Completed", color: C.green, bg: C.greenDim, icon: "\u2705" },
+  partial: { label: "Partial", color: C.amber, bg: C.amberDim, icon: "\u26a0\ufe0f" },
   failed: { label: "Failed", color: C.red, bg: C.redBg, icon: "\u274c" },
 };
 
