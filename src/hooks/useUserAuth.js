@@ -40,18 +40,13 @@ export function useUserAuth() {
     }
   }, [address, isConnected]);
 
-  // Auto-login when wallet connects and no session exists
+  // Restore session when wallet connects (no auto-sign — only sign on deposit)
   useEffect(() => {
     if (!isConnected || !address) return;
-    if (autoLoginAttempted.current) return;
     const stored = getStored();
     if (stored && stored.address?.toLowerCase() === address.toLowerCase()) {
       setSession(stored);
-      return;
     }
-    // Auto-trigger login on wallet connect
-    autoLoginAttempted.current = true;
-    doLogin();
   }, [isConnected, address]);
 
   // Validate session on mount
