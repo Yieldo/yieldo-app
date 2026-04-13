@@ -451,7 +451,7 @@ export default function VaultPage() {
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
   const PRESETS = {
-    conservative: { icon: "🛡️", label: "Conservative", desc: "Score ≥80 · No flags · Stables · Real yield · 90d+", color: C.green, fSc: 80, fAge: 90, fTvl: 10e6, fDep: 50, fAt: ["stablecoin"], fCh: ["Ethereum"], fYT: "real", sort: "yieldoScore" },
+    conservative: { icon: "🛡️", label: "Conservative", desc: "Score ≥80 · No flags · Stables · Real yield · 90d+", color: C.green, fSc: 80, fAge: 90, fTvl: 10e6, fDep: 50, fAt: ["stablecoin"], fYT: "real", sort: "yieldoScore" },
     balanced: { icon: "⚖️", label: "Balanced", desc: "Score ≥60 · All assets · 30d+", color: C.teal, fSc: 60, fAge: 30, fTvl: 1e6, fDep: 10, fAt: [], fCh: [], fYT: "all", sort: "yieldoScore" },
     aggressive: { icon: "🚀", label: "Aggressive", desc: "Score ≥40 · High APY focus", color: C.gold, fSc: 40, fAge: 14, fTvl: 100e3, fDep: 0, fAt: [], fCh: [], fYT: "all", sort: "apy" },
     morpho: { icon: "🔮", label: "Morpho", desc: "All Morpho protocol vaults", color: C.purple, fSc: 0, fAge: 0, fTvl: 0, fDep: 0, fAt: [], fCh: [], fPr: ["Morpho"], fYT: "all", sort: "yieldoScore" },
