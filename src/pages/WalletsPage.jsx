@@ -175,7 +175,16 @@ function SignatureVerify({ address, onVerified }) {
       <div style={{ padding: "10px 16px", background: C.purpleDim, borderRadius: 8, fontSize: 12, color: C.text2 }}>
         <span style={{ fontFamily: "monospace", fontWeight: 600, color: C.purple }}>{address}</span>
       </div>
-      {error && <div style={{ fontSize: 13, color: C.red, maxWidth: 400, textAlign: "center" }}>{error}</div>}
+      {error && (
+        <div style={{ maxWidth: 400, textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: C.red }}>{error}</div>
+          {(error.includes("already registered") || error.includes("KOL")) && (
+            <a href="mailto:help@yieldo.xyz?subject=Account%20Conflict&body=My%20wallet%20address%3A%20" style={{ display: "inline-block", marginTop: 10, padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: C.bg, color: C.purple, border: `1px solid ${C.purple}30`, textDecoration: "none", fontFamily: "'Inter',sans-serif" }}>
+              Contact Us
+            </a>
+          )}
+        </div>
+      )}
       <Btn primary onClick={verify} disabled={status === "checking" || status === "signing"} style={{ padding: "14px 32px", fontSize: 15 }}>
         {status === "checking" ? "Checking..." : status === "signing" ? "Sign in wallet..." : isRegistered ? "Sign to Login" : "Sign to Verify"}
       </Btn>
@@ -276,7 +285,16 @@ function RegistrationForm({ address, signature, onRegistered }) {
             <label style={{ fontSize: 12, color: C.text3, fontWeight: 600, display: "block", marginBottom: 4 }}>Description</label>
             <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} placeholder="Tell us about your wallet..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
           </div>
-          {error && <div style={{ fontSize: 12, color: C.red }}>{error}</div>}
+          {error && (
+            <div>
+              <div style={{ fontSize: 12, color: C.red }}>{error}</div>
+              {(error.includes("already registered") || error.includes("KOL")) && (
+                <a href="mailto:help@yieldo.xyz?subject=Account%20Conflict&body=My%20wallet%20address%3A%20" style={{ display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 600, color: C.purple, textDecoration: "none" }}>
+                  Contact us for help
+                </a>
+              )}
+            </div>
+          )}
           <Btn primary full disabled={loading} onClick={handleSubmit}>{loading ? "Registering..." : "Complete Registration"}</Btn>
         </form>
       </Card>
