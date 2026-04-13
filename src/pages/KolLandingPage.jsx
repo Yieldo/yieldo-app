@@ -46,6 +46,8 @@ export default function KolLandingPage() {
   const { vaults } = useVaults();
   const [copied, setCopied] = useState(false);
   const [depositVault, setDepositVault] = useState(null);
+  const [page, setPage] = useState(0);
+  const VAULTS_PER_PAGE = 5;
 
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -175,8 +177,9 @@ export default function KolLandingPage() {
             </p>
           </Card>
         ) : (
+          <>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {pickedVaults.map(v => {
+            {pickedVaults.slice(page * VAULTS_PER_PAGE, (page + 1) * VAULTS_PER_PAGE).map(v => {
               const vaultId = v.id || `${v.chain_id}:${v.address?.toLowerCase()}`;
               const canDeposit = DEPOSITABLE_CHAINS.includes(v.chain_id);
               return (
@@ -208,6 +211,19 @@ export default function KolLandingPage() {
               );
             })}
           </div>
+          {pickedVaults.length > VAULTS_PER_PAGE && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
+              {Array.from({ length: Math.ceil(pickedVaults.length / VAULTS_PER_PAGE) }, (_, i) => (
+                <button key={i} onClick={() => setPage(i)} style={{
+                  width: 32, height: 32, borderRadius: 8, fontSize: 13, fontWeight: page === i ? 700 : 400,
+                  border: page === i ? `1px solid ${C.purple}40` : `1px solid ${C.border}`,
+                  background: page === i ? C.purpleDim : C.white, color: page === i ? C.purple : C.text3,
+                  cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                }}>{i + 1}</button>
+              ))}
+            </div>
+          )}
+          </>
         )}
 
         {/* CTA */}

@@ -477,7 +477,13 @@ export function VaultExplorer({
             {pills.map((p, i) => <ActivePill key={i} label={p.label} onRemove={p.remove}/>)}
           </div>
           {variant === "enroll" && enrolled && (
-            <Badge color={C.purple}>✓ {enrolled.size} enrolled</Badge>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Badge color={C.purple}>✓ {enrolled.size} enrolled</Badge>
+              <button onClick={() => { filtered.forEach(v => { if (!enrolled.has(v.id)) onToggleEnroll?.(v.id); }); }}
+                style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: C.purpleDim, border: `1px solid ${C.purple}30`, color: C.purple, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                Select All ({filtered.length})
+              </button>
+            </div>
           )}
         </div>
 
@@ -485,16 +491,15 @@ export function VaultExplorer({
         {view === "table" && (
           <Card><div style={{ overflow: "auto" }}>
             <div style={{ display: "grid", gridTemplateColumns: variant === "enroll"
-              ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr"
-              : "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr",
-              padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: variant === "enroll" ? 1000 : 960 }}>
+              ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr"
+              : "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr",
+              padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: variant === "enroll" ? 960 : 900 }}>
               {variant === "enroll" && <div></div>}
               <div>Vault</div>
               <div>Score</div>
               <div>APY</div>
               <div>Risk</div>
               <div>Flags</div>
-              <div>Sharpe</div>
               <div>TVL</div>
               <div>Dep.</div>
               <div>Yield</div>
@@ -505,11 +510,11 @@ export function VaultExplorer({
               const rowStyle = {
                 display: "grid",
                 gridTemplateColumns: variant === "enroll"
-                  ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr"
-                  : "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr",
+                  ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr"
+                  : "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr",
                 padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center",
                 background: isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent",
-                minWidth: variant === "enroll" ? 1000 : 960, cursor: "pointer", transition: "background .1s",
+                minWidth: variant === "enroll" ? 960 : 900, cursor: "pointer", transition: "background .1s",
                 textDecoration: "none", color: "inherit",
               };
               return (
@@ -543,7 +548,6 @@ export function VaultExplorer({
                   <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>
                   <div><Badge color={v.riskC}>{v.risk}</Badge></div>
                   <div><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
-                  <div style={{ fontSize: 11, color: C.text2 }}>{fmtNum(v.sharpe)}</div>
                   <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
                   <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                   <div><YieldBadge t={v.yieldType}/></div>
