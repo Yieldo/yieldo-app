@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
@@ -17,9 +17,15 @@ import ApplyPage from './pages/ApplyPage.jsx'
 import VaultScoringPage from './pages/VaultScoringPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
+import RefTracker from './components/RefTracker.jsx'
 import './index.css'
 
 const queryClient = new QueryClient()
+
+function KolRedirect() {
+  const { handle } = useParams()
+  return <Navigate to={`/u/${handle}${window.location.search}`} replace />
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -28,6 +34,7 @@ createRoot(document.getElementById('root')).render(
         <RainbowKitProvider>
           <BrowserRouter>
             <TxTracker />
+            <RefTracker />
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />
@@ -35,7 +42,8 @@ createRoot(document.getElementById('root')).render(
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />
-              <Route path="/kol/:handle" element={<KolLandingPage />} />
+              <Route path="/u/:handle" element={<KolLandingPage />} />
+              <Route path="/kol/:handle" element={<KolRedirect />} />
               <Route path="/vault-provider" element={<VaultProviderPage />} />
               <Route
                 path="/vaultscoring"

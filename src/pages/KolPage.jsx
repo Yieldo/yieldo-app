@@ -395,8 +395,8 @@ function OverviewPage({ kol }) {
 
 // ============ LINKS PAGE ============
 function LinksPage({ kol }) {
-  const referralLink = `${APP_URL}?ref=${kol?.handle || ""}`;
-  const profileLink = `${APP_URL}/kol/${kol?.handle || ""}`;
+  const profileLink = `${APP_URL}/u/${kol?.handle || ""}`;
+  const referralLink = `${APP_URL}/vault?ref=${kol?.handle || ""}`;
   const [copied, setCopied] = useState("");
 
   const copy = (val, key) => {
@@ -405,21 +405,26 @@ function LinksPage({ kol }) {
     setTimeout(() => setCopied(""), 2000);
   };
 
-  const tweetText = encodeURIComponent(`Check out my DeFi vault picks on Yieldo — earn real yield on your crypto 🔥\n\n${referralLink}`);
+  const tweetText = encodeURIComponent(`Check out my DeFi vault picks on Yieldo \u2014 earn real yield on your crypto \ud83d\udd25\n\n${profileLink}`);
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+
+  const copyVaultLink = (vaultId) => {
+    const url = `${APP_URL}/vault/${encodeURIComponent(vaultId)}?ref=${kol?.handle || ""}`;
+    copy(url, `vault-${vaultId}`);
+  };
 
   return (
     <div style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 16 }}>
       <Card style={{ padding: 24 }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Referral Link</h3>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Your Profile Page</h3>
         <p style={{ fontSize: 13, color: C.text3, margin: "0 0 14px" }}>
-          Share this anywhere. Every deposit through this link earns you 50% of the protocol fee.
+          Share this page — it shows your bio, vault picks, and deposit buttons. Visitors get your referral code automatically.
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <code style={{ flex: 1, padding: "10px 14px", background: C.surfaceAlt, borderRadius: 8, fontSize: 13, fontFamily: "monospace", color: C.purple, border: `1px solid ${C.border}`, wordBreak: "break-all" }}>
-            {referralLink}
+            {profileLink}
           </code>
-          <Btn small onClick={() => copy(referralLink, "link")}>{copied === "link" ? "Copied!" : "Copy"}</Btn>
+          <Btn small onClick={() => copy(profileLink, "profile")}>{copied === "profile" ? "Copied!" : "Copy"}</Btn>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <a href={tweetUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
@@ -429,17 +434,38 @@ function LinksPage({ kol }) {
       </Card>
 
       <Card style={{ padding: 24 }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Public Profile Page</h3>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Referral Link</h3>
         <p style={{ fontSize: 13, color: C.text3, margin: "0 0 12px" }}>
-          Your public page shows your bio, socials, and vault picks.
+          Direct link to all vaults with your referral code. Every deposit earns you 50% of the protocol fee.
         </p>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <code style={{ flex: 1, padding: "10px 14px", background: C.surfaceAlt, borderRadius: 8, fontSize: 13, fontFamily: "monospace", color: C.text2, border: `1px solid ${C.border}`, wordBreak: "break-all" }}>
-            {profileLink}
+            {referralLink}
           </code>
-          <Btn small onClick={() => copy(profileLink, "profile")}>{copied === "profile" ? "Copied!" : "Copy"}</Btn>
+          <Btn small onClick={() => copy(referralLink, "link")}>{copied === "link" ? "Copied!" : "Copy"}</Btn>
         </div>
       </Card>
+
+      {kol?.enrolled_vaults?.length > 0 && (
+        <Card style={{ padding: 24 }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Vault Links</h3>
+          <p style={{ fontSize: 13, color: C.text3, margin: "0 0 14px" }}>
+            Share individual vault links — your referral code is attached automatically.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {kol.enrolled_vaults.map(vid => (
+              <div key={vid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: C.surfaceAlt }}>
+                <code style={{ flex: 1, fontSize: 11, fontFamily: "monospace", color: C.text3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {vid}
+                </code>
+                <button onClick={() => copyVaultLink(vid)} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: C.purpleDim, border: `1px solid ${C.purple}30`, color: C.purple, cursor: "pointer", fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
+                  {copied === `vault-${vid}` ? "Copied!" : "Copy Link"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card style={{ padding: 24 }}>
         <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Your Handle</h3>

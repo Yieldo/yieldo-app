@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
-import { AssetIcon, ScoreRing, Badge as VaultBadge, fmtTvl } from "../components/VaultExplorer.jsx";
+import { useUserAuth } from "../hooks/useUserAuth.js";
+import { AssetIcon, ScoreRing, fmtTvl } from "../components/VaultExplorer.jsx";
+const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const KOL_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
+const DEPOSITABLE_CHAINS = [1, 8453];
 
 const C = {
   bg: "#f8f7fc", white: "#ffffff",
@@ -21,7 +26,7 @@ const C = {
 const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad" };
 
 function fmtApy(n) {
-  if (!n && n !== 0) return "—";
+  if (!n && n !== 0) return "\u2014";
   return (n * 100).toFixed(2) + "%";
 }
 
@@ -35,10 +40,30 @@ function Badge({ children, color = C.purple, bg }) {
 
 export default function KolLandingPage() {
   const { handle } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [kol, setKol] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const { vaults } = useVaults();
   const [copied, setCopied] = useState(false);
+  const [depositVault, setDepositVault] = useState(null);
+
+  const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { isAuthenticated, login: userLogin } = useUserAuth();
+
+  // Store ref in localStorage on page load
+  useEffect(() => {
+    if (handle) {
+      const data = { handle: handle.toLowerCase(), stored_at: new Date().toISOString() };
+      localStorage.setItem("yieldo_referral", JSON.stringify(data));
+      window.dispatchEvent(new Event("yieldo_ref_change"));
+    }
+    // Also clean ?ref= if present (RefTracker handles it, but just in case)
+    if (searchParams.has("ref")) {
+      searchParams.delete("ref");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [handle]);
 
   useEffect(() => {
     fetch(`${KOL_API}/v1/kols/public/${handle}`)
@@ -50,19 +75,29 @@ export default function KolLandingPage() {
       .catch(() => setNotFound(true));
   }, [handle]);
 
-  const referralLink = `${APP_URL}?ref=${handle}`;
   const copyLink = () => {
-    navigator.clipboard.writeText(referralLink);
+    navigator.clipboard.writeText(`${APP_URL}/u/${handle}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleDeposit = useCallback(async (e, vault) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isConnected) { openConnectModal(); return; }
+    if (!isAuthenticated) {
+      const ok = await userLogin();
+      if (!ok) return;
+    }
+    setDepositVault(vault);
+  }, [isConnected, isAuthenticated, userLogin, openConnectModal]);
 
   if (notFound) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Inter',sans-serif", gap: 16 }}>
         <div style={{ fontSize: 48 }}>🔍</div>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>KOL not found</h2>
-        <p style={{ margin: 0, fontSize: 14, color: C.text3 }}>No KOL with handle @{handle} exists.</p>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>Not found</h2>
+        <p style={{ margin: 0, fontSize: 14, color: C.text3 }}>No profile with handle @{handle} exists.</p>
         <Link to="/vault" style={{ textDecoration: "none" }}>
           <button style={{ padding: "10px 22px", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
             Explore Vaults
@@ -90,9 +125,9 @@ export default function KolLandingPage() {
           <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain" }} />
           <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>
         </Link>
-        <Link to="/vault">
+        <Link to="/vault" style={{ textDecoration: "none" }}>
           <button style={{ padding: "8px 16px", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-            Explore Vaults
+            Explore All Vaults
           </button>
         </Link>
       </div>
@@ -118,17 +153,10 @@ export default function KolLandingPage() {
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={copyLink}
-                style={{ padding: "10px 20px", borderRadius: 8, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}
-              >
-                {copied ? "Copied!" : "Copy Referral Link"}
+              <button onClick={copyLink}
+                style={{ padding: "10px 20px", borderRadius: 8, background: C.purpleDim, border: `1px solid ${C.purple}30`, color: C.purple, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                {copied ? "Copied!" : "Share this page"}
               </button>
-              <a href={referralLink} style={{ textDecoration: "none" }}>
-                <button style={{ width: "100%", padding: "8px 16px", borderRadius: 8, background: C.purpleDim, border: `1px solid ${C.purple}30`, color: C.purple, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                  Deposit via {kol.name}
-                </button>
-              </a>
             </div>
           </div>
         </Card>
@@ -150,12 +178,12 @@ export default function KolLandingPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pickedVaults.map(v => {
               const vaultId = v.id || `${v.chain_id}:${v.address?.toLowerCase()}`;
+              const canDeposit = DEPOSITABLE_CHAINS.includes(v.chain_id);
               return (
-                <Link key={vaultId} to={`/vault/${encodeURIComponent(vaultId)}`} style={{ textDecoration: "none", color: "inherit" }}>
-                  <Card style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "box-shadow .15s" }}
-                    onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 16px rgba(122,28,203,0.08)"}
-                    onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.03)"}
-                  >
+                <Card key={vaultId} style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, transition: "box-shadow .15s" }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 16px rgba(122,28,203,0.08)"}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.03)"}>
+                  <Link to={`/vault/${encodeURIComponent(vaultId)}`} style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
                     <AssetIcon asset={v.asset} size={36} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</div>
@@ -165,13 +193,18 @@ export default function KolLandingPage() {
                       <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>{fmtApy(v.apy)}</div>
                       <div style={{ fontSize: 11, color: C.text3 }}>APY</div>
                     </div>
-                    <div style={{ textAlign: "right", minWidth: 80 }}>
+                    <div style={{ textAlign: "right", minWidth: 70 }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{fmtTvl(v.tvl)}</div>
                       <div style={{ fontSize: 11, color: C.text3 }}>TVL</div>
                     </div>
-                    {v.score && <ScoreRing score={v.score} size={36} />}
-                  </Card>
-                </Link>
+                  </Link>
+                  <button onClick={(e) => canDeposit ? handleDeposit(e, v) : null} disabled={!canDeposit}
+                    title={canDeposit ? "" : "Depositable soon"}
+                    style={{ padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: "none", cursor: canDeposit ? "pointer" : "not-allowed", flexShrink: 0,
+                      background: canDeposit ? C.purpleGrad : C.bg, color: canDeposit ? "#fff" : C.text4, opacity: canDeposit ? 1 : 0.6 }}>
+                    Deposit
+                  </button>
+                </Card>
               );
             })}
           </div>
@@ -180,15 +213,21 @@ export default function KolLandingPage() {
         {/* CTA */}
         <Card style={{ padding: 24, marginTop: 24, textAlign: "center" }}>
           <p style={{ margin: "0 0 14px", fontSize: 14, color: C.text3 }}>
-            Deposit through {kol.name}'s referral link to support them — you pay the same protocol fee either way.
+            Deposit through @{kol.handle}'s link to support them — you pay the same protocol fee either way.
           </p>
-          <a href={referralLink}>
+          <Link to="/vault" style={{ textDecoration: "none" }}>
             <button style={{ padding: "12px 28px", borderRadius: 10, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>
-              Explore & Deposit via @{kol.handle}
+              Explore All Products
             </button>
-          </a>
+          </Link>
         </Card>
       </div>
+
+      {depositVault && (
+        <Suspense fallback={null}>
+          <DepositModal vault={depositVault} onClose={() => setDepositVault(null)} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -112,7 +112,12 @@ function DepositModal({ vault, onClose }) {
   const [fromChainId, setFromChainId] = useState(vaultChainId);
   const [fromToken, setFromToken] = useState(null);
   const [amount, setAmount] = useState("");
-  const [referral, setReferral] = useState("");
+  const [referral, setReferral] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("yieldo_referral") || "null");
+      return stored?.handle || "";
+    } catch { return ""; }
+  });
   const [referralResolved, setReferralResolved] = useState(null);
   const [referralError, setReferralError] = useState("");
   const [referralLoading, setReferralLoading] = useState(false);
