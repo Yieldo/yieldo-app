@@ -9,6 +9,7 @@ import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplor
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const DEPOSITABLE_CHAINS = [1, 8453];
+const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 function useWindowWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
@@ -371,6 +372,23 @@ export default function VaultPage() {
   const { balances, totalIdle } = useWalletBalances();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
   const [depositVault, setDepositVault] = useState(null);
+  const [vaultTypes, setVaultTypes] = useState({});
+
+  // Fetch vault types from deposit API
+  useEffect(() => {
+    fetch(`${DEPOSIT_API}/v1/vaults`).then(r => r.json()).then(data => {
+      const map = {};
+      for (const v of data) map[v.vault_id] = v.type || "morpho";
+      setVaultTypes(map);
+    }).catch(() => {});
+  }, []);
+
+  const getDepositState = useCallback((v) => {
+    const vType = vaultTypes[v.id];
+    if (vType === "unsupported") return { ok: false, label: "Deposit", tip: "Vault not supported" };
+    if (!DEPOSITABLE_CHAINS.includes(v.chain_id)) return { ok: false, label: "Deposit", tip: "Depositable soon" };
+    return { ok: true, label: "Deposit", tip: null };
+  }, [vaultTypes]);
 
   const handleDeposit = useCallback(async (e, vault) => {
     e.preventDefault();
@@ -661,7 +679,7 @@ export default function VaultPage() {
         {view === "table" && (
           <Card><div style={{ overflow: "auto" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 1020 }}><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>Sharpe</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div><div></div></div>
-            {filtered.map(v=>{ const depositable = DEPOSITABLE_CHAINS.includes(v.chain_id); return (
+            {filtered.map(v=>{ const ds = getDepositState(v); return (
               <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .55fr .5fr .5fr .55fr .45fr .5fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 1020, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
@@ -673,7 +691,7 @@ export default function VaultPage() {
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                 <div><YieldBadge t={v.yieldType}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
-                <div><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (depositable) handleDeposit(e, v); }} disabled={!depositable} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: depositable ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: depositable ? C.purpleDim : C.surfaceAlt, color: depositable ? C.purple : C.text4, cursor: depositable ? "pointer" : "not-allowed" }}>{depositable ? "Deposit" : "N/A"}</button></div>
+                <div title={ds.tip || ""}><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: ds.ok ? C.purpleDim : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", opacity: ds.ok ? 1 : 0.6 }}>{ds.label}</button></div>
               </Link>
             ); })}
             ))}
@@ -712,10 +730,10 @@ export default function VaultPage() {
                   </div>
                   <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
                     <div style={{ flex: 1, padding: "9px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", textAlign: "center", backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>Explore →</div>
-                    {(() => { const depositable = DEPOSITABLE_CHAINS.includes(v.chain_id); return (
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (depositable) handleDeposit(e, v); }} disabled={!depositable}
-                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: depositable ? "none" : `1px solid ${C.border}`, background: depositable ? C.white : C.surfaceAlt, color: depositable ? C.purple : C.text4, cursor: depositable ? "pointer" : "not-allowed", boxShadow: depositable ? "0 1px 4px rgba(0,0,0,.08)" : "none" }}>
-                        {authLoading ? "..." : depositable ? "Deposit" : "N/A"}
+                    {(() => { const ds = getDepositState(v); return (
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} title={ds.tip || ""}
+                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? "none" : `1px solid ${C.border}`, background: ds.ok ? C.white : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", boxShadow: ds.ok ? "0 1px 4px rgba(0,0,0,.08)" : "none", opacity: ds.ok ? 1 : 0.6 }}>
+                        {authLoading ? "..." : ds.label}
                       </button>
                     ); })()}
                   </div>
