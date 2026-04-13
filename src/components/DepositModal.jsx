@@ -190,6 +190,8 @@ function DepositModal({ vault, onClose }) {
     hash: txHash, query: { enabled: !!txHash },
   });
 
+  const [step2Status, setStep2Status] = useState(""); // "" | "switching" | "approving2" | "depositing2"
+
   useEffect(() => {
     if (approvalConfirmed && buildData && step === "approving") executeDepositWithBuild(buildData);
   }, [approvalConfirmed]);
@@ -201,11 +203,70 @@ function DepositModal({ vault, onClose }) {
     }
   }, [depositConfirmed]);
 
+  // Two-step: after step 2 deposit tx confirms
+  const [step2TxHash, setStep2TxHash] = useState(null);
+  const { isSuccess: step2Confirmed } = useWaitForTransactionReceipt({
+    hash: step2TxHash, query: { enabled: !!step2TxHash },
+  });
+  useEffect(() => {
+    if (step2Confirmed && step === "depositing_step2") finishDeposit("completed");
+  }, [step2Confirmed]);
+
+  const [step2ApprovalHash, setStep2ApprovalHash] = useState(null);
+  const { isSuccess: step2ApprovalConfirmed } = useWaitForTransactionReceipt({
+    hash: step2ApprovalHash, query: { enabled: !!step2ApprovalHash },
+  });
+
+  // Two-step: execute deposit on dest chain after bridge completes
+  const executeStep2 = async () => {
+    if (!buildData?.deposit_tx) return;
+    const destChainId = buildData.tracking.to_chain_id;
+    setStep("depositing_step2");
+    try {
+      if (walletChainId !== destChainId) {
+        setStep2Status("switching");
+        await switchChain({ chainId: destChainId });
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      const depTx = buildData.deposit_tx;
+      if (depTx.approval) {
+        setStep2Status("approving2");
+        const appHash = await writeApproval({
+          address: depTx.approval.token_address, abi: erc20Abi, functionName: "approve",
+          args: [depTx.approval.spender_address, BigInt(depTx.approval.amount)], chainId: destChainId,
+        });
+        setStep2ApprovalHash(appHash);
+        return; // Wait for approval confirmation via useEffect below
+      }
+      await sendStep2Deposit();
+    } catch (e) {
+      setErrorMsg(e.message || "Step 2 failed");
+      setStep("error");
+    }
+  };
+
+  const sendStep2Deposit = async () => {
+    try {
+      setStep2Status("depositing2");
+      const txReq = buildData.deposit_tx.transaction_request;
+      const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
+      setStep2TxHash(hash);
+    } catch (e) {
+      setErrorMsg(e.message || "Deposit failed");
+      setStep("error");
+    }
+  };
+
+  useEffect(() => {
+    if (step2ApprovalConfirmed && step === "depositing_step2") sendStep2Deposit();
+  }, [step2ApprovalConfirmed]);
+
   // Poll LiFi status for cross-chain
   useEffect(() => {
     if (step !== "tracking" || !txHash || !buildData) return;
     const isCrossChain = buildData.tracking?.from_chain_id !== buildData.tracking?.to_chain_id;
     if (!isCrossChain) return;
+    const isTwoStep = buildData.two_step;
     const poll = async () => {
       try {
         const params = new URLSearchParams({
@@ -218,7 +279,10 @@ function DepositModal({ vault, onClose }) {
           const data = await res.json();
           setLifiStatus(data);
           if (data.status === "DONE" && data.substatus === "PARTIAL") { finishDeposit("partial"); return; }
-          if (data.status === "DONE") { finishDeposit("completed"); return; }
+          if (data.status === "DONE") {
+            if (isTwoStep) { executeStep2(); return; }
+            finishDeposit("completed"); return;
+          }
           if (data.status === "FAILED") { finishDeposit("failed"); return; }
         }
       } catch {}
@@ -370,10 +434,27 @@ function DepositModal({ vault, onClose }) {
           </StatusPane>
         )}
 
-        {step === "sending" && <StatusPane icon={<Spinner />} title="Sending deposit..." sub="Confirm the transaction in your wallet" />}
+        {step === "sending" && <StatusPane icon={<Spinner />} title={buildData?.two_step ? "Sending bridge..." : "Sending deposit..."} sub="Confirm the transaction in your wallet" />}
+
+        {step === "depositing_step2" && (
+          <StatusPane icon={<Spinner />} title="Depositing into vault..." sub={
+            step2Status === "switching" ? "Switching to destination chain..." :
+            step2Status === "approving2" ? "Approving token — confirm in wallet" :
+            "Sending deposit transaction — confirm in wallet"
+          }>
+            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={true} />}
+            <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: C.bg, fontSize: 11, color: C.green }}>
+              Bridge complete — now depositing on {CHAINS[buildData?.tracking?.to_chain_id] || "destination chain"}
+            </div>
+          </StatusPane>
+        )}
 
         {step === "tracking" && (
-          <StatusPane icon={<Spinner />} title="Transaction submitted" sub={isCrossChain ? "Bridging in progress — this may take a few minutes" : "Waiting for on-chain confirmation..."}>
+          <StatusPane icon={<Spinner />} title={buildData?.two_step ? "Bridging tokens..." : "Transaction submitted"} sub={
+            buildData?.two_step ? `Bridging to ${CHAINS[buildData?.tracking?.to_chain_id] || "destination"} — vault deposit will follow automatically`
+            : isCrossChain ? "Bridging in progress — this may take a few minutes"
+            : "Waiting for on-chain confirmation..."
+          }>
             {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={isCrossChain} />}
             {isCrossChain && lifiStatus && (
               <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: C.bg, fontSize: 12 }}>
