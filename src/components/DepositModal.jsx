@@ -789,6 +789,11 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
           Cross-chain deposits may take a few minutes. You can track progress via LiFi explorer.
         </div>
       )}
+      {quote.quote_type === "cross_chain" && ["midas", "veda", "custom"].includes(quote.vault?.type) && (
+        <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(107,70,193,.06)", fontSize: 11, color: C.text2, marginBottom: 16, lineHeight: 1.5 }}>
+          <strong style={{ color: C.text }}>3% slippage buffer applied.</strong> This vault requires an exact amount for deposit. Up to ~3% of the bridged amount may be held back as a safety margin to prevent the transaction from reverting if the bridge delivers slightly less than expected. Any unused buffer becomes recoverable dust.
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1 }}><ActionBtn secondary onClick={onBack}>Back</ActionBtn></div>
         <div style={{ flex: 2 }}><ActionBtn onClick={onConfirm}>Confirm Deposit</ActionBtn></div>
