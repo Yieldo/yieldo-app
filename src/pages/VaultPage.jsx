@@ -6,6 +6,8 @@ import { useVaults } from "../hooks/useVaultData.js";
 import { useWalletBalances } from "../hooks/useWalletBalances.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplorer.jsx";
+const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
+const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const DEPOSITABLE_CHAINS = [1, 8453];
@@ -284,6 +286,14 @@ function DashboardTab({ vaults, navigate }) {
             );
           })}
         </div>
+      )}
+
+      {/* User positions & pending withdrawals — only when connected */}
+      {isConnected && (
+        <Suspense fallback={null}>
+          <UserPositions />
+          <PendingWithdrawals />
+        </Suspense>
       )}
 
       {/* Stats */}
