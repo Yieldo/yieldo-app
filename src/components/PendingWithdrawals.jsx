@@ -3,8 +3,8 @@ import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useSwitch
 import { formatUnits } from "viem";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism" };
-const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad" };
+const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io", 143: "https://monadscan.com" };
 
 const C = {
   white: "#fff", border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",

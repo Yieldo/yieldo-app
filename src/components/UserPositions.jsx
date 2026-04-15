@@ -5,7 +5,7 @@ import { formatUnits } from "viem";
 const WithdrawModal = lazy(() => import("./WithdrawModal.jsx"));
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad" };
 
 const C = {
   white: "#fff", border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",

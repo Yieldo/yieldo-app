@@ -1,11 +1,20 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
 import { http, fallback } from "wagmi";
+import { defineChain } from "viem";
+
+const monad = defineChain({
+  id: 143,
+  name: "Monad",
+  nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.monad.xyz"] } },
+  blockExplorers: { default: { name: "MonadScan", url: "https://monadscan.com" } },
+});
 
 export const config = getDefaultConfig({
   appName: "Yieldo",
   projectId: "0dd252f3816efa3917348bf2b60af0aa",
-  chains: [mainnet, base, arbitrum, optimism],
+  chains: [mainnet, base, arbitrum, optimism, monad],
   transports: {
     [mainnet.id]: fallback([
       http("https://ethereum-rpc.publicnode.com"),
@@ -26,6 +35,11 @@ export const config = getDefaultConfig({
       http("https://optimism-rpc.publicnode.com"),
       http("https://rpc.ankr.com/optimism"),
       http("https://mainnet.optimism.io"),
+    ]),
+    [monad.id]: fallback([
+      http("https://rpc.monad.xyz"),
+      http("https://rpc1.monad.xyz"),
+      http("https://rpc-mainnet.monadinfra.com"),
     ]),
   },
 });
