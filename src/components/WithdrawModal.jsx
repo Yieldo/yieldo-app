@@ -103,32 +103,24 @@ export default function WithdrawModal({ position, onClose }) {
   const submit = useCallback(async () => {
     setError("");
     if (!quote) return;
+    const needsApproval = BigInt(quote.approval?.amount || "0") > 0n;
 
     try {
       if (needsSwitch) {
         await switchChainAsync({ chainId: position.chain_id });
       }
 
-      // 1. Approve vault shares to router (skip if already approved)
-      setView("approving");
-      const approveTx = await writeContractAsync({
-        address: position.vault_address,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [quote.approval.spender_address, BigInt(sharesBN.toString())],
-      });
-      setApprovalTxHash(approveTx);
+      if (needsApproval) {
+        setView("approving");
+        const approveTx = await writeContractAsync({
+          address: position.vault_address,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [quote.approval.spender_address, BigInt(sharesBN.toString())],
+        });
+        setApprovalTxHash(approveTx);
+      }
 
-      // Poll for approval receipt before proceeding
-      await new Promise((resolve) => {
-        const check = setInterval(async () => {
-          // allow a reasonable time for the approval to land
-          clearInterval(check);
-          resolve();
-        }, 2000);
-      });
-
-      // 2. Build and send withdraw tx
       setView("signing");
       const buildRes = await fetch(`${API}/v1/withdraw/build`, {
         method: "POST",
@@ -259,7 +251,7 @@ export default function WithdrawModal({ position, onClose }) {
               </div>
               <div style={{ fontSize: 12, color: C.text3, marginBottom: 14, lineHeight: 1.5 }}>
                 {isAsync
-                  ? "Your redemption is queued. You'll see a Claim button on your dashboard when funds are ready."
+                  ? "Your redemption is queued. Funds will arrive directly in your wallet when the protocol fulfills it — no claim step needed."
                   : `Assets have been sent to your wallet.`}
               </div>
               <a href={`${EXPLORERS[position.chain_id] || EXPLORERS[1]}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: C.purple, textDecoration: "none" }}>
