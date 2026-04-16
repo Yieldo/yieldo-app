@@ -10,7 +10,7 @@ const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
 const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
-const DEPOSITABLE_CHAINS = [1, 8453, 42161, 10, 143, 999, 747474];
+import { DEPOSITABLE_CHAINS } from "../chains.js";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 function useWindowWidth() {

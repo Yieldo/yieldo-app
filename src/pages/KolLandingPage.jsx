@@ -9,7 +9,7 @@ const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const KOL_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
-const DEPOSITABLE_CHAINS = [1, 8453, 42161, 10, 143, 999, 747474];
+import { DEPOSITABLE_CHAINS } from "../chains.js";
 
 const C = {
   bg: "#f8f7fc", white: "#ffffff",

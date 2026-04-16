@@ -110,7 +110,7 @@ const ALL_TOKENS = {
   ],
 };
 
-const DEPOSITABLE_CHAINS = [1, 8453, 42161, 10, 143, 999, 747474];
+import { DEPOSITABLE_CHAINS, YIELDO_ROUTERS } from "../chains.js";
 
 // Public RPC endpoints for on-chain balance checks (lightweight parallel polling).
 const PUBLIC_RPC = {
@@ -165,17 +165,9 @@ const ERC20_ABI = [
 
 const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
 
-// Known Yieldo DepositRouter addresses. Step-2 on-chain target MUST match one of
-// these — prevents a malicious or buggy API response from causing us to send
-// to a non-router address.
-const KNOWN_ROUTERS = {
-  1: "0x85f76c1685046Ea226E1148EE1ab81a8a15C385d",       // Ethereum
-  8453: "0xF6B7723661d52E8533c77479d3cad534B4D147Aa",    // Base
-  143: "0xCD8dfD627A3712C9a2B079398e0d524970D5E73F",     // Monad
-  10: "0x7554937Aa95195D744A6c45E0fd7D4F95A2F8F72",      // Optimism
-  42161: "0xC5700f4D8054BA982C39838D7C33442f54688bd2",   // Arbitrum
-  747474: "0xa682CD1c2Fd7c8545b401824096A600C2bD98F69", // Katana
-};
+// Defense-in-depth: step-2 on-chain target MUST match a known Yieldo router.
+// Imported from chains.js so adding a chain is a one-line change there.
+const KNOWN_ROUTERS = YIELDO_ROUTERS;
 
 function smartFmtAmount(raw, decimals = 6) {
   const n = Number(raw) / (10 ** decimals);
