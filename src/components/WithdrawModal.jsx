@@ -160,6 +160,15 @@ export default function WithdrawModal({ position, onClose }) {
 
   const isAsync = quote?.mode === "async";
 
+  // Vaults with no instant-redemption liquidity need to use their protocol's
+  // native scheduled-withdraw flow — we can't build a reliable direct redeem.
+  const EXTERNAL_WITHDRAW_SITES = {
+    veda: { name: "Veda", url: "https://app.veda.tech" },
+    ipor: { name: "IPOR", url: "https://app.ipor.io" },
+    lido: { name: "Lido Earn", url: "https://earn.lido.fi" },
+  };
+  const externalSite = EXTERNAL_WITHDRAW_SITES[position.vault_type];
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, fontFamily: "'Inter',sans-serif" }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,.15)" }}>
@@ -172,7 +181,25 @@ export default function WithdrawModal({ position, onClose }) {
         </div>
 
         <div style={{ padding: 22 }}>
-          {view === "input" && (
+          {externalSite && (
+            <div style={{ padding: "16px 4px" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Withdraw via {externalSite.name}</div>
+              <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5, marginBottom: 14 }}>
+                This vault uses a scheduled-withdrawal flow that Yieldo's router doesn't yet proxy.
+                Your position is safe. Withdraw directly on {externalSite.name}'s interface — deposits tracked in your Yieldo dashboard will reflect the balance change automatically.
+              </div>
+              <div style={{ padding: "10px 12px", borderRadius: 8, background: C.amberDim, fontSize: 12, color: C.text2, marginBottom: 14, lineHeight: 1.5 }}>
+                Your <strong>{fmt(balance, shareDecimals)}</strong> {position.asset_symbol} shares are held in your wallet at the vault contract. {externalSite.name} will recognize them when you connect the same wallet.
+              </div>
+              <a href={externalSite.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", padding: "12px 20px", borderRadius: 8, backgroundImage: C.purpleGrad, color: "#fff", fontWeight: 600, textDecoration: "none", fontSize: 14 }}>
+                Open {externalSite.name} ↗
+              </a>
+              <div style={{ marginTop: 10 }}>
+                <Btn secondary full onClick={onClose}>Close</Btn>
+              </div>
+            </div>
+          )}
+          {!externalSite && view === "input" && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 12, color: C.text3 }}>Shares to redeem</span>
