@@ -827,9 +827,11 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
   const vaultDecimals = quote.vault?.asset?.decimals || fromToken?.decimals || 6;
   const outDecimals = quote.quote_type === "direct" ? fromToken.decimals : vaultDecimals;
   const isSwap = quote.quote_type !== "direct";
+  const isCrossChain = quote.quote_type === "cross_chain";
   const outSymbol = isSwap ? (vault.asset || vault.assetLower || "").toUpperCase() : fromToken?.symbol;
+  const [ackHighImpact, setAckHighImpact] = useState(false);
 
-  // Build route description from steps if available
+  // Route description
   let routeDesc = quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap" : "Cross-chain";
   const steps = est.steps;
   if (steps && steps.length > 0) {
@@ -837,21 +839,66 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
     if (tools.length > 0) routeDesc += ` via ${tools.join(" → ")}`;
   }
 
+  // Cross-chain / swap cost breakdown (bridge or swap loss, not our fee)
+  const fromUsd = parseFloat(est.from_amount_usd || "0");
+  const toUsd = parseFloat(est.to_amount_usd || "0");
+  const pathLossUsd = fromUsd > 0 && toUsd > 0 ? Math.max(0, fromUsd - toUsd) : 0;
+  const pathLossPct = fromUsd > 0 ? (pathLossUsd / fromUsd) * 100 : 0;
+  const severity = pathLossPct >= 10 ? "red" : pathLossPct >= 3 ? "amber" : null;
+
+  const nonComposerTypes = ["midas", "veda", "custom", "ipor", "lido"];
+  const isNonComposer = nonComposerTypes.includes(quote.vault?.type);
+
   const rows = [
     { label: "You deposit", value: `${fmtToken(parseUnits(amount, fromToken.decimals).toString(), fromToken.decimals)} ${fromToken?.symbol}` },
-    isSwap && { label: "Est. receive", value: `${fmtToken(est.to_amount, vaultDecimals)} ${outSymbol}` },
-    { label: "Fee (0.1%)", value: `${fmtToken(est.fee_amount, outDecimals)} ${outSymbol}`, light: true },
-    { label: "Net deposit", value: `${fmtToken(est.deposit_amount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
+    isSwap && { label: "Est. received on dest", value: `${fmtToken(est.to_amount, vaultDecimals)} ${outSymbol}${toUsd ? ` (~$${toUsd.toFixed(2)})` : ""}` },
+    { label: "Yieldo fee (0.1%)", value: `${fmtToken(est.fee_amount, outDecimals)} ${outSymbol}`, light: true },
+    { label: "Into vault", value: `${fmtToken(est.deposit_amount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
     est.estimated_shares && fmtShares(est.estimated_shares) && { label: "Est. shares", value: fmtShares(est.estimated_shares), light: true },
     est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `~${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)} min`, light: true },
     est.gas_cost_usd && { label: "Est. gas cost", value: `$${est.gas_cost_usd}`, light: true },
-    est.price_impact != null && { label: "Price impact", value: `${est.price_impact > 0 ? "-" : ""}${Math.abs(est.price_impact).toFixed(2)}%`, light: true, color: Math.abs(est.price_impact) > 1 ? C.amber : undefined },
     referralResolved && { label: "Referrer", value: referralResolved.handle ? `@${referralResolved.handle}` : `${referralResolved.address.slice(0, 10)}...`, color: C.green },
-    { label: "Route", value: routeDesc },
+    { label: "Route", value: routeDesc, light: true },
   ].filter(Boolean);
+
+  const confirmDisabled = severity === "red" && !ackHighImpact;
 
   return (
     <div>
+      {/* Path-loss banner (bridge / swap overhead) */}
+      {isSwap && pathLossUsd > 0 && (
+        <div style={{
+          padding: "12px 14px", borderRadius: 10, marginBottom: 14,
+          background: severity === "red" ? "rgba(217,54,54,.08)" : severity === "amber" ? "rgba(217,119,6,.08)" : "rgba(0,0,0,.03)",
+          border: `1px solid ${severity === "red" ? C.red + "33" : severity === "amber" ? C.amber + "33" : C.border2}`,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: severity === "red" ? C.red : severity === "amber" ? C.amber : C.text3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>
+            {isCrossChain ? "Bridge cost" : "Swap cost"}
+            {severity === "red" ? " — ⚠ HIGH" : severity === "amber" ? " — heads up" : ""}
+          </div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>
+            You send <strong>${fromUsd.toFixed(2)}</strong> → <strong>${toUsd.toFixed(2)}</strong> arrives on destination.
+            <br />
+            <span style={{ color: C.text2 }}>
+              {isCrossChain ? "Bridge" : "Swap"} takes <strong style={{ color: severity === "red" ? C.red : severity === "amber" ? C.amber : C.text }}>${pathLossUsd.toFixed(2)} ({pathLossPct.toFixed(1)}%)</strong>. This is LiFi's routing cost — not a Yieldo fee.
+            </span>
+          </div>
+          {severity === "red" && (
+            <div style={{ marginTop: 10, padding: "8px 10px", background: C.redBg, borderRadius: 6 }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 12, color: C.red }}>
+                <input type="checkbox" checked={ackHighImpact} onChange={(e) => setAckHighImpact(e.target.checked)} style={{ marginTop: 2 }} />
+                <span>I understand I'll lose {pathLossPct.toFixed(1)}% to bridge/swap costs. For better rates, deposit a larger amount or use same-chain.</span>
+              </label>
+            </div>
+          )}
+          {severity === "amber" && fromUsd < 20 && (
+            <div style={{ marginTop: 6, fontSize: 11, color: C.text3 }}>
+              💡 Cross-chain has ~$0.30 fixed cost regardless of amount. Deposits under ~$20 lose >1.5% to overhead. Consider batching into a larger deposit.
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ marginBottom: 16 }}>
         {rows.map((r, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -860,19 +907,21 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
           </div>
         ))}
       </div>
-      {quote.quote_type === "cross_chain" && (
+      {isCrossChain && (
         <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,.06)", fontSize: 11, color: C.amber, marginBottom: 16 }}>
-          Cross-chain deposits may take a few minutes. You can track progress via LiFi explorer.
+          Cross-chain deposits take a few minutes. You can track progress via LiFi explorer once submitted.
         </div>
       )}
-      {quote.quote_type === "cross_chain" && ["midas", "veda", "custom"].includes(quote.vault?.type) && (
+      {isCrossChain && isNonComposer && (
         <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(107,70,193,.06)", fontSize: 11, color: C.text2, marginBottom: 16, lineHeight: 1.5 }}>
-          <strong style={{ color: C.text }}>3% slippage buffer applied.</strong> This vault requires an exact amount for deposit. Up to ~3% of the bridged amount may be held back as a safety margin to prevent the transaction from reverting if the bridge delivers slightly less than expected. Any unused buffer becomes recoverable dust.
+          <strong style={{ color: C.text }}>3% slippage buffer applied.</strong> This vault requires an exact amount for deposit. Up to ~3% of the bridged amount may be held back as a safety margin to prevent the transaction from reverting if the bridge delivers slightly less than expected. Any unused buffer stays in your wallet as recoverable dust.
         </div>
       )}
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1 }}><ActionBtn secondary onClick={onBack}>Back</ActionBtn></div>
-        <div style={{ flex: 2 }}><ActionBtn onClick={onConfirm}>Confirm Deposit</ActionBtn></div>
+        <div style={{ flex: 2 }}><ActionBtn onClick={onConfirm} disabled={confirmDisabled}>
+          {confirmDisabled ? "Acknowledge to continue" : "Confirm Deposit"}
+        </ActionBtn></div>
       </div>
     </div>
   );
