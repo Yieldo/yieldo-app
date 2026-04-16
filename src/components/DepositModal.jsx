@@ -215,6 +215,23 @@ function DepositModal({ vault, onClose }) {
   const [referralLoading, setReferralLoading] = useState(false);
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState("");
+  const [vaultMeta, setVaultMeta] = useState(null); // { min_deposit, asset_decimals, asset_symbol }
+
+  useEffect(() => {
+    if (!vaultId) return;
+    let cancelled = false;
+    fetch(`${API}/v1/vaults/${encodeURIComponent(vaultId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d) return;
+        setVaultMeta({
+          min_deposit: d.min_deposit || null,
+          asset_decimals: d.asset?.decimals ?? 6,
+          asset_symbol: d.asset?.symbol || vaultAsset,
+        });
+      }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [vaultId, vaultAsset]);
   const [txHash, setTxHash] = useState(null);
   const [approvalTxHash, setApprovalTxHash] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -633,7 +650,7 @@ function DepositModal({ vault, onClose }) {
             amount={amount} setAmount={setAmount} tokenBalance={tokenBalance}
             referral={referral} setReferral={setReferral}
             referralResolved={referralResolved} referralError={referralError} referralLoading={referralLoading}
-            vaultChainId={vaultChainId} vaultAsset={vaultAsset}
+            vaultChainId={vaultChainId} vaultAsset={vaultAsset} vaultMeta={vaultMeta}
             isConnected={isConnected} openConnectModal={openConnectModal}
             needsChainSwitch={needsChainSwitch} switchChain={switchChain} fromChainName={CHAINS[fromChainId]}
             insufficientBalance={insufficientBalance} canQuote={canQuote}
@@ -906,12 +923,23 @@ function InputStep({
   popularTokens, dropdownTokens,
   amount, setAmount, tokenBalance,
   referral, setReferral, referralResolved, referralError, referralLoading,
-  vaultChainId, vaultAsset,
+  vaultChainId, vaultAsset, vaultMeta,
   isConnected, openConnectModal, needsChainSwitch, switchChain, fromChainName,
   insufficientBalance, canQuote, onQuote, quoteError,
 }) {
   const [showMore, setShowMore] = useState(false);
   const isDirect = fromChainId === vaultChainId && fromToken?.symbol?.toLowerCase() === vaultAsset;
+
+  // Min deposit is expressed in the vault's asset units. Only enforce client-side
+  // when the user is depositing the SAME asset — otherwise the post-bridge amount
+  // is unknown and the API re-validates with the real LiFi quote.
+  const minDepositRaw = vaultMeta?.min_deposit ? BigInt(vaultMeta.min_deposit) : null;
+  const minDepositHuman = minDepositRaw && vaultMeta
+    ? Number(minDepositRaw) / Math.pow(10, vaultMeta.asset_decimals || 6)
+    : null;
+  const sameAssetAsVault = fromToken?.symbol?.toLowerCase() === vaultAsset;
+  const amountNum = parseFloat(amount || "0");
+  const belowMin = minDepositHuman && sameAssetAsVault && amountNum > 0 && amountNum < minDepositHuman;
   return (
     <div>
       <Label>From Chain</Label>
@@ -983,12 +1011,23 @@ function InputStep({
             <button onClick={() => setAmount(tokenBalance.formatted)} style={{ marginLeft: 4, fontSize: 10, color: C.purple, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: "'Inter',sans-serif" }}>MAX</button>
           </span>
         )}
+        {minDepositHuman && (
+          <span style={{ fontSize: 11, color: C.text3, fontWeight: 400, marginLeft: 8 }}>
+            Min: {minDepositHuman.toLocaleString()} {vaultAsset.toUpperCase()}
+          </span>
+        )}
       </Label>
       <input type="text" inputMode="decimal" value={amount}
         onChange={e => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
         placeholder="0.00"
-        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${insufficientBalance ? C.red : C.border2}`, fontSize: 16, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", background: C.bg }} />
+        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${insufficientBalance || belowMin ? C.red : C.border2}`, fontSize: 16, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box", background: C.bg }} />
       {insufficientBalance && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>Insufficient balance</div>}
+      {belowMin && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>Below minimum deposit ({minDepositHuman.toLocaleString()} {vaultAsset.toUpperCase()})</div>}
+      {minDepositHuman && !sameAssetAsVault && (
+        <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
+          Vault requires ~{minDepositHuman.toLocaleString()} {vaultAsset.toUpperCase()} after bridging/swap.
+        </div>
+      )}
 
       {fromToken && (
         <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: isDirect ? C.greenDim : C.bg, fontSize: 12, color: isDirect ? C.green : C.text3, display: "flex", alignItems: "center", gap: 6 }}>
@@ -1026,8 +1065,8 @@ function InputStep({
               Switch to {fromChainName}
             </ActionBtn>
           )
-          : <ActionBtn disabled={!canQuote} onClick={onQuote}>
-              {!amount || parseFloat(amount) === 0 ? "Enter Amount" : insufficientBalance ? "Insufficient Balance" : "Get Quote"}
+          : <ActionBtn disabled={!canQuote || belowMin} onClick={onQuote}>
+              {!amount || parseFloat(amount) === 0 ? "Enter Amount" : insufficientBalance ? "Insufficient Balance" : belowMin ? `Min ${minDepositHuman.toLocaleString()} ${vaultAsset.toUpperCase()}` : "Get Quote"}
             </ActionBtn>}
       </div>
     </div>
