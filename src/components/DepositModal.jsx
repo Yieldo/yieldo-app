@@ -230,6 +230,10 @@ function DepositModal({ vault, onClose }) {
   const [lifiStatus, setLifiStatus] = useState(null);
   const referralTimer = useRef(null);
   const statusPollRef = useRef(null);
+  // Pre-bridge balance of the destination token for this user, captured when
+  // tracking begins. Used at step-2 to compute the ACTUAL delivered amount and
+  // re-quote the intent against real delivery (not the pre-bridged prediction).
+  const preBridgeBalanceRef = useRef(null);
 
   const allTokens = useMemo(() => ALL_TOKENS[fromChainId] || [], [fromChainId]);
   const popularSymbols = POPULAR_TOKENS[fromChainId] || [];
@@ -318,6 +322,59 @@ function DepositModal({ vault, onClose }) {
   });
 
   const [step2Retryable, setStep2Retryable] = useState(null); // "approve" | "deposit" | null
+  // Fresh step-2 tx built against the actual bridge delivery (not the pre-bridge
+  // prediction). Replaces buildData.deposit_tx, which is based on a pessimistic
+  // to_amount_min that can be far below actual arrival for bridges like Mayan.
+  const [freshStep2, setFreshStep2] = useState(null);
+
+  // Build a fresh step-2 intent targeting the ACTUAL received amount. Called once,
+  // the first time executeStep2 runs. Subsequent retries reuse it.
+  const buildFreshStep2 = async () => {
+    const destChainId = buildData.tracking.to_chain_id;
+    const destToken = buildData.deposit_tx.approval.token_address;
+    const preBal = preBridgeBalanceRef.current ?? 0n;
+    const curBal = (await fetchERC20Balance(destChainId, destToken, address)) ?? 0n;
+    const delta = curBal > preBal ? (curBal - preBal) : 0n;
+    // Safety: if somehow delta is 0, fall back to the original buildData
+    if (delta === 0n) {
+      console.warn("[step2] no balance delta detected, using original intent");
+      return { ...buildData.deposit_tx };
+    }
+    console.log("[step2] actual delivery:", delta.toString(), "on chain", destChainId);
+
+    // Re-quote as a same-chain deposit using actual delivered amount
+    const qRes = await fetch(`${API}/v1/quote`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_chain_id: destChainId, from_token: destToken,
+        from_amount: delta.toString(), vault_id: vaultId,
+        user_address: address, slippage: 0.03,
+        referrer: referralResolved?.address || undefined,
+      }),
+    });
+    if (!qRes.ok) throw new Error("Fresh step-2 quote failed: " + qRes.status);
+    const q = await qRes.json();
+
+    const bRes = await fetch(`${API}/v1/quote/build`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        signature: q.signature,
+        nonce: q.intent.nonce, deadline: q.intent.deadline,
+        intent_amount: q.intent.amount, fee_bps: q.intent.fee_bps,
+        from_chain_id: destChainId, from_token: destToken,
+        from_amount: delta.toString(), vault_id: vaultId,
+        user_address: address, slippage: 0.03,
+        referrer: referralResolved?.address || undefined,
+        referrer_handle: referralResolved?.handle || undefined,
+      }),
+    });
+    if (!bRes.ok) throw new Error("Fresh step-2 build failed: " + bRes.status);
+    const b = await bRes.json();
+    return {
+      transaction_request: b.transaction_request,
+      approval: b.approval,
+    };
+  };
 
   // Two-step: execute deposit on dest chain after bridge completes
   const executeStep2 = async () => {
@@ -331,20 +388,25 @@ function DepositModal({ vault, onClose }) {
         await switchChain({ chainId: destChainId });
         await new Promise(r => setTimeout(r, 1500));
       }
-      const depTx = buildData.deposit_tx;
-      if (depTx.approval) {
+      // Build (or reuse) a fresh step-2 intent against the actual bridged amount
+      let step2 = freshStep2;
+      if (!step2) {
+        setStep2Status("requoting");
+        step2 = await buildFreshStep2();
+        setFreshStep2(step2);
+      }
+      if (step2.approval && BigInt(step2.approval.amount) > 0n) {
         setStep2Status("approving2");
         const appHash = await writeApproval({
-          address: depTx.approval.token_address, abi: erc20Abi, functionName: "approve",
-          args: [depTx.approval.spender_address, BigInt(depTx.approval.amount)], chainId: destChainId,
+          address: step2.approval.token_address, abi: erc20Abi, functionName: "approve",
+          args: [step2.approval.spender_address, BigInt(step2.approval.amount)], chainId: destChainId,
         });
         setStep2ApprovalHash(appHash);
         return; // Wait for approval confirmation via useEffect below
       }
-      await sendStep2Deposit();
+      await sendStep2Deposit(step2);
     } catch (e) {
       if (isUserRejection(e)) {
-        // User closed / rejected in wallet — keep modal in step2 state and let them retry
         setStep2Status("rejected-approve");
         setStep2Retryable("approve");
         return;
@@ -354,11 +416,12 @@ function DepositModal({ vault, onClose }) {
     }
   };
 
-  const sendStep2Deposit = async () => {
+  const sendStep2Deposit = async (step2Arg) => {
     try {
       setStep2Status("depositing2");
       setStep2Retryable(null);
-      const txReq = buildData.deposit_tx.transaction_request;
+      const step2 = step2Arg || freshStep2 || buildData?.deposit_tx;
+      const txReq = step2.transaction_request;
       const expectedRouter = KNOWN_ROUTERS[txReq.chain_id];
       if (!expectedRouter || txReq.to.toLowerCase() !== expectedRouter.toLowerCase()) {
         throw new Error(`Step-2 target ${txReq.to} does not match known Yieldo router on chain ${txReq.chain_id}. Aborting for safety.`);
@@ -398,7 +461,6 @@ function DepositModal({ vault, onClose }) {
     const destToken = buildData.deposit_tx?.approval?.token_address;
     const expectedMin = BigInt(buildData.deposit_tx?.approval?.amount || buildData.intent?.amount || "0");
 
-    let balBefore = null;
     let settled = false;
 
     const proceedAfterArrival = (reason) => {
@@ -414,8 +476,8 @@ function DepositModal({ vault, onClose }) {
       if (!destToken || !address || isTwoStep === false) return false;
       const bal = await fetchERC20Balance(destChainId, destToken, address);
       if (bal === null) return false;
-      if (balBefore === null) { balBefore = bal; return false; }
-      if (bal > balBefore && (bal - balBefore) >= expectedMin) {
+      if (preBridgeBalanceRef.current === null) { preBridgeBalanceRef.current = bal; return false; }
+      if (bal > preBridgeBalanceRef.current && (bal - preBridgeBalanceRef.current) >= expectedMin) {
         proceedAfterArrival("on-chain balance delta");
         return true;
       }
@@ -633,6 +695,7 @@ function DepositModal({ vault, onClose }) {
             <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />
             <StatusPane icon={<Spinner />} title="Depositing into vault..." sub={
               step2Status === "switching" ? "Switching to destination chain..." :
+              step2Status === "requoting" ? "Computing exact deposit amount from your bridged balance..." :
               step2Status === "approving2" ? "Approving token — confirm in wallet" :
               "Sending deposit transaction — confirm in wallet"
             }>
