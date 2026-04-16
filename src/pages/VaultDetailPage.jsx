@@ -494,6 +494,14 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.maturity}</Badge>
                   {v.fee !== null && v.fee !== undefined && <Badge color={C.text3} bg={C.surfaceAlt}>Fee: {v.fee.toFixed(1)}%</Badge>}
                 </div>
+                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: C.purpleDim, border: `1px solid ${C.purple}22`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>This vault accepts</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.purple, textTransform: "uppercase" }}>{v.asset}</span>
+                  <span style={{ fontSize: 11, color: C.text3 }}>·</span>
+                  <span style={{ fontSize: 11, color: C.text2 }}>
+                    You can deposit any token — Yieldo auto-swaps to {(v.asset || "").toUpperCase()} for you.
+                  </span>
+                </div>
               </div>
             </div>
             <ScoreBar subScores={v.subScores} weights={weights} finalScore={v.yieldoScore} conf={v.conf} />

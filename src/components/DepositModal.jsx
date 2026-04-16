@@ -77,6 +77,15 @@ const ERC20_ABI = [
 
 const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
 
+// Known Yieldo DepositRouter addresses. Step-2 on-chain target MUST match one of
+// these — prevents a malicious or buggy API response from causing us to send
+// to a non-router address.
+const KNOWN_ROUTERS = {
+  1: "0x85f76c1685046Ea226E1148EE1ab81a8a15C385d",
+  8453: "0xF6B7723661d52E8533c77479d3cad534B4D147Aa",
+  143: "0xCD8dfD627A3712C9a2B079398e0d524970D5E73F",
+};
+
 function smartFmtAmount(raw, decimals = 6) {
   const n = Number(raw) / (10 ** decimals);
   if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
@@ -249,6 +258,10 @@ function DepositModal({ vault, onClose }) {
     try {
       setStep2Status("depositing2");
       const txReq = buildData.deposit_tx.transaction_request;
+      const expectedRouter = KNOWN_ROUTERS[txReq.chain_id];
+      if (!expectedRouter || txReq.to.toLowerCase() !== expectedRouter.toLowerCase()) {
+        throw new Error(`Step-2 target ${txReq.to} does not match known Yieldo router on chain ${txReq.chain_id}. Aborting for safety.`);
+      }
       const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
       setStep2TxHash(hash);
     } catch (e) {
@@ -429,26 +442,38 @@ function DepositModal({ vault, onClose }) {
         )}
 
         {step === "approving" && (
-          <StatusPane icon={<Spinner />} title="Approving token..." sub="Confirm the approval in your wallet">
-            {approvalTxHash && <ExplorerLinks chainId={fromChainId} hash={approvalTxHash} />}
-          </StatusPane>
+          <>
+            {buildData?.two_step && <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />}
+            <StatusPane icon={<Spinner />} title="Approving token..." sub="Confirm the approval in your wallet">
+              {approvalTxHash && <ExplorerLinks chainId={fromChainId} hash={approvalTxHash} />}
+            </StatusPane>
+          </>
         )}
 
-        {step === "sending" && <StatusPane icon={<Spinner />} title={buildData?.two_step ? "Sending bridge..." : "Sending deposit..."} sub="Confirm the transaction in your wallet" />}
+        {step === "sending" && (
+          <>
+            {buildData?.two_step && <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />}
+            <StatusPane icon={<Spinner />} title={buildData?.two_step ? "Sending bridge..." : "Sending deposit..."} sub="Confirm the transaction in your wallet" />
+          </>
+        )}
 
         {step === "depositing_step2" && (
-          <StatusPane icon={<Spinner />} title="Depositing into vault..." sub={
-            step2Status === "switching" ? "Switching to destination chain..." :
-            step2Status === "approving2" ? "Approving token — confirm in wallet" :
-            "Sending deposit transaction — confirm in wallet"
-          }>
-            {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={true} />}
-            <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: C.bg, fontSize: 11, color: C.green }}>
-              Bridge complete — now depositing on {CHAINS[buildData?.tracking?.to_chain_id] || "destination chain"}
-            </div>
-          </StatusPane>
+          <>
+            <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />
+            <StatusPane icon={<Spinner />} title="Depositing into vault..." sub={
+              step2Status === "switching" ? "Switching to destination chain..." :
+              step2Status === "approving2" ? "Approving token — confirm in wallet" :
+              "Sending deposit transaction — confirm in wallet"
+            }>
+              {txHash && <ExplorerLinks chainId={txChainId} hash={txHash} isCrossChain={true} />}
+              <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: C.bg, fontSize: 11, color: C.green }}>
+                Bridge complete — now depositing via Yieldo router on {CHAINS[buildData?.tracking?.to_chain_id] || "destination chain"}
+              </div>
+            </StatusPane>
+          </>
         )}
 
+        {step === "tracking" && buildData?.two_step && <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />}
         {step === "tracking" && (
           <StatusPane icon={<Spinner />} title={buildData?.two_step ? "Bridging tokens..." : "Transaction submitted"} sub={
             buildData?.two_step ? `Bridging to ${CHAINS[buildData?.tracking?.to_chain_id] || "destination"} — vault deposit will follow automatically`
@@ -565,6 +590,57 @@ function StatusPane({ icon, title, sub, children }) {
       <div style={{ fontSize: 15, fontWeight: 700, marginTop: 12 }}>{title}</div>
       {sub && <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{sub}</div>}
       {children}
+    </div>
+  );
+}
+
+// Stepper shown during two-step cross-chain deposits so users always know
+// which on-chain action they're in and what's still to come.
+function TwoStepProgress({ step, step2Status, lifiStatus }) {
+  const bridgeStatus = lifiStatus?.status;
+  // Active step index: 0=approve, 1=bridge-sign, 2=bridge-wait, 3=approve-dest, 4=deposit
+  let active = 0;
+  if (step === "approving") active = 0;
+  else if (step === "sending") active = 1;
+  else if (step === "tracking") active = 2;
+  else if (step === "depositing_step2") {
+    if (step2Status === "switching" || step2Status === "approving2") active = 3;
+    else active = 4;
+  } else if (step === "done" || step === "partial") active = 5;
+
+  const items = [
+    { label: "Approve source token" },
+    { label: "Bridge tokens" },
+    { label: bridgeStatus === "DONE" ? "Bridge arrived" : "Wait for bridge arrival" },
+    { label: "Approve on destination" },
+    { label: "Deposit into vault via Yieldo" },
+  ];
+
+  return (
+    <div style={{ padding: "14px 16px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>
+        Two-step bridge deposit
+      </div>
+      {items.map((it, i) => {
+        const done = i < active;
+        const current = i === active;
+        const dotColor = done ? C.green : current ? C.purple : C.text4;
+        const labelColor = done ? C.text2 : current ? C.text : C.text4;
+        return (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+            <div style={{
+              width: 18, height: 18, borderRadius: 9, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: done ? C.green : "transparent",
+              border: `2px solid ${dotColor}`,
+              color: "#fff", fontSize: 11, fontWeight: 700,
+            }}>
+              {done ? "✓" : current ? <span style={{ width: 6, height: 6, borderRadius: 3, background: C.purple, display: "block" }} /> : ""}
+            </div>
+            <span style={{ fontSize: 12, fontWeight: current ? 600 : 400, color: labelColor }}>{it.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
