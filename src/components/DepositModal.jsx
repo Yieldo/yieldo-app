@@ -11,53 +11,141 @@ const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 421
 
 // Popular tokens shown as chips, rest go in dropdown
 const POPULAR_TOKENS = {
-  1: ["USDC", "USDT", "WETH", "WBTC", "DAI"],
-  8453: ["USDC", "WETH", "cbETH"],
-  42161: ["USDC", "USDT", "WETH", "WBTC"],
-  10: ["USDC", "USDT", "WETH"],
+  1: ["ETH", "USDC", "USDT", "WETH", "WBTC", "wstETH"],
+  8453: ["ETH", "USDC", "WETH", "cbBTC", "wstETH"],
+  42161: ["ETH", "USDC", "USDT", "WETH", "WBTC"],
+  10: ["ETH", "USDC", "USDT", "WETH"],
+  999: ["HYPE", "USDC", "USDT0", "WHYPE"],
+  143: ["MON", "USDC", "WETH"],
+  747474: ["ETH", "USDC"],
 };
+
+// Native ETH marker used by LiFi / our API for source-chain native deposits.
+const NATIVE_ETH = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
 const ALL_TOKENS = {
   1: [
+    { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
     { symbol: "USDT", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
     { symbol: "WETH", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
     { symbol: "WBTC", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+    { symbol: "cbBTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8 },
+    { symbol: "LBTC", address: "0x8236a87084f8B84306f72007F36F2618A5634494", decimals: 8 },
+    { symbol: "tBTC", address: "0x18084fbA666a33d37592fA2633fD49a74DD93a88", decimals: 18 },
     { symbol: "DAI", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+    { symbol: "PYUSD", address: "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8", decimals: 6 },
+    { symbol: "USDe", address: "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3", decimals: 18 },
+    { symbol: "sUSDe", address: "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497", decimals: 18 },
+    { symbol: "USDS", address: "0xdC035D45d973E3EC169d2276DDab16f1e407384F", decimals: 18 },
+    { symbol: "USDtb", address: "0xC139190F447e929f090edF9bB84c22a9D232dDA2", decimals: 18 },
     { symbol: "wstETH", address: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", decimals: 18 },
+    { symbol: "stETH", address: "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", decimals: 18 },
+    { symbol: "weETH", address: "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee", decimals: 18 },
     { symbol: "cbETH", address: "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704", decimals: 18 },
     { symbol: "rETH", address: "0xae78736Cd615f374D3085123A210448E74Fc6393", decimals: 18 },
-    { symbol: "PYUSD", address: "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8", decimals: 6 },
     { symbol: "LINK", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
-    { symbol: "UNI", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
-    { symbol: "AAVE", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18 },
   ],
   8453: [
+    { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
     { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+    { symbol: "cbBTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8 },
     { symbol: "cbETH", address: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", decimals: 18 },
+    { symbol: "wstETH", address: "0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452", decimals: 18 },
+    { symbol: "weETH", address: "0x04C0599Ae5A44757c0af6F9eC3b93da8976c150A", decimals: 18 },
+    { symbol: "rETH", address: "0xB6fe221Fe9EeF5aBa221c348bA20A1Bf5e73624c", decimals: 18 },
     { symbol: "DAI", address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
     { symbol: "USDbC", address: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6 },
+    { symbol: "USDe", address: "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34", decimals: 18 },
+    { symbol: "sUSDe", address: "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2", decimals: 18 },
+    { symbol: "USDS", address: "0x820C137fa70C8691f0e44Dc420a5e53c168921Dc", decimals: 18 },
+    { symbol: "AERO", address: "0x940181a94A35A4569E4529A3CDfB74e38FD98631", decimals: 18 },
   ],
   42161: [
+    { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
     { symbol: "USDT", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
     { symbol: "WETH", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 },
     { symbol: "WBTC", address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", decimals: 8 },
     { symbol: "DAI", address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { symbol: "wstETH", address: "0x5979D7b546E38E414F7E9822514be443A4800529", decimals: 18 },
+    { symbol: "weETH", address: "0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe", decimals: 18 },
+    { symbol: "rETH", address: "0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8", decimals: 18 },
+    { symbol: "USDe", address: "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34", decimals: 18 },
     { symbol: "ARB", address: "0x912CE59144191C1204E64559FE8253a0e49E6548", decimals: 18 },
+    { symbol: "LINK", address: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", decimals: 18 },
+    { symbol: "GMX", address: "0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a", decimals: 18 },
   ],
   10: [
+    { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
     { symbol: "USDT", address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6 },
     { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+    { symbol: "WBTC", address: "0x68f180fcCe6836688e9084f035309E29Bf0A2095", decimals: 8 },
     { symbol: "DAI", address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
     { symbol: "OP", address: "0x4200000000000000000000000000000000000042", decimals: 18 },
     { symbol: "wstETH", address: "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb", decimals: 18 },
+    { symbol: "weETH", address: "0x5A7fACB970D094B6C7FF1df0eA68D99E6e73CBFF", decimals: 18 },
+    { symbol: "rETH", address: "0x9Bcef72be871e61ED4fBbc7630889beE758eb81D", decimals: 18 },
+    { symbol: "LINK", address: "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6", decimals: 18 },
+  ],
+  999: [
+    { symbol: "HYPE", address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "USDC", address: "0xb88339CB7199b77E23DB6E890353E22632Ba630f", decimals: 6 },
+    { symbol: "USDT0", address: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", decimals: 6 },
+    { symbol: "WHYPE", address: "0x5555555555555555555555555555555555555555", decimals: 18 },
+    { symbol: "UBTC", address: "0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463", decimals: 8 },
+  ],
+  143: [
+    { symbol: "MON", address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "USDC", address: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", decimals: 6 },
+    { symbol: "WETH", address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37", decimals: 18 },
+    { symbol: "AUSD", address: "0x5af9eD8A57Fa07A1fCeB5bB1eD50B11E4b5bF53D", decimals: 6 },
+  ],
+  747474: [
+    { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "USDC", address: "0x8Ff7Af1de8dC20cA3Eae3cf0bF4A93894706B7F4", decimals: 6 },
+    { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
   ],
 };
 
-const DEPOSITABLE_CHAINS = [1, 8453];
+const DEPOSITABLE_CHAINS = [1, 8453, 42161, 10, 143, 999, 747474];
+
+// Public RPC endpoints for on-chain balance checks (lightweight parallel polling).
+const PUBLIC_RPC = {
+  1: "https://ethereum-rpc.publicnode.com",
+  8453: "https://base.publicnode.com",
+  42161: "https://arbitrum-one.publicnode.com",
+  10: "https://optimism.publicnode.com",
+  143: "https://rpc.monad.xyz",
+  999: "https://rpc.hyperliquid.xyz/evm",
+  747474: "https://rpc.katanarpc.com",
+};
+
+async function fetchERC20Balance(chainId, token, owner) {
+  const rpc = PUBLIC_RPC[chainId];
+  if (!rpc) return null;
+  // balanceOf(address) selector = 0x70a08231
+  const data = "0x70a08231" + "000000000000000000000000" + owner.slice(2).toLowerCase();
+  try {
+    const res = await fetch(rpc, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", params: [{ to: token, data }, "latest"], id: 1 }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j.result || j.result === "0x") return 0n;
+    return BigInt(j.result);
+  } catch { return null; }
+}
+
+function isUserRejection(err) {
+  const msg = (err?.shortMessage || err?.message || "").toLowerCase();
+  return msg.includes("user rejected") || msg.includes("user denied")
+    || msg.includes("rejected by user") || err?.code === 4001 || err?.code === "ACTION_REJECTED";
+}
 
 const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212",
@@ -229,11 +317,14 @@ function DepositModal({ vault, onClose }) {
     hash: step2ApprovalHash, query: { enabled: !!step2ApprovalHash },
   });
 
+  const [step2Retryable, setStep2Retryable] = useState(null); // "approve" | "deposit" | null
+
   // Two-step: execute deposit on dest chain after bridge completes
   const executeStep2 = async () => {
     if (!buildData?.deposit_tx) return;
     const destChainId = buildData.tracking.to_chain_id;
     setStep("depositing_step2");
+    setStep2Retryable(null);
     try {
       if (walletChainId !== destChainId) {
         setStep2Status("switching");
@@ -252,7 +343,13 @@ function DepositModal({ vault, onClose }) {
       }
       await sendStep2Deposit();
     } catch (e) {
-      setErrorMsg(e.message || "Step 2 failed");
+      if (isUserRejection(e)) {
+        // User closed / rejected in wallet — keep modal in step2 state and let them retry
+        setStep2Status("rejected-approve");
+        setStep2Retryable("approve");
+        return;
+      }
+      setErrorMsg(e.shortMessage || e.message || "Step 2 failed");
       setStep("error");
     }
   };
@@ -260,6 +357,7 @@ function DepositModal({ vault, onClose }) {
   const sendStep2Deposit = async () => {
     try {
       setStep2Status("depositing2");
+      setStep2Retryable(null);
       const txReq = buildData.deposit_tx.transaction_request;
       const expectedRouter = KNOWN_ROUTERS[txReq.chain_id];
       if (!expectedRouter || txReq.to.toLowerCase() !== expectedRouter.toLowerCase()) {
@@ -268,44 +366,96 @@ function DepositModal({ vault, onClose }) {
       const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
       setStep2TxHash(hash);
     } catch (e) {
-      setErrorMsg(e.message || "Deposit failed");
+      if (isUserRejection(e)) {
+        setStep2Status("rejected-deposit");
+        setStep2Retryable("deposit");
+        return;
+      }
+      setErrorMsg(e.shortMessage || e.message || "Deposit failed");
       setStep("error");
     }
+  };
+
+  const retryStep2 = () => {
+    setStep2Retryable(null);
+    if (step2Retryable === "approve") executeStep2();
+    else if (step2Retryable === "deposit") sendStep2Deposit();
   };
 
   useEffect(() => {
     if (step2ApprovalConfirmed && step === "depositing_step2") sendStep2Deposit();
   }, [step2ApprovalConfirmed]);
 
-  // Poll LiFi status for cross-chain
+  // Dual-track cross-chain arrival: poll LiFi status AND check destination-chain
+  // balance delta. Whichever trips first wins. On-chain detection covers the case
+  // where bridge delivers funds before LiFi's indexer catches up (seen in practice).
   useEffect(() => {
     if (step !== "tracking" || !txHash || !buildData) return;
     const isCrossChain = buildData.tracking?.from_chain_id !== buildData.tracking?.to_chain_id;
     if (!isCrossChain) return;
     const isTwoStep = buildData.two_step;
-    const poll = async () => {
+    const destChainId = buildData.tracking.to_chain_id;
+    const destToken = buildData.deposit_tx?.approval?.token_address;
+    const expectedMin = BigInt(buildData.deposit_tx?.approval?.amount || buildData.intent?.amount || "0");
+
+    let balBefore = null;
+    let settled = false;
+
+    const proceedAfterArrival = (reason) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(statusPollRef.current);
+      console.log("[bridge arrival detected via:", reason + "]");
+      if (isTwoStep) { executeStep2(); return; }
+      finishDeposit("completed");
+    };
+
+    const checkOnchain = async () => {
+      if (!destToken || !address || isTwoStep === false) return false;
+      const bal = await fetchERC20Balance(destChainId, destToken, address);
+      if (bal === null) return false;
+      if (balBefore === null) { balBefore = bal; return false; }
+      if (bal > balBefore && (bal - balBefore) >= expectedMin) {
+        proceedAfterArrival("on-chain balance delta");
+        return true;
+      }
+      return false;
+    };
+
+    const checkLifi = async () => {
       try {
         const params = new URLSearchParams({
           tx_hash: txHash,
           from_chain_id: String(buildData.tracking.from_chain_id),
-          to_chain_id: String(buildData.tracking.to_chain_id),
+          to_chain_id: String(destChainId),
         });
         const res = await fetch(`${API}/v1/status?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setLifiStatus(data);
-          if (data.status === "DONE" && data.substatus === "PARTIAL") { finishDeposit("partial"); return; }
-          if (data.status === "DONE") {
-            if (isTwoStep) { executeStep2(); return; }
-            finishDeposit("completed"); return;
-          }
-          if (data.status === "FAILED") { finishDeposit("failed"); return; }
+        if (!res.ok) return false;
+        const data = await res.json();
+        setLifiStatus(data);
+        if (data.status === "DONE" && data.substatus === "PARTIAL") {
+          if (!settled) { settled = true; finishDeposit("partial"); }
+          return true;
+        }
+        if (data.status === "DONE") { proceedAfterArrival("LiFi status"); return true; }
+        if (data.status === "FAILED") {
+          if (!settled) { settled = true; finishDeposit("failed"); }
+          return true;
         }
       } catch {}
-      statusPollRef.current = setTimeout(poll, 8000);
+      return false;
     };
-    statusPollRef.current = setTimeout(poll, 5000);
-    return () => clearTimeout(statusPollRef.current);
+
+    const poll = async () => {
+      if (settled) return;
+      const done = (await checkLifi()) || (await checkOnchain());
+      if (!done) statusPollRef.current = setTimeout(poll, 6000);
+    };
+
+    // Seed balBefore immediately to avoid counting pre-existing tokens
+    checkOnchain();
+    statusPollRef.current = setTimeout(poll, 4000);
+    return () => { settled = true; clearTimeout(statusPollRef.current); };
   }, [step, txHash, buildData]);
 
   const finishDeposit = (status) => {
@@ -460,7 +610,25 @@ function DepositModal({ vault, onClose }) {
           </>
         )}
 
-        {step === "depositing_step2" && (
+        {step === "depositing_step2" && step2Retryable && (
+          <>
+            <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />
+            <StatusPane icon={<div style={{ fontSize: 40 }}>⏸️</div>} title={step2Retryable === "approve" ? "Approval cancelled" : "Deposit cancelled"} sub={
+              step2Retryable === "approve"
+                ? "You closed the wallet before approving. Your bridged tokens are safely in your wallet — retry whenever you're ready."
+                : "You closed the wallet before confirming the deposit. Your bridged tokens are safely in your wallet — retry whenever you're ready."
+            }>
+              <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                <div style={{ flex: 1 }}><ActionBtn secondary onClick={onClose}>Close</ActionBtn></div>
+                <div style={{ flex: 2 }}><ActionBtn onClick={retryStep2}>
+                  {step2Retryable === "approve" ? "Retry approval" : "Retry deposit"}
+                </ActionBtn></div>
+              </div>
+            </StatusPane>
+          </>
+        )}
+
+        {step === "depositing_step2" && !step2Retryable && (
           <>
             <TwoStepProgress step={step} step2Status={step2Status} lifiStatus={lifiStatus} />
             <StatusPane icon={<Spinner />} title="Depositing into vault..." sub={
@@ -700,14 +868,19 @@ function InputStep({
         ))}
       </div>
 
-      <Label>Token</Label>
+      <Label>Token {vaultAsset && <span style={{ fontSize: 11, color: C.text3, fontWeight: 400, marginLeft: 6 }}>— vault accepts <strong style={{ color: C.green, textTransform: "uppercase" }}>{vaultAsset}</strong></span>}</Label>
       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
-        {popularTokens.map(t => (
-          <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}>
-            {t.symbol}
-            {t.symbol.toLowerCase() === vaultAsset && fromChainId === vaultChainId && <span style={{ fontSize: 9, marginLeft: 3, color: C.green, fontWeight: 700 }}>direct</span>}
-          </ChipBtn>
-        ))}
+        {popularTokens.map(t => {
+          const matchesAsset = t.symbol.toLowerCase() === vaultAsset;
+          const isDirect = matchesAsset && fromChainId === vaultChainId;
+          return (
+            <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}>
+              {t.symbol}
+              {isDirect && <span style={{ fontSize: 9, marginLeft: 4, padding: "1px 5px", borderRadius: 3, background: C.greenDim, color: C.green, fontWeight: 700 }}>DIRECT</span>}
+              {matchesAsset && !isDirect && <span style={{ fontSize: 9, marginLeft: 4, padding: "1px 5px", borderRadius: 3, background: C.purpleDim, color: C.purple, fontWeight: 700 }}>SAME</span>}
+            </ChipBtn>
+          );
+        })}
         {dropdownTokens.length > 0 && (
           <div style={{ position: "relative" }}>
             <ChipBtn active={showMore || dropdownTokens.some(t => t.symbol === fromToken?.symbol)} onClick={() => setShowMore(!showMore)}>
@@ -719,23 +892,28 @@ function InputStep({
                 background: C.white, borderRadius: 10, border: `1px solid ${C.border2}`,
                 boxShadow: "0 8px 24px rgba(0,0,0,.12)", minWidth: 160, overflow: "hidden",
               }}>
-                {dropdownTokens.map(t => (
-                  <button key={t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8, width: "100%",
-                      padding: "10px 14px", border: "none", background: fromToken?.symbol === t.symbol ? C.purpleDim : "transparent",
-                      cursor: "pointer", fontSize: 13, fontFamily: "'Inter',sans-serif",
-                      color: fromToken?.symbol === t.symbol ? C.purple : C.text,
-                      fontWeight: fromToken?.symbol === t.symbol ? 600 : 400,
-                      borderBottom: `1px solid ${C.border}`,
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = C.bg}
-                    onMouseLeave={e => e.currentTarget.style.background = fromToken?.symbol === t.symbol ? C.purpleDim : "transparent"}>
-                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.purple }}>{t.symbol[0]}</span>
-                    {t.symbol}
-                    {t.symbol.toLowerCase() === vaultAsset && fromChainId === vaultChainId && <span style={{ fontSize: 9, marginLeft: "auto", color: C.green, fontWeight: 700 }}>direct</span>}
-                  </button>
-                ))}
+                {dropdownTokens.map(t => {
+                  const matchesAsset = t.symbol.toLowerCase() === vaultAsset;
+                  const isDirect = matchesAsset && fromChainId === vaultChainId;
+                  return (
+                    <button key={t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, width: "100%",
+                        padding: "10px 14px", border: "none", background: fromToken?.symbol === t.symbol ? C.purpleDim : "transparent",
+                        cursor: "pointer", fontSize: 13, fontFamily: "'Inter',sans-serif",
+                        color: fromToken?.symbol === t.symbol ? C.purple : C.text,
+                        fontWeight: fromToken?.symbol === t.symbol ? 600 : 400,
+                        borderBottom: `1px solid ${C.border}`,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                      onMouseLeave={e => e.currentTarget.style.background = fromToken?.symbol === t.symbol ? C.purpleDim : "transparent"}>
+                      <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.purple }}>{t.symbol[0]}</span>
+                      {t.symbol}
+                      {isDirect && <span style={{ fontSize: 9, marginLeft: "auto", padding: "1px 5px", borderRadius: 3, background: C.greenDim, color: C.green, fontWeight: 700 }}>DIRECT</span>}
+                      {matchesAsset && !isDirect && <span style={{ fontSize: 9, marginLeft: "auto", padding: "1px 5px", borderRadius: 3, background: C.purpleDim, color: C.purple, fontWeight: 700 }}>SAME</span>}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
