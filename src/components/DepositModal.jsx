@@ -5,9 +5,9 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
 const CHAIN_ICONS = { 1: "\u039E", 8453: "\ud83d\udd35", 42161: "\ud83d\udfe0", 10: "\ud83d\udd34" };
-const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io" };
+const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io", 143: "https://monadscan.com", 999: "https://hyperevmscan.io", 747474: "https://katanascan.com" };
 
 // Popular tokens shown as chips, rest go in dropdown
 const POPULAR_TOKENS = {
@@ -81,9 +81,12 @@ const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/
 // these — prevents a malicious or buggy API response from causing us to send
 // to a non-router address.
 const KNOWN_ROUTERS = {
-  1: "0x85f76c1685046Ea226E1148EE1ab81a8a15C385d",
-  8453: "0xF6B7723661d52E8533c77479d3cad534B4D147Aa",
-  143: "0xCD8dfD627A3712C9a2B079398e0d524970D5E73F",
+  1: "0x85f76c1685046Ea226E1148EE1ab81a8a15C385d",       // Ethereum
+  8453: "0xF6B7723661d52E8533c77479d3cad534B4D147Aa",    // Base
+  143: "0xCD8dfD627A3712C9a2B079398e0d524970D5E73F",     // Monad
+  10: "0x7554937Aa95195D744A6c45E0fd7D4F95A2F8F72",      // Optimism
+  42161: "0xC5700f4D8054BA982C39838D7C33442f54688bd2",   // Arbitrum
+  747474: "0xa682CD1c2Fd7c8545b401824096A600C2bD98F69", // Katana
 };
 
 function smartFmtAmount(raw, decimals = 6) {

@@ -11,10 +11,26 @@ const monad = defineChain({
   blockExplorers: { default: { name: "MonadScan", url: "https://monadscan.com" } },
 });
 
+const hyperevm = defineChain({
+  id: 999,
+  name: "HyperEVM",
+  nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.hyperliquid.xyz/evm"] } },
+  blockExplorers: { default: { name: "HyperEVMScan", url: "https://hyperevmscan.io" } },
+});
+
+const katana = defineChain({
+  id: 747474,
+  name: "Katana",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.katanarpc.com"] } },
+  blockExplorers: { default: { name: "KatanaScan", url: "https://katanascan.com" } },
+});
+
 export const config = getDefaultConfig({
   appName: "Yieldo",
   projectId: "0dd252f3816efa3917348bf2b60af0aa",
-  chains: [mainnet, base, arbitrum, optimism, monad],
+  chains: [mainnet, base, arbitrum, optimism, monad, hyperevm, katana],
   transports: {
     [mainnet.id]: fallback([
       http("https://ethereum-rpc.publicnode.com"),
@@ -41,6 +57,8 @@ export const config = getDefaultConfig({
       http("https://rpc1.monad.xyz"),
       http("https://rpc-mainnet.monadinfra.com"),
     ]),
+    [hyperevm.id]: http("https://rpc.hyperliquid.xyz/evm"),
+    [katana.id]: http("https://rpc.katanarpc.com"),
   },
 });
 
