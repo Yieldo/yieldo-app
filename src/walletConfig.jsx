@@ -3,7 +3,7 @@ import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
 import { http, fallback } from "wagmi";
 import { defineChain } from "viem";
 
-const DRPC_KEY = import.meta.env.VITE_DRPC_KEY || "";
+const DRPC_KEY = "AkHTcIVgl08-vYIBD0wQbORZOIOkCkER8Lcyjk6iId46";
 
 const monad = defineChain({
   id: 143,
