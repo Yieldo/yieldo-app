@@ -251,9 +251,10 @@ function DepositModal({ vault, onClose }) {
   const dropdownTokens = useMemo(() => allTokens.filter(t => !popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
 
   useEffect(() => {
-    const match = allTokens.find(t => t.symbol.toLowerCase() === vaultAsset);
-    setFromToken(match || allTokens[0] || null);
-  }, [fromChainId, allTokens, vaultAsset]);
+    const tokens = ALL_TOKENS[fromChainId] || [];
+    const match = tokens.find(t => t.symbol.toLowerCase() === vaultAsset);
+    setFromToken(match || tokens[0] || null);
+  }, [fromChainId]);
 
   const tokenContracts = useMemo(() => {
     if (!isConnected || !address || !fromToken) return [];
