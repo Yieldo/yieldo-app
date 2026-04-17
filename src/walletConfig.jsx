@@ -41,6 +41,8 @@ export const config = getDefaultConfig({
       http("https://base-rpc.publicnode.com"),
       http("https://rpc.ankr.com/base"),
       http("https://mainnet.base.org"),
+      http("https://base.drpc.org"),
+      http("https://1rpc.io/base"),
     ]),
     [arbitrum.id]: fallback([
       http("https://arbitrum-one-rpc.publicnode.com"),
