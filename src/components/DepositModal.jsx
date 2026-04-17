@@ -215,6 +215,7 @@ function DepositModal({ vault, onClose }) {
   const [referralLoading, setReferralLoading] = useState(false);
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState(null);
   const [vaultMeta, setVaultMeta] = useState(null); // { min_deposit, asset_decimals, asset_symbol }
 
   useEffect(() => {
@@ -559,7 +560,18 @@ function DepositModal({ vault, onClose }) {
         }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Quote failed (${res.status})`); }
-      setQuote(await res.json()); setStep("review");
+      const q = await res.json();
+      setQuote(q);
+      // Auto-select best route (first RECOMMENDED, then CHEAPEST, then first)
+      if (q.route_options?.length) {
+        const best = q.route_options.find(r => r.tags?.includes("RECOMMENDED"))
+          || q.route_options.find(r => r.tags?.includes("CHEAPEST"))
+          || q.route_options[0];
+        setSelectedRoute(best.bridge);
+      } else {
+        setSelectedRoute(null);
+      }
+      setStep("review");
     } catch (e) { setQuoteError(e.message); setStep("input"); }
   }, [fromToken, amount, address, fromChainId, vaultId, referralResolved]);
 
@@ -578,6 +590,7 @@ function DepositModal({ vault, onClose }) {
           fee_bps: quote.intent.fee_bps, slippage: 0.03,
           referrer: referralResolved?.address || "0x0000000000000000000000000000000000000000",
           referrer_handle: referralResolved?.handle || "",
+          preferred_bridge: selectedRoute || undefined,
         }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Build failed (${res.status})`); }
@@ -593,7 +606,7 @@ function DepositModal({ vault, onClose }) {
         await executeDepositWithBuild(build);
       }
     } catch (e) { setErrorMsg(e.message || "Transaction failed"); setStep("error"); }
-  }, [quote, fromToken, address, fromChainId, amount, vaultId, referralResolved]);
+  }, [quote, fromToken, address, fromChainId, amount, vaultId, referralResolved, selectedRoute]);
 
   const executeDepositWithBuild = async (build) => {
     try {
@@ -662,7 +675,8 @@ function DepositModal({ vault, onClose }) {
 
         {step === "review" && quote && (
           <ReviewStep quote={quote} fromToken={fromToken} amount={amount} vault={vault}
-            referralResolved={referralResolved} onConfirm={executeBuild} onBack={() => setStep("input")} />
+            referralResolved={referralResolved} onConfirm={executeBuild} onBack={() => setStep("input")}
+            selectedRoute={selectedRoute} onSelectRoute={setSelectedRoute} />
         )}
 
         {step === "approving" && (
@@ -1097,7 +1111,7 @@ function fmtShares(raw) {
   return n.toFixed(4);
 }
 
-function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack }) {
+function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack, selectedRoute, onSelectRoute }) {
   const est = quote.estimate;
   const vaultDecimals = quote.vault?.asset?.decimals || fromToken?.decimals || 6;
   const outDecimals = quote.quote_type === "direct" ? fromToken.decimals : vaultDecimals;
@@ -1106,13 +1120,25 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
   const outSymbol = isSwap ? (vault.asset || vault.assetLower || "").toUpperCase() : fromToken?.symbol;
   const [ackHighImpact, setAckHighImpact] = useState(false);
 
-  // Route description
+  const routes = quote.route_options;
+  const hasRoutes = routes && routes.length > 1;
+  const activeRoute = hasRoutes ? routes.find(r => r.bridge === selectedRoute) || routes[0] : null;
+
+  // Use active route's amounts when a route is selected, otherwise default estimate
+  const displayToAmount = activeRoute ? activeRoute.to_amount : est.to_amount;
+  const displayDepositAmount = activeRoute ? activeRoute.deposit_amount : est.deposit_amount;
+  const displayFeeAmount = activeRoute ? activeRoute.fee_amount : est.fee_amount;
+  const displayTime = activeRoute ? activeRoute.estimated_time : est.estimated_time;
+  const displayGas = activeRoute ? activeRoute.gas_cost_usd : est.gas_cost_usd;
+
+  // Route description (for single route / same-chain swap fallback)
   let routeDesc = quote.quote_type === "direct" ? "Direct" : quote.quote_type === "same_chain_swap" ? "Swap" : "Cross-chain";
   const steps = est.steps;
   if (steps && steps.length > 0) {
     const tools = steps.map(s => s.tool).filter(Boolean);
-    if (tools.length > 0) routeDesc += ` via ${tools.join(" → ")}`;
+    if (tools.length > 0) routeDesc += ` via ${tools.join(" \u2192 ")}`;
   }
+  if (activeRoute && !hasRoutes) routeDesc = `Cross-chain via ${activeRoute.bridge_name}`;
 
   // Cross-chain / swap cost breakdown (bridge or swap loss, not our fee)
   const fromUsd = parseFloat(est.from_amount_usd || "0");
@@ -1126,14 +1152,14 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
 
   const rows = [
     { label: "You deposit", value: `${fmtToken(parseUnits(amount, fromToken.decimals).toString(), fromToken.decimals)} ${fromToken?.symbol}` },
-    isSwap && { label: "Est. received on dest", value: `${fmtToken(est.to_amount, vaultDecimals)} ${outSymbol}${toUsd ? ` (~$${toUsd.toFixed(2)})` : ""}` },
-    { label: "Yieldo fee (0.1%)", value: `${fmtToken(est.fee_amount, outDecimals)} ${outSymbol}`, light: true },
-    { label: "Into vault", value: `${fmtToken(est.deposit_amount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
+    isSwap && { label: "Est. received on dest", value: `${fmtToken(displayToAmount, vaultDecimals)} ${outSymbol}` },
+    { label: "Yieldo fee (0.1%)", value: `${fmtToken(displayFeeAmount, outDecimals)} ${outSymbol}`, light: true },
+    { label: "Into vault", value: `${fmtToken(displayDepositAmount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
     est.estimated_shares && fmtShares(est.estimated_shares) && { label: "Est. shares", value: fmtShares(est.estimated_shares), light: true },
-    est.estimated_time && { label: "Est. time", value: est.estimated_time < 60 ? `~${est.estimated_time}s` : `~${Math.round(est.estimated_time / 60)} min`, light: true },
-    est.gas_cost_usd && { label: "Est. gas cost", value: `$${est.gas_cost_usd}`, light: true },
+    displayTime && { label: "Est. time", value: displayTime < 60 ? `~${displayTime}s` : `~${Math.round(displayTime / 60)} min`, light: true },
+    displayGas && { label: "Est. gas cost", value: `$${displayGas}`, light: true },
     referralResolved && { label: "Referrer", value: referralResolved.handle ? `@${referralResolved.handle}` : `${referralResolved.address.slice(0, 10)}...`, color: C.green },
-    { label: "Route", value: routeDesc, light: true },
+    !hasRoutes && { label: "Route", value: routeDesc, light: true },
   ].filter(Boolean);
 
   const confirmDisabled = severity === "red" && !ackHighImpact;
@@ -1149,26 +1175,26 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: severity === "red" ? C.red : severity === "amber" ? C.amber : C.text3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>
             {isCrossChain ? "Bridge cost" : "Swap cost"}
-            {severity === "red" ? " — ⚠ HIGH" : severity === "amber" ? " — heads up" : ""}
+            {severity === "red" ? " \u2014 \u26A0 HIGH" : severity === "amber" ? " \u2014 heads up" : ""}
           </div>
           <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>
-            You send <strong>${fromUsd.toFixed(2)}</strong> → <strong>${toUsd.toFixed(2)}</strong> arrives on destination.
+            You send <strong>${fromUsd.toFixed(2)}</strong> {"\u2192"} <strong>${toUsd.toFixed(2)}</strong> arrives on destination.
             <br />
             <span style={{ color: C.text2 }}>
-              {isCrossChain ? "Bridge" : "Swap"} takes <strong style={{ color: severity === "red" ? C.red : severity === "amber" ? C.amber : C.text }}>${pathLossUsd.toFixed(2)} ({pathLossPct.toFixed(1)}%)</strong>. This is LiFi's routing cost — not a Yieldo fee.
+              {isCrossChain ? "Bridge" : "Swap"} takes <strong style={{ color: severity === "red" ? C.red : severity === "amber" ? C.amber : C.text }}>${pathLossUsd.toFixed(2)} ({pathLossPct.toFixed(1)}%)</strong>. This is LiFi{"'"}s routing cost {"\u2014"} not a Yieldo fee.
             </span>
           </div>
           {severity === "red" && (
             <div style={{ marginTop: 10, padding: "8px 10px", background: C.redBg, borderRadius: 6 }}>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 12, color: C.red }}>
                 <input type="checkbox" checked={ackHighImpact} onChange={(e) => setAckHighImpact(e.target.checked)} style={{ marginTop: 2 }} />
-                <span>I understand I'll lose {pathLossPct.toFixed(1)}% to bridge/swap costs. For better rates, deposit a larger amount or use same-chain.</span>
+                <span>I understand I{"'"}ll lose {pathLossPct.toFixed(1)}% to bridge/swap costs. For better rates, deposit a larger amount or use same-chain.</span>
               </label>
             </div>
           )}
           {severity === "amber" && fromUsd < 20 && (
             <div style={{ marginTop: 6, fontSize: 11, color: C.text3 }}>
-              💡 Cross-chain has ~$0.30 fixed cost regardless of amount. Deposits under ~$20 lose >1.5% to overhead. Consider batching into a larger deposit.
+              Cross-chain has ~$0.30 fixed cost regardless of amount. Deposits under ~$20 lose {">"}1.5% to overhead. Consider batching into a larger deposit.
             </div>
           )}
         </div>
@@ -1182,6 +1208,55 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
           </div>
         ))}
       </div>
+
+      {/* Route selector — cross-chain with multiple bridge options */}
+      {hasRoutes && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Select route</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {routes.map((r) => {
+              const isSelected = r.bridge === selectedRoute;
+              const isBest = r.tags?.includes("RECOMMENDED") || r.tags?.includes("CHEAPEST");
+              const isFastest = r.tags?.includes("FASTEST");
+              return (
+                <div
+                  key={r.bridge}
+                  onClick={() => onSelectRoute(r.bridge)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                    border: `1.5px solid ${isSelected ? C.purple : C.border}`,
+                    background: isSelected ? C.purpleDim : C.white,
+                    transition: "border-color .15s, background .15s",
+                  }}
+                >
+                  {r.bridge_logo && (
+                    <img src={r.bridge_logo} alt="" style={{ width: 22, height: 22, borderRadius: 6 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                      {r.bridge_name}
+                      {isBest && <span style={{ fontSize: 10, fontWeight: 700, color: C.green, background: C.greenDim, padding: "1px 6px", borderRadius: 4 }}>Best</span>}
+                      {isFastest && <span style={{ fontSize: 10, fontWeight: 700, color: "#2563eb", background: "rgba(37,99,235,.07)", padding: "1px 6px", borderRadius: 4 }}>Fastest</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                      {r.estimated_time != null && (r.estimated_time < 60 ? `~${r.estimated_time}s` : `~${Math.round(r.estimated_time / 60)} min`)}
+                      {r.estimated_time != null && r.gas_cost_usd && " \u00B7 "}
+                      {r.gas_cost_usd && `$${r.gas_cost_usd} gas`}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                      {fmtToken(r.deposit_amount, outDecimals)} {outSymbol}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {isCrossChain && (
         <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,.06)", fontSize: 11, color: C.amber, marginBottom: 16 }}>
           Cross-chain deposits take a few minutes. You can track progress via LiFi explorer once submitted.
