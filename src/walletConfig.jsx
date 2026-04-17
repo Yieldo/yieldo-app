@@ -3,8 +3,6 @@ import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
 import { http, fallback } from "wagmi";
 import { defineChain } from "viem";
 
-const DRPC_KEY = "AkHTcIVgl08-vYIBD0wQbORZOIOkCkER8Lcyjk6iId46";
-
 const monad = defineChain({
   id: 143,
   name: "Monad",
@@ -35,31 +33,30 @@ export const config = getDefaultConfig({
   chains: [mainnet, base, arbitrum, optimism, monad, hyperevm, katana],
   transports: {
     [mainnet.id]: fallback([
-      http(`https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}`, { retryCount: 5 }),
       http("https://ethereum-rpc.publicnode.com"),
       http("https://cloudflare-eth.com"),
-    ], { rank: false }),
+      http("https://1rpc.io/eth"),
+    ]),
     [base.id]: fallback([
-      http(`https://lb.drpc.org/ogrpc?network=base&dkey=${DRPC_KEY}`, { retryCount: 5 }),
       http("https://base-rpc.publicnode.com"),
       http("https://mainnet.base.org"),
       http("https://1rpc.io/base"),
-    ], { rank: false }),
+    ]),
     [arbitrum.id]: fallback([
-      http(`https://lb.drpc.org/ogrpc?network=arbitrum&dkey=${DRPC_KEY}`, { retryCount: 5 }),
       http("https://arbitrum-one-rpc.publicnode.com"),
       http("https://arb1.arbitrum.io/rpc"),
-    ], { rank: false }),
+      http("https://1rpc.io/arb"),
+    ]),
     [optimism.id]: fallback([
-      http(`https://lb.drpc.org/ogrpc?network=optimism&dkey=${DRPC_KEY}`, { retryCount: 5 }),
       http("https://optimism-rpc.publicnode.com"),
       http("https://mainnet.optimism.io"),
-    ], { rank: false }),
+      http("https://1rpc.io/op"),
+    ]),
     [monad.id]: fallback([
-      http("https://rpc.monad.xyz", { retryCount: 3 }),
+      http("https://rpc.monad.xyz"),
       http("https://rpc1.monad.xyz"),
       http("https://rpc-mainnet.monadinfra.com"),
-    ], { rank: false }),
+    ]),
     [hyperevm.id]: http("https://rpc.hyperliquid.xyz/evm"),
     [katana.id]: http("https://rpc.katanarpc.com"),
   },
