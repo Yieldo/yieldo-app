@@ -470,7 +470,7 @@ export default function VaultPage() {
 
   const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); setActivePreset(null); };
 
-  const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Hyperliquid"];
+  const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Optimism", "Monad", "HyperEVM", "Katana"];
   const CHAINS = useMemo(() => {
     const all = [...new Set(ALL.map(v => v.chain))].sort();
     return all.filter(c => SUPPORTED_CHAINS.includes(c));
