@@ -1,7 +1,8 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
 import '@rainbow-me/rainbowkit/styles.css'
@@ -27,6 +28,38 @@ function KolRedirect() {
   return <Navigate to={`/u/${handle}${window.location.search}`} replace />
 }
 
+const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
+
+function RoleRedirect() {
+  const { address, isConnected } = useAccount();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const checked = useRef(false);
+
+  useEffect(() => {
+    if (!isConnected || !address || checked.current) return;
+    // Only redirect from default pages, not if user is already on a specific page
+    const onDefault = location.pathname === "/" || location.pathname === "/vault" || location.pathname === "/dashboard";
+    if (!onDefault) return;
+
+    checked.current = true;
+    fetch(`${DEPOSIT_API}/v1/users/role/${address}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        if (data.role === "kol") navigate("/kol", { replace: true });
+        else if (data.role === "wallet") navigate("/wallets", { replace: true });
+      })
+      .catch(() => {});
+  }, [isConnected, address, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!isConnected) checked.current = false;
+  }, [isConnected]);
+
+  return null;
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <WagmiProvider config={config}>
@@ -35,6 +68,7 @@ createRoot(document.getElementById('root')).render(
           <BrowserRouter>
             <TxTracker />
             <RefTracker />
+            <RoleRedirect />
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />
