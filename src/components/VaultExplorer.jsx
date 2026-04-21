@@ -302,6 +302,11 @@ export function VaultExplorer({
   const [fAge, setFAge] = useState(0);
   const [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
+  const [sortDir, setSortDir] = useState("desc");
+  const toggleSort = (key) => {
+    if (sortBy === key) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortBy(key); setSortDir("desc"); }
+  };
 
   const tog = (a, s, v) => s(a.includes(v) ? a.filter(x => x !== v) : [...a, v]);
 
@@ -368,9 +373,9 @@ export function VaultExplorer({
       sharpe: (a, b) => (b.sharpe || 0) - (a.sharpe || 0),
       retention: (a, b) => (b.capRet || 0) - (a.capRet || 0),
     };
-    if (sm[sortBy]) r.sort(sm[sortBy]);
+    if (sm[sortBy]) { r.sort(sm[sortBy]); if (sortDir === "asc") r.reverse(); }
     return r;
-  }, [ALL, search, fCh, fPr, fAt, fRi, fCu, fFS, fYT, fApy, fTvl, fDep, fAge, fSc, sortBy]);
+  }, [ALL, search, fCh, fPr, fAt, fRi, fCu, fFS, fYT, fApy, fTvl, fDep, fAge, fSc, sortBy, sortDir]);
 
   return (
     <>
@@ -496,14 +501,11 @@ export function VaultExplorer({
               padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: variant === "enroll" ? 960 : 900 }}>
               {variant === "enroll" && <div></div>}
               <div>Vault</div>
-              <div>Score</div>
-              <div>APY</div>
-              <div>Risk</div>
-              <div>Flags</div>
-              <div>TVL</div>
-              <div>Dep.</div>
-              <div>Yield</div>
-              <div>Age</div>
+              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Yield",null],["Age","age"]].map(([label,key])=>(
+                <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4, userSelect: "none" }}>
+                  {label}{sortBy===key ? (sortDir==="desc" ? " \u2193" : " \u2191") : ""}
+                </div>
+              ))}
             </div>
             {filtered.map(v => {
               const isEnr = enrolled?.has(v.id);
