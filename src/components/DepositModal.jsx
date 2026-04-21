@@ -469,7 +469,7 @@ function DepositModal({ vault, onClose }) {
     const isTwoStep = buildData.two_step;
     const destChainId = buildData.tracking.to_chain_id;
     const destToken = buildData.deposit_tx?.approval?.token_address;
-    const expectedMin = BigInt(buildData.deposit_tx?.approval?.amount || buildData.intent?.amount || "0");
+    const expectedMin = BigInt(buildData.deposit_tx?.approval?.amount || "0");
 
     let settled = false;
 
@@ -1062,11 +1062,6 @@ function InputStep({
           </div>
         )}
         {referralError && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>{referralError}</div>}
-      </div>
-
-      <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, background: referralResolved ? C.greenDim : C.bg, fontSize: 11, color: C.text3, display: "flex", justifyContent: "space-between" }}>
-        <span>Protocol fee</span>
-        <span>0.1%{referralResolved ? " (50% to referrer)" : ""}</span>
       </div>
 
       {quoteError && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: C.redBg, fontSize: 12, color: C.red }}>{quoteError}</div>}

@@ -225,7 +225,7 @@ export default function KolLandingPage() {
         {/* CTA */}
         <Card style={{ padding: 24, marginTop: 24, textAlign: "center" }}>
           <p style={{ margin: "0 0 14px", fontSize: 14, color: C.text3 }}>
-            Deposit through @{kol.handle}'s link to support them — you pay the same protocol fee either way.
+            Deposit through @{kol.handle}'s link to support them — no extra fees, deposits go directly to the vault.
           </p>
           <Link to="/vault" style={{ textDecoration: "none" }}>
             <button style={{ padding: "12px 28px", borderRadius: 10, backgroundImage: C.purpleGrad, border: "none", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow }}>

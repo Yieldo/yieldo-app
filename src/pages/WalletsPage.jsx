@@ -417,24 +417,6 @@ function SettingsPage({ partner, onUpdate }) {
       </Card>
 
       <Card style={{ padding: 24 }}>
-        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600 }}>Fee Configuration</h3>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>Enable Fee (10 bps)</div>
-            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>5 bps goes to you, 5 bps to Yieldo</div>
-          </div>
-          <Toggle on={settings.fee_enabled} onToggle={() => setSettings({ ...settings, fee_enabled: !settings.fee_enabled })} />
-        </div>
-        {settings.fee_enabled && (
-          <div style={{ marginTop: 14 }}>
-            <label style={{ fontSize: 12, color: C.text3, fontWeight: 600, display: "block", marginBottom: 4 }}>Fee Collector Address</label>
-            <input style={{ ...inputStyle, fontFamily: "monospace", fontSize: 13 }} placeholder="0x..." value={settings.fee_collector_address} onChange={e => setSettings({ ...settings, fee_collector_address: e.target.value })} />
-            <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>This address receives 50% of the 10 bps fee on every deposit made through your API key.</div>
-          </div>
-        )}
-      </Card>
-
-      <Card style={{ padding: 24 }}>
         <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600 }}>Webhook</h3>
         <div>
           <label style={{ fontSize: 12, color: C.text3, fontWeight: 600, display: "block", marginBottom: 4 }}>Webhook URL</label>
@@ -528,8 +510,8 @@ curl -X POST ${PARTNER_API}/v1/quote \\
         {[
           { method: "GET", path: "/v1/vaults", desc: "List available vaults" },
           { method: "GET", path: "/v1/vaults/:id", desc: "Get vault details + share price" },
-          { method: "POST", path: "/v1/quote", desc: "Get deposit quote with signed intent" },
-          { method: "POST", path: "/v1/quote/build", desc: "Build transaction from signed quote" },
+          { method: "POST", path: "/v1/quote", desc: "Get deposit quote with route options" },
+          { method: "POST", path: "/v1/quote/build", desc: "Build deposit transaction" },
           { method: "GET", path: "/v1/status", desc: "Track cross-chain transfer status" },
           { method: "GET", path: "/v1/chains", desc: "List supported chains" },
           { method: "GET", path: "/v1/tokens", desc: "List tokens for a chain" },

@@ -379,7 +379,7 @@ function OverviewPage({ kol }) {
           {[
             ["1", "Share your referral link with your audience"],
             ["2", "When someone deposits through your link, your wallet address is used as the on-chain referrer"],
-            ["3", "You earn 50% of the 10 bps protocol fee on every deposit — paid directly in the deposit asset"],
+            ["3", "Every deposit through your link is attributed on-chain — your earnings come from vault revenue share"],
             ["4", "Go to <strong>Vault Picks</strong> to choose which vaults to promote on your public page"],
           ].map(([n, text]) => (
             <div key={n} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -436,7 +436,7 @@ function LinksPage({ kol }) {
       <Card style={{ padding: 24 }}>
         <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Referral Link</h3>
         <p style={{ fontSize: 13, color: C.text3, margin: "0 0 12px" }}>
-          Direct link to all vaults with your referral code. Every deposit earns you 50% of the protocol fee.
+          Direct link to all vaults with your referral code. Every deposit is attributed on-chain to you.
         </p>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <code style={{ flex: 1, padding: "10px 14px", background: C.surfaceAlt, borderRadius: 8, fontSize: 13, fontFamily: "monospace", color: C.text2, border: `1px solid ${C.border}`, wordBreak: "break-all" }}>
@@ -860,10 +860,10 @@ export default function KolPage() {
             </div>
             <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Yieldo KOL Program</h2>
             <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 480, textAlign: "center", lineHeight: 1.6 }}>
-              Share curated DeFi vault picks with your audience and earn 50% of the protocol fee on every deposit made through your referral link. Fees are paid on-chain in the deposit asset.
+              Share curated DeFi vault picks with your audience. Every deposit made through your referral link is attributed on-chain — earnings come from vault revenue share.
             </p>
             <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              <StatCard icon="💰" label="Your Cut" value="50%" sub="of protocol fee" />
+              <StatCard icon="💰" label="Attribution" value="On-chain" sub="provable deposits" />
               <StatCard icon="🏦" label="Available Vaults" value={vaults.length || "—"} />
               <StatCard icon="🔗" label="Chains" value={new Set(vaults.map(v => v.chain_id)).size || "—"} />
             </div>
