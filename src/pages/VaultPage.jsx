@@ -9,6 +9,7 @@ import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplor
 const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
 const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
+const WithdrawModal = lazy(() => import("../components/WithdrawModal.jsx"));
 
 import { DEPOSITABLE_CHAINS } from "../chains.js";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -382,6 +383,8 @@ export default function VaultPage() {
   const { balances, totalIdle } = useWalletBalances();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
   const [depositVault, setDepositVault] = useState(null);
+  const [withdrawPosition, setWithdrawPosition] = useState(null);
+  const [userPositions, setUserPositions] = useState({});
   const [vaultTypes, setVaultTypes] = useState({});
 
   // Fetch vault types from deposit API
@@ -392,6 +395,20 @@ export default function VaultPage() {
       setVaultTypes(map);
     }).catch(() => {});
   }, []);
+
+  // Fetch user positions to know which vaults have a balance
+  useEffect(() => {
+    if (!isConnected || !address) { setUserPositions({}); return; }
+    fetch(`${DEPOSIT_API}/v1/positions/${address}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.positions) {
+          const map = {};
+          for (const p of data.positions) map[p.vault_id] = p;
+          setUserPositions(map);
+        }
+      }).catch(() => {});
+  }, [isConnected, address]);
 
   const getDepositState = useCallback((v) => {
     const vType = vaultTypes[v.id];
@@ -696,7 +713,13 @@ export default function VaultPage() {
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
                 <div><YieldBadge t={v.yieldType}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
-                <div title={ds.tip || ""}><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: ds.ok ? C.purpleDim : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", opacity: ds.ok ? 1 : 0.6 }}>{ds.label}</button></div>
+                <div style={{ display: "flex", gap: 4 }} title={ds.tip || ""}>
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: ds.ok ? C.purpleDim : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", opacity: ds.ok ? 1 : 0.6 }}>{ds.label}</button>
+                  {(() => { const hasPos = !!userPositions[v.id]; return (
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (hasPos) setWithdrawPosition(userPositions[v.id]); }} disabled={!hasPos}
+                      style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${hasPos ? C.purple + "40" : C.border}`, background: hasPos ? C.purpleDim : C.surfaceAlt, color: hasPos ? C.purple : C.text4, cursor: hasPos ? "pointer" : "not-allowed", opacity: hasPos ? 1 : 0.4 }}>Withdraw</button>
+                  ); })()}
+                </div>
               </Link>
             ); })}
           </div></Card>
@@ -737,7 +760,13 @@ export default function VaultPage() {
                     {(() => { const ds = getDepositState(v); return (
                       <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} title={ds.tip || ""}
                         style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? "none" : `1px solid ${C.border}`, background: ds.ok ? C.white : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", boxShadow: ds.ok ? "0 1px 4px rgba(0,0,0,.08)" : "none", opacity: ds.ok ? 1 : 0.6 }}>
-                        {authLoading ? "..." : ds.label}
+                        {ds.label}
+                      </button>
+                    ); })()}
+                    {(() => { const hasPos = !!userPositions[v.id]; return (
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (hasPos) setWithdrawPosition(userPositions[v.id]); }} disabled={!hasPos}
+                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${hasPos ? C.purple + "40" : C.border}`, background: hasPos ? C.white : C.surfaceAlt, color: hasPos ? C.purple : C.text4, cursor: hasPos ? "pointer" : "not-allowed", boxShadow: hasPos ? "0 1px 4px rgba(0,0,0,.08)" : "none", opacity: hasPos ? 1 : 0.4 }}>
+                        Withdraw
                       </button>
                     ); })()}
                   </div>
@@ -816,6 +845,11 @@ export default function VaultPage() {
       {depositVault && (
         <Suspense fallback={null}>
           <DepositModal vault={depositVault} onClose={() => setDepositVault(null)} />
+        </Suspense>
+      )}
+      {withdrawPosition && (
+        <Suspense fallback={null}>
+          <WithdrawModal position={withdrawPosition} onClose={() => setWithdrawPosition(null)} />
         </Suspense>
       )}
     </div>
