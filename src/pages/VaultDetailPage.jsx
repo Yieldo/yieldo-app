@@ -412,12 +412,8 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
     if (!isConnected) { openConnectModal(); return; }
-    if (!isAuthenticated) {
-      const ok = await userLogin();
-      if (!ok) return;
-    }
     setDepositOpen(true);
-  }, [depositDisabled, isConnected, isAuthenticated, userLogin, openConnectModal]);
+  }, [depositDisabled, isConnected, openConnectModal]);
 
   const submitFeedback = async () => {
     setFbSending(true);

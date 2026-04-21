@@ -404,12 +404,8 @@ export default function VaultPage() {
     e.preventDefault();
     e.stopPropagation();
     if (!isConnected) { openConnectModal(); return; }
-    if (!isAuthenticated) {
-      const ok = await userLogin();
-      if (!ok) return;
-    }
     setDepositVault(vault);
-  }, [isConnected, isAuthenticated, userLogin, openConnectModal]);
+  }, [isConnected, openConnectModal]);
 
   const [view, setView] = useState("table"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);

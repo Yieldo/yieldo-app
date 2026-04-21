@@ -40,18 +40,12 @@ export function useUserAuth() {
     }
   }, [address, isConnected]);
 
-  // Restore existing session or auto-login when wallet connects
+  // Restore existing session when wallet connects (no auto-sign)
   useEffect(() => {
     if (!isConnected || !address) return;
     const stored = getStored();
     if (stored && stored.address?.toLowerCase() === address.toLowerCase()) {
       setSession(stored);
-      return;
-    }
-    // No valid session — auto-login (signature prompt on connect)
-    if (!autoLoginAttempted.current) {
-      autoLoginAttempted.current = true;
-      doLogin();
     }
   }, [isConnected, address]);
 

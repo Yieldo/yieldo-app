@@ -369,14 +369,13 @@ function DepositModal({ vault, onClose }) {
     const bRes = await fetch(`${API}/v1/quote/build`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        signature: q.signature,
-        nonce: q.intent.nonce, deadline: q.intent.deadline,
-        intent_amount: q.intent.amount, fee_bps: q.intent.fee_bps,
         from_chain_id: destChainId, from_token: destToken,
         from_amount: delta.toString(), vault_id: vaultId,
         user_address: address, slippage: 0.03,
         referrer: referralResolved?.address || undefined,
         referrer_handle: referralResolved?.handle || undefined,
+        partner_id: referralResolved?.handle || "",
+        partner_type: referralResolved?.handle ? 1 : 0,
       }),
     });
     if (!bRes.ok) throw new Error("Fresh step-2 build failed: " + bRes.status);
@@ -585,13 +584,12 @@ function DepositModal({ vault, onClose }) {
         body: JSON.stringify({
           from_chain_id: fromChainId, from_token: fromToken.address,
           from_amount: parseUnits(amount, fromToken.decimals).toString(),
-          vault_id: vaultId, user_address: address,
-          signature: quote.signature, intent_amount: quote.intent.amount,
-          nonce: quote.intent.nonce, deadline: quote.intent.deadline,
-          fee_bps: quote.intent.fee_bps, slippage: 0.03,
+          vault_id: vaultId, user_address: address, slippage: 0.03,
           referrer: referralResolved?.address || "0x0000000000000000000000000000000000000000",
           referrer_handle: referralResolved?.handle || "",
           preferred_bridge: selectedRoute || undefined,
+          partner_id: referralResolved?.handle || "",
+          partner_type: referralResolved?.handle ? 1 : 0,
         }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Build failed (${res.status})`); }
@@ -1128,7 +1126,6 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
   // Use active route's amounts when a route is selected, otherwise default estimate
   const displayToAmount = activeRoute ? activeRoute.to_amount : est.to_amount;
   const displayDepositAmount = activeRoute ? activeRoute.deposit_amount : est.deposit_amount;
-  const displayFeeAmount = activeRoute ? activeRoute.fee_amount : est.fee_amount;
   const displayTime = activeRoute ? activeRoute.estimated_time : est.estimated_time;
   const displayGas = activeRoute ? activeRoute.gas_cost_usd : est.gas_cost_usd;
 
@@ -1154,7 +1151,6 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
   const rows = [
     { label: "You deposit", value: `${fmtToken(parseUnits(amount, fromToken.decimals).toString(), fromToken.decimals)} ${fromToken?.symbol}` },
     isSwap && { label: "Est. received on dest", value: `${fmtToken(displayToAmount, vaultDecimals)} ${outSymbol}` },
-    { label: "Yieldo fee (0.1%)", value: `${fmtToken(displayFeeAmount, outDecimals)} ${outSymbol}`, light: true },
     { label: "Into vault", value: `${fmtToken(displayDepositAmount, outDecimals)} ${outSymbol}`, bold: true, color: C.purple },
     est.estimated_shares && fmtShares(est.estimated_shares) && { label: "Est. shares", value: fmtShares(est.estimated_shares), light: true },
     displayTime && { label: "Est. time", value: displayTime < 60 ? `~${displayTime}s` : `~${Math.round(displayTime / 60)} min`, light: true },

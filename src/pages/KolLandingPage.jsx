@@ -87,12 +87,8 @@ export default function KolLandingPage() {
     e.preventDefault();
     e.stopPropagation();
     if (!isConnected) { openConnectModal(); return; }
-    if (!isAuthenticated) {
-      const ok = await userLogin();
-      if (!ok) return;
-    }
     setDepositVault(vault);
-  }, [isConnected, isAuthenticated, userLogin, openConnectModal]);
+  }, [isConnected, openConnectModal]);
 
   if (notFound) {
     return (
