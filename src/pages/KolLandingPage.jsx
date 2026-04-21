@@ -27,7 +27,7 @@ const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism",
 
 function fmtApy(n) {
   if (!n && n !== 0) return "\u2014";
-  return (n * 100).toFixed(2) + "%";
+  return n.toFixed(2) + "%";
 }
 
 function Card({ children, style: sx = {} }) {
