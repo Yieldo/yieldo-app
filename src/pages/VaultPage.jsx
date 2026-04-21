@@ -429,6 +429,11 @@ export default function VaultPage() {
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
+  const [sortDir, setSortDir] = useState("desc");
+  const toggleSort = (key) => {
+    if (sortBy === key) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortBy(key); setSortDir("desc"); }
+  };
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [autoCurateTracked, setAutoCurateTracked] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
@@ -527,8 +532,8 @@ export default function VaultPage() {
     if(fApy>0)r=r.filter(v=>v.apy>=fApy);if(fTvl>0)r=r.filter(v=>v.tvl>=fTvl);if(fDep>0)r=r.filter(v=>v.depositors>=fDep);
     if(fAge>0)r=r.filter(v=>v.age>=fAge);if(fSc>0)r=r.filter(v=>v.yieldoScore>=fSc);
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0),perfScore:(a,b)=>(b.perfComposite||0)-(a.perfComposite||0)};
-    if(sm[sortBy])r.sort(sm[sortBy]); return r;
-  }, [ALL,search,fCh,fPr,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy]);
+    if(sm[sortBy]){r.sort(sm[sortBy]); if(sortDir==="asc")r.reverse();} return r;
+  }, [ALL,search,fCh,fPr,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy,sortDir]);
 
   if (loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -701,7 +706,15 @@ export default function VaultPage() {
         </div>
         {view === "table" && (
           <Card><div style={{ overflow: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960 }}><div>Vault</div><div>Score</div><div>APY</div><div>Risk</div><div>Flags</div><div>TVL</div><div>Dep.</div><div>Yield</div><div>Age</div><div></div></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960, userSelect: "none" }}>
+              <div>Vault</div>
+              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Yield",null],["Age","age"]].map(([label,key])=>(
+                <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4 }}>
+                  {label}{sortBy===key ? (sortDir==="desc" ? " ↓" : " ↑") : ""}
+                </div>
+              ))}
+              <div></div>
+            </div>
             {filtered.map(v=>{ const ds = getDepositState(v); return (
               <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
