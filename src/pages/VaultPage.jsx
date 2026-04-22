@@ -10,6 +10,7 @@ const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
 const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const WithdrawModal = lazy(() => import("../components/WithdrawModal.jsx"));
+import InvestorShell from "../components/InvestorShell.jsx";
 
 import { DEPOSITABLE_CHAINS } from "../chains.js";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -557,38 +558,23 @@ export default function VaultPage() {
   );
 
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh" }}>
-      {/* Header */}
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${winW >= 640 ? "20px" : "12px"}`, display: "flex", justifyContent: "space-between", alignItems: "center", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 6px rgba(0,0,0,.04)", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 6 }} />
-          {winW >= 480 && <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-.01em" }}>YIELDO</span>}
-        </div>
-        <div style={{ display: "flex", gap: 2 }}>
-          {[["dashboard", "Dashboard"], ["vaults", "Explore"]].map(([id, label]) => (
-            <button key={id} onClick={() => setActiveTab(id)} style={{ fontFamily: "'Inter',sans-serif", fontSize: winW >= 640 ? 13 : 12, fontWeight: activeTab === id ? 600 : 400, border: "none", cursor: "pointer", padding: winW >= 640 ? "6px 16px" : "6px 10px", borderRadius: 6, background: activeTab === id ? C.purpleDim : "transparent", color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>{label}</button>
-          ))}
-          {[["/portfolio", "Portfolio"], ["/referrals", "Referrals"], ["/history", "History"]].map(([path, label]) => (
-            <button key={path} onClick={() => { if (!isConnected) openConnectModal(); else navigate(path); }}
-              style={{ fontFamily: "'Inter',sans-serif", fontSize: winW >= 640 ? 13 : 12, fontWeight: 400, border: "none", cursor: "pointer", padding: winW >= 640 ? "6px 16px" : "6px 10px", borderRadius: 6, background: "transparent", color: isConnected ? C.text3 : C.text4, transition: "all .15s" }}>
+    <InvestorShell maxWidth={1600}>
+      {/* Internal Dashboard / Explore tab bar */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[["dashboard", "Dashboard"], ["vaults", "All Vaults"]].map(([id, label]) => (
+            <button key={id} onClick={() => setActiveTab(id)}
+              style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: activeTab === id ? 600 : 500,
+                       border: "none", cursor: "pointer", padding: "7px 16px", borderRadius: 7,
+                       background: activeTab === id ? C.purpleDim : "transparent",
+                       color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>
               {label}
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {winW >= 768 && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
           {winW >= 640 && <Btn small onClick={() => navigate("/apply")}>Integrate Now</Btn>}
-          {isConnected && address ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <div style={{ fontSize: 11, color: C.text2, background: C.surfaceAlt, padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.border}`, fontFamily: "monospace" }}>
-                <span style={{ width: 6, height: 6, borderRadius: 3, background: C.green, display: "inline-block", marginRight: 4 }} />
-                {address.slice(0, 4)}...{address.slice(-3)}
-              </div>
-              <button onClick={() => disconnect()} style={{ fontSize: 10, color: C.text4, background: "none", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 6px", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>✕</button>
-            </div>
-          ) : (
-            <button onClick={openConnectModal} style={{ backgroundImage: C.purpleGrad, color: "#fff", border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: C.purpleShadow, whiteSpace: "nowrap" }}>{winW >= 640 ? "Connect Wallet" : "Connect"}</button>
-          )}
         </div>
       </div>
       {/* Dashboard Tab */}
@@ -871,6 +857,6 @@ export default function VaultPage() {
           <WithdrawModal position={withdrawPosition} onClose={() => setWithdrawPosition(null)} />
         </Suspense>
       )}
-    </div>
+    </InvestorShell>
   );
 }

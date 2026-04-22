@@ -61,6 +61,38 @@ function fmtShares(raw, decimals = 18, maxDp = 4) {
   } catch { return "0"; }
 }
 
+function fmtAmount(raw, decimals = 18, maxDp = 4) {
+  try {
+    const s = formatUnits(BigInt(raw), decimals);
+    const n = parseFloat(s);
+    if (n === 0) return "0";
+    if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
+    if (n >= 1) return n.toFixed(Math.min(maxDp, 2));
+    return n.toFixed(maxDp);
+  } catch { return "0"; }
+}
+
+function fmtAmountSigned(raw, decimals = 18, maxDp = 4) {
+  try {
+    const big = BigInt(raw);
+    const neg = big < 0n;
+    const abs = neg ? -big : big;
+    const s = formatUnits(abs, decimals);
+    const n = parseFloat(s);
+    const sign = neg ? "-" : "+";
+    if (n === 0) return "0";
+    if (n >= 1000) return `${sign}${n.toLocaleString("en", { maximumFractionDigits: 2 })}`;
+    if (n >= 1) return `${sign}${n.toFixed(Math.min(maxDp, 2))}`;
+    return `${sign}${n.toFixed(maxDp)}`;
+  } catch { return "0"; }
+}
+
+function toFloat(raw, decimals = 18) {
+  try {
+    return parseFloat(formatUnits(BigInt(raw), decimals));
+  } catch { return 0; }
+}
+
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -91,8 +123,18 @@ export default function PortfolioPage() {
     return { ...p, apy: v.apy, score: v.yieldoScore };
   });
 
-  const total = enrichedPositions.reduce((s, p) => s + (parseFloat(p.share_balance) / (10 ** (p.share_decimals || 18))), 0);
+  // Roll up totals. All position values are in the vault's asset decimals — we cannot meaningfully
+  // sum across different assets (USDC + ETH + BTC), so we show per-asset breakdown for small counts
+  // and a raw sum as "Total in native" for display. A real USD total needs a price oracle.
   const count = enrichedPositions.length;
+  const totalValue = enrichedPositions.reduce((s, p) =>
+    s + (p.current_assets ? toFloat(p.current_assets, p.asset_decimals || 6) : toFloat(p.share_balance, p.share_decimals || 18)), 0);
+  const totalYield = enrichedPositions.reduce((s, p) =>
+    s + (p.yield_assets ? toFloat(p.yield_assets, p.asset_decimals || 6) : 0), 0);
+  const hasAnyYield = enrichedPositions.some(p => p.yield_assets != null);
+  // Detect if all positions share a single asset so we can show a unit label
+  const uniqueAssets = new Set(enrichedPositions.map(p => p.asset_symbol));
+  const singleAsset = uniqueAssets.size === 1 ? [...uniqueAssets][0] : null;
 
   if (!isConnected) {
     return (
@@ -124,17 +166,25 @@ export default function PortfolioPage() {
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Total Value</span>
           </div>
           <div style={{ fontSize: 26, fontWeight: 700, color: C.purple }}>
-            {loading ? "—" : `${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+            {loading ? "—" : totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {singleAsset && <span style={{ fontSize: 14, color: C.text3, marginLeft: 6 }}>{singleAsset}</span>}
           </div>
-          <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>across all vaults</div>
+          <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>
+            {singleAsset ? "sum across vaults" : `${count} vault${count !== 1 ? "s" : ""} · mixed assets`}
+          </div>
         </Card>
         <Card style={{ padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 14 }}>📈</span>
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Total Yield</span>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: C.green }}>—</div>
-          <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>tracking coming soon</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: hasAnyYield ? (totalYield >= 0 ? C.green : C.red) : C.text4 }}>
+            {!hasAnyYield ? "—" : `${totalYield >= 0 ? "+" : ""}${totalYield.toLocaleString(undefined, { maximumFractionDigits: 4 })}`}
+            {hasAnyYield && singleAsset && <span style={{ fontSize: 14, color: C.text3, marginLeft: 6 }}>{singleAsset}</span>}
+          </div>
+          <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>
+            {hasAnyYield ? "current value − deposited" : "computing..."}
+          </div>
         </Card>
         <Card style={{ padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -183,7 +233,14 @@ export default function PortfolioPage() {
               id: p.vault_id, chain_id: p.chain_id, name: p.vault_name, address: p.vault_address,
               asset: p.asset_symbol, assetLower: p.asset_symbol?.toLowerCase(), type: p.vault_type,
             };
-            const balance = fmtShares(p.share_balance, p.share_decimals);
+            const assetDecimals = p.asset_decimals || 18;
+            const valueDisplay = p.current_assets
+              ? fmtAmount(p.current_assets, assetDecimals)
+              : fmtShares(p.share_balance, p.share_decimals);
+            const depositedDisplay = p.deposited_assets
+              ? fmtAmount(p.deposited_assets, assetDecimals)
+              : null;
+            const yieldVal = p.yield_assets ? toFloat(p.yield_assets, assetDecimals) : null;
             return (
               <div key={p.vault_id} style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`,
                        display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 44px 180px", gap: 8,
@@ -201,10 +258,15 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{balance}</div>
-                  <div style={{ fontSize: 11, color: C.text3 }}>{p.asset_symbol}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{valueDisplay}</div>
+                  <div style={{ fontSize: 11, color: C.text3 }}>
+                    {depositedDisplay ? `dep. ${depositedDisplay}` : p.asset_symbol}
+                  </div>
                 </div>
-                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.text4 }}>—</div>
+                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600,
+                              color: yieldVal == null ? C.text4 : yieldVal >= 0 ? C.green : C.red }}>
+                  {yieldVal == null ? "—" : fmtAmountSigned(p.yield_assets, assetDecimals)}
+                </div>
                 <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: p.apy ? C.green : C.text4 }}>
                   {p.apy ? `${p.apy.toFixed(2)}%` : "—"}
                 </div>
