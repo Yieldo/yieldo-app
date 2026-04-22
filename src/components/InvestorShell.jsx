@@ -183,13 +183,9 @@ export default function InvestorShell({ children, maxWidth = 1100 }) {
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh" }}>
       <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth, margin: "0 auto", padding: "0 24px", height: 56,
-                      display: "flex", alignItems: "center", gap: 28 }}>
+        <div style={{ padding: "0 24px", height: 56, display: "flex", alignItems: "center", gap: 28 }}>
           <Link to="/vault" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, textDecoration: "none", color: C.text }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, backgroundImage: C.purpleGrad,
-                         display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 12 }}>Y</span>
-            </div>
+            <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 7, objectFit: "contain" }} />
             <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>YIELDO</span>
           </Link>
           <nav style={{ display: "flex", gap: 2, flex: 1 }}>
