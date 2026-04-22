@@ -565,8 +565,14 @@ export default function VaultPage() {
           {winW >= 480 && <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-.01em" }}>YIELDO</span>}
         </div>
         <div style={{ display: "flex", gap: 2 }}>
-          {[["dashboard", "Dashboard"], ["vaults", "Vaults"]].map(([id, label]) => (
+          {[["dashboard", "Dashboard"], ["vaults", "Explore"]].map(([id, label]) => (
             <button key={id} onClick={() => setActiveTab(id)} style={{ fontFamily: "'Inter',sans-serif", fontSize: winW >= 640 ? 13 : 12, fontWeight: activeTab === id ? 600 : 400, border: "none", cursor: "pointer", padding: winW >= 640 ? "6px 16px" : "6px 10px", borderRadius: 6, background: activeTab === id ? C.purpleDim : "transparent", color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>{label}</button>
+          ))}
+          {[["/portfolio", "Portfolio"], ["/referrals", "Referrals"], ["/history", "History"]].map(([path, label]) => (
+            <button key={path} onClick={() => { if (!isConnected) openConnectModal(); else navigate(path); }}
+              style={{ fontFamily: "'Inter',sans-serif", fontSize: winW >= 640 ? 13 : 12, fontWeight: 400, border: "none", cursor: "pointer", padding: winW >= 640 ? "6px 16px" : "6px 10px", borderRadius: 6, background: "transparent", color: isConnected ? C.text3 : C.text4, transition: "all .15s" }}>
+              {label}
+            </button>
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>

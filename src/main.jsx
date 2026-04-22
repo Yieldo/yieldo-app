@@ -16,6 +16,9 @@ import VaultProviderPage from './pages/VaultProviderPage.jsx'
 import CuratorPage from './pages/CuratorPage.jsx'
 import ApplyPage from './pages/ApplyPage.jsx'
 import VaultScoringPage from './pages/VaultScoringPage.jsx'
+import PortfolioPage from './pages/PortfolioPage.jsx'
+import ReferralsPage from './pages/ReferralsPage.jsx'
+import HistoryPage from './pages/HistoryPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
@@ -28,6 +31,10 @@ function KolRedirect() {
   return <Navigate to={`/u/${handle}${window.location.search}`} replace />
 }
 
+function CreatorDashboardRedirect() {
+  return <Navigate to="/creator" replace />
+}
+
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 function RoleRedirect() {
@@ -38,7 +45,6 @@ function RoleRedirect() {
 
   useEffect(() => {
     if (!isConnected || !address || checked.current) return;
-    // Only redirect from default pages, not if user is already on a specific page
     const onDefault = location.pathname === "/" || location.pathname === "/vault" || location.pathname === "/dashboard";
     if (!onDefault) return;
 
@@ -47,7 +53,7 @@ function RoleRedirect() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
-        if (data.role === "kol") navigate("/kol", { replace: true });
+        if (data.role === "creator" || data.role === "kol") navigate("/creator", { replace: true });
         else if (data.role === "wallet") navigate("/wallets", { replace: true });
       })
       .catch(() => {});
@@ -74,6 +80,9 @@ createRoot(document.getElementById('root')).render(
               <Route path="/vault" element={<VaultPage />} />
               <Route path="/dashboard" element={<VaultPage />} />
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/referrals" element={<ReferralsPage />} />
+              <Route path="/history" element={<HistoryPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />
               <Route path="/u/:handle" element={<KolLandingPage />} />
@@ -87,7 +96,8 @@ createRoot(document.getElementById('root')).render(
                   </ProtectedRoute>
                 )}
               />
-              <Route path="/kol" element={<KolPage />} />
+              <Route path="/creator" element={<KolPage />} />
+              <Route path="/kol" element={<CreatorDashboardRedirect />} />
               <Route
                 path="/curator"
                 element={(

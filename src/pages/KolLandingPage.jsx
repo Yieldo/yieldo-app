@@ -131,16 +131,16 @@ export default function KolLandingPage() {
       </div>
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px" }}>
-        {/* KOL Profile */}
+        {/* Creator Profile */}
         <Card style={{ padding: 28, marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
             <div style={{ width: 72, height: 72, borderRadius: 18, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "#fff", fontWeight: 700, flexShrink: 0 }}>
-              {kol.name?.charAt(0)?.toUpperCase() || "K"}
+              {kol.name?.charAt(0)?.toUpperCase() || "C"}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                 <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{kol.name}</h1>
-                <Badge color={C.orange} bg={C.orangeDim}>KOL</Badge>
+                <Badge color={C.orange} bg={C.orangeDim}>Creator</Badge>
               </div>
               <div style={{ fontSize: 13, color: C.text3, marginBottom: kol.bio ? 10 : 0 }}>@{kol.handle}</div>
               {kol.bio && <p style={{ margin: "0 0 10px", fontSize: 14, color: C.text2, lineHeight: 1.6 }}>{kol.bio}</p>}

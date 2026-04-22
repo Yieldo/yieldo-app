@@ -148,14 +148,14 @@ function SignatureVerify({ address, onVerified }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
       <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
-        <span style={{ color: "#fff", fontWeight: 700 }}>K</span>
+        <span style={{ color: "#fff", fontWeight: 700 }}>C</span>
       </div>
       <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
         {isRegistered ? "Welcome Back" : "Verify Wallet Ownership"}
       </h2>
       <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 420, textAlign: "center", lineHeight: 1.6 }}>
         {isRegistered
-          ? "Sign a message to login to your KOL dashboard."
+          ? "Sign a message to login to your Creator dashboard."
           : "Sign a message to prove wallet ownership. No gas required."}
       </p>
       <div style={{ padding: "10px 16px", background: C.purpleDim, borderRadius: 8, fontSize: 12, color: C.text2 }}>
@@ -275,9 +275,9 @@ function RegistrationForm({ address, signature, onRegistered }) {
       <Card style={{ padding: 32, maxWidth: 480, width: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 24 }}>
-            <span style={{ color: "#fff" }}>K</span>
+            <span style={{ color: "#fff" }}>C</span>
           </div>
-          <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 600 }}>Register as a KOL</h2>
+          <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 600 }}>Register as a Creator</h2>
           <p style={{ margin: 0, fontSize: 13, color: C.text3 }}>Share vault picks and earn from every deposit through your link.</p>
         </div>
         <div style={{ padding: "10px 14px", background: C.purpleDim, borderRadius: 8, marginBottom: 20, fontSize: 12, color: C.text2 }}>
@@ -374,7 +374,7 @@ function OverviewPage({ kol }) {
       )}
 
       <Card style={{ padding: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>How KOL Referrals Work</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>How Creator Referrals Work</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13, color: C.text2 }}>
           {[
             ["1", "Share your referral link with your audience"],
@@ -776,7 +776,7 @@ export default function KolPage() {
         }}>
           <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
           {!sidebarCollapsed && <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
-          {!sidebarCollapsed && <Badge color={C.orange} bg={C.orangeDim}>KOL</Badge>}
+          {!sidebarCollapsed && <Badge color={C.orange} bg={C.orangeDim}>Creator</Badge>}
         </div>
 
         <button
@@ -856,9 +856,9 @@ export default function KolPage() {
         {authState === "not_connected" && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
-              <span style={{ color: "#fff", fontWeight: 700 }}>K</span>
+              <span style={{ color: "#fff", fontWeight: 700 }}>C</span>
             </div>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Yieldo KOL Program</h2>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Yieldo Creator Program</h2>
             <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 480, textAlign: "center", lineHeight: 1.6 }}>
               Share curated DeFi vault picks with your audience. Every deposit made through your referral link is attributed on-chain — earnings come from vault revenue share.
             </p>
@@ -893,7 +893,7 @@ export default function KolPage() {
               </h1>
               {page === "overview" && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Badge color={C.orange} bg={C.orangeDim}>KOL</Badge>
+                  <Badge color={C.orange} bg={C.orangeDim}>Creator</Badge>
                   <span style={{ fontSize: 13, color: C.text3 }}>@{kol.handle}</span>
                 </div>
               )}
