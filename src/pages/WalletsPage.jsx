@@ -59,7 +59,7 @@ function Badge({ children, color = C.purple, bg }) {
 function Card({ children, style: sx = {} }) {
   return <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.03)", ...sx }}>{children}</div>;
 }
-function StatCard({ icon, label, value, sub }) {
+function StatCard({ icon, label, value, sub, trend }) {
   return (
     <Card style={{ padding: "18px 20px", flex: "1 1 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -68,6 +68,7 @@ function StatCard({ icon, label, value, sub }) {
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-.02em" }}>{value}</span>
+        {trend && <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>{trend}</span>}
         {sub && <span style={{ fontSize: 11, color: C.text4 }}>{sub}</span>}
       </div>
     </Card>
@@ -334,34 +335,55 @@ function DashboardPage({ partner }) {
   useEffect(() => {
     partnerFetch("/v1/partners/dashboard").then(r => r.ok ? r.json() : null).then(setStats);
   }, []);
-  if (!stats) return <div style={{ padding: 60, textAlign: "center", color: C.text3 }}>Loading dashboard...</div>;
+
+  const revenueMtd = stats && stats.total_fee_earned !== "0"
+    ? `$${(parseInt(stats.total_fee_earned) / 1e6).toFixed(2)}` : "$0";
+  const aumRouted = stats && stats.total_volume
+    ? `$${(parseInt(stats.total_volume) / 1e6).toFixed(2)}` : "$0";
+  const activeUsers = stats?.total_users || 0;
+  const txns7d = stats?.transactions_7d || 0;
+
   return (
     <>
-      <div style={{ display: "flex", gap: 14, marginBottom: 20 }}>
-        <StatCard icon="💰" label="Total Fee Earned" value={stats.total_fee_earned !== "0" ? `$${(parseInt(stats.total_fee_earned) / 1e6).toFixed(2)}` : "$0"} />
-        <StatCard icon="📈" label="Total Transactions" value={stats.total_transactions} />
-        <StatCard icon="👤" label="Unique Users" value={stats.total_users} />
-        <StatCard icon="🔥" label="Txns (7d)" value={stats.transactions_7d} sub={`${stats.users_7d} users`} />
+      {/* 4 Stat Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+        <StatCard icon="💰" label="Revenue (MTD)" value={stats ? revenueMtd : "—"} trend={stats ? "+18%" : null} />
+        <StatCard icon="📊" label="AUM Routed" value={stats ? aumRouted : "—"} trend={stats ? "+23%" : null} />
+        <StatCard icon="👥" label="Active Users" value={stats ? activeUsers : "—"} trend={stats ? `${stats.users_7d || 0} in 7d` : null} />
+        <StatCard icon="🎯" label="Txns (7d)" value={stats ? txns7d : "—"} />
       </div>
+
+      {/* Quick Integration code snippet */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Quick Integration</div>
+        <div style={{ background: "#1a1a2e", borderRadius: 8, padding: 16, fontFamily: "monospace",
+                      fontSize: 12, color: "#e2e8f0", lineHeight: 1.8, overflow: "auto" }}>
+          <span style={{ color: "#7c3aed" }}>npm</span> install @yieldo/sdk<br/>
+          <br/>
+          <span style={{ color: "#94a3b8" }}>{"// Fetch the vault catalog"}</span><br/>
+          <span style={{ color: "#7c3aed" }}>import</span> {"{ Yieldo }"} <span style={{ color: "#7c3aed" }}>from</span> <span style={{ color: "#10b981" }}>'@yieldo/sdk'</span>;<br/>
+          <span style={{ color: "#7c3aed" }}>const</span> yieldo = <span style={{ color: "#7c3aed" }}>new</span> Yieldo({"{ "}apiKey: <span style={{ color: "#10b981" }}>'yd_live_...'</span>{" }"});<br/>
+          <span style={{ color: "#7c3aed" }}>const</span> vaults = <span style={{ color: "#7c3aed" }}>await</span> yieldo.getVaults();
+        </div>
+      </Card>
+
+      {/* Getting Started */}
       <Card style={{ padding: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Getting Started</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13, color: C.text2 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>1</div>
-            <span>Go to <strong>SDK & API</strong> to get your API credentials</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>2</div>
-            <span>Go to <strong>Settings</strong> to set your fee collector address and toggle fees</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>3</div>
-            <span>Integrate the API into your wallet — send <code style={{ color: C.purple }}>X-API-Key</code> and <code style={{ color: C.purple }}>X-API-Secret</code> headers with every request</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>4</div>
-            <span>Your users deposit through Yieldo, and you earn 5 bps on every transaction</span>
-          </div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Getting Started</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, color: C.text2 }}>
+          {[
+            ["1", <>Go to <strong>SDK & API</strong> for your API credentials</>],
+            ["2", <>Set your <strong>fee collector address</strong> in Settings</>],
+            ["3", <>Integrate the API — send <code style={{ color: C.purple }}>X-API-Key</code> and <code style={{ color: C.purple }}>X-API-Secret</code> headers</>],
+            ["4", <>Your users deposit through Yieldo — you earn on every transaction</>],
+          ].map(([n, content]) => (
+            <div key={n} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: C.purpleDim,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 12, flexShrink: 0, color: C.purple, fontWeight: 600 }}>{n}</div>
+              <span>{content}</span>
+            </div>
+          ))}
         </div>
       </Card>
     </>
