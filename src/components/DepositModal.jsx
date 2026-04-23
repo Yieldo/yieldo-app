@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAccount, useReadContracts, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useDepositMeta } from "../hooks/useDepositMeta.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -216,23 +217,15 @@ function DepositModal({ vault, onClose }) {
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState("");
   const [selectedRoute, setSelectedRoute] = useState(null);
-  const [vaultMeta, setVaultMeta] = useState(null); // { min_deposit, asset_decimals, asset_symbol }
-
-  useEffect(() => {
-    if (!vaultId) return;
-    let cancelled = false;
-    fetch(`${API}/v1/vaults/${encodeURIComponent(vaultId)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (cancelled || !d) return;
-        setVaultMeta({
-          min_deposit: d.min_deposit || null,
-          asset_decimals: d.asset?.decimals ?? 6,
-          asset_symbol: d.asset?.symbol || vaultAsset,
-        });
-      }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [vaultId, vaultAsset]);
+  // Shared single-fetch hook — reuses the same /v1/vaults response as the rest
+  // of the app (5-min cache + dedupe). No per-modal network call.
+  const _depositMetaRaw = useDepositMeta(vaultId);
+  const vaultMeta = _depositMetaRaw ? {
+    min_deposit: _depositMetaRaw.min_deposit || null,
+    no_minimum: !!_depositMetaRaw.no_minimum,
+    asset_decimals: _depositMetaRaw.asset?.decimals ?? 6,
+    asset_symbol: _depositMetaRaw.asset?.symbol || vaultAsset,
+  } : null;
   const [txHash, setTxHash] = useState(null);
   const [approvalTxHash, setApprovalTxHash] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");

@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaultDetail } from "../hooks/useVaultData.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
+import { useDepositMeta } from "../hooks/useDepositMeta.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -394,27 +395,20 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [fbSending, setFbSending] = useState(false);
   const [fbDone, setFbDone] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
-  const [vaultType, setVaultType] = useState(null);
-  const [vaultMin, setVaultMin] = useState({ raw: null, decimals: 6, symbol: "USDC", noMin: false });
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
 
-  useEffect(() => {
-    if (!vaultId) return;
-    fetch(`${DEPOSIT_API}/v1/vaults`).then(r => r.json()).then(data => {
-      const match = data.find(x => x.vault_id === vaultId);
-      if (match) {
-        setVaultType(match.type || "morpho");
-        setVaultMin({
-          raw: match.min_deposit ?? null,
-          decimals: match.asset?.decimals ?? 6,
-          symbol: (match.asset?.symbol || "USDC").toUpperCase(),
-          noMin: !!match.no_minimum,
-        });
-      }
-    }).catch(() => {});
-  }, [vaultId]);
+  // Shared single-fetch hook — one /v1/vaults network call per page load,
+  // shared across every component on the page (deposit modal, this header, etc.)
+  const depositMeta = useDepositMeta(vaultId);
+  const vaultType = depositMeta?.type || null;
+  const vaultMin = {
+    raw: depositMeta?.min_deposit ?? null,
+    decimals: depositMeta?.asset?.decimals ?? 6,
+    symbol: (depositMeta?.asset?.symbol || "USDC").toUpperCase(),
+    noMin: !!depositMeta?.no_minimum,
+  };
 
   const depositDisabled = vaultType === "unsupported";
 
