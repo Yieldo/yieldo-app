@@ -475,22 +475,48 @@ export function VaultExplorer({
 
       {/* Result count + active pills */}
       <div style={{ padding: "16px 20px", maxWidth: 1600, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28, flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: C.text3 }}><strong style={{ color: C.text }}>{filtered.length}</strong> vaults</span>
-            {pills.length > 0 && <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }}/>}
-            {pills.map((p, i) => <ActivePill key={i} label={p.label} onRemove={p.remove}/>)}
-          </div>
-          {variant === "enroll" && enrolled && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Badge color={C.purple}>✓ {enrolled.size} enrolled</Badge>
-              <button onClick={() => { filtered.forEach(v => { if (!enrolled.has(v.id)) onToggleEnroll?.(v.id); }); }}
-                style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: C.purpleDim, border: `1px solid ${C.purple}30`, color: C.purple, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                Select All ({filtered.length})
-              </button>
+        {(() => {
+          // Select-all state across the currently filtered vaults
+          const enrolledInFiltered = variant === "enroll" && enrolled
+            ? filtered.filter(v => enrolled.has(v.id)).length
+            : 0;
+          const allSelected = variant === "enroll" && filtered.length > 0 && enrolledInFiltered === filtered.length;
+          const someSelected = variant === "enroll" && enrolledInFiltered > 0 && enrolledInFiltered < filtered.length;
+          const handleMaster = () => {
+            if (!onToggleEnroll) return;
+            if (allSelected) {
+              filtered.forEach(v => { if (enrolled.has(v.id)) onToggleEnroll(v.id); });
+            } else {
+              filtered.forEach(v => { if (!enrolled.has(v.id)) onToggleEnroll(v.id); });
+            }
+          };
+          return (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {variant === "enroll" && enrolled && (
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "4px 10px", borderRadius: 6, background: someSelected || allSelected ? C.purpleDim : "transparent", border: `1px solid ${someSelected || allSelected ? C.purple + "30" : C.border}`, transition: "background .1s" }}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = someSelected; }}
+                      onChange={handleMaster}
+                      style={{ accentColor: C.purple, cursor: "pointer", width: 14, height: 14, margin: 0 }}
+                    />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: someSelected || allSelected ? C.purple : C.text3, userSelect: "none" }}>
+                      {allSelected ? "Deselect all" : someSelected ? `Select all (${filtered.length - enrolledInFiltered} more)` : `Select all (${filtered.length})`}
+                    </span>
+                  </label>
+                )}
+                <span style={{ fontSize: 13, color: C.text3 }}><strong style={{ color: C.text }}>{filtered.length}</strong> vaults</span>
+                {pills.length > 0 && <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }}/>}
+                {pills.map((p, i) => <ActivePill key={i} label={p.label} onRemove={p.remove}/>)}
+              </div>
+              {variant === "enroll" && enrolled && (
+                <Badge color={C.purple}>✓ {enrolled.size} enrolled</Badge>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* TABLE VIEW */}
         {view === "table" && (
@@ -499,7 +525,26 @@ export function VaultExplorer({
               ? ".25fr 1.5fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr"
               : "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr",
               padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: variant === "enroll" ? 960 : 900 }}>
-              {variant === "enroll" && <div></div>}
+              {variant === "enroll" && (() => {
+                const enrInFilt = filtered.filter(v => enrolled?.has(v.id)).length;
+                const allSel = filtered.length > 0 && enrInFilt === filtered.length;
+                const someSel = enrInFilt > 0 && enrInFilt < filtered.length;
+                return (
+                  <div title={allSel ? "Deselect all visible" : "Select all visible"}>
+                    <input
+                      type="checkbox"
+                      checked={allSel}
+                      ref={el => { if (el) el.indeterminate = someSel; }}
+                      onChange={() => {
+                        if (!onToggleEnroll) return;
+                        if (allSel) filtered.forEach(v => { if (enrolled.has(v.id)) onToggleEnroll(v.id); });
+                        else filtered.forEach(v => { if (!enrolled.has(v.id)) onToggleEnroll(v.id); });
+                      }}
+                      style={{ accentColor: C.purple, cursor: "pointer", width: 14, height: 14, margin: 0 }}
+                    />
+                  </div>
+                );
+              })()}
               <div>Vault</div>
               {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Yield",null],["Age","age"]].map(([label,key])=>(
                 <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4, userSelect: "none" }}>
