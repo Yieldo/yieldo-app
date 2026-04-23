@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const STORAGE_KEY = "yieldo_referral";
@@ -16,50 +16,24 @@ export function clearStoredRef() {
   window.dispatchEvent(new Event("yieldo_ref_change"));
 }
 
+// Headless: captures `?ref=<handle>` from the URL into localStorage so
+// downstream consumers (DepositModal, etc.) can attribute the deposit.
+// Renders nothing — the bottom-left badge was removed by request.
 export default function RefTracker() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [ref, setRef] = useState(getStoredRef);
-  const [dismissed, setDismissed] = useState(false);
 
-  // Check URL for ?ref= on every navigation
   useEffect(() => {
     const refParam = searchParams.get("ref");
     if (refParam && refParam.trim()) {
       const handle = refParam.trim().toLowerCase();
       const data = { handle, stored_at: new Date().toISOString() };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      setRef(data);
-      setDismissed(false);
-      // Remove ?ref= from URL without reload
+      // Strip ?ref= from the visible URL without reload.
       searchParams.delete("ref");
       setSearchParams(searchParams, { replace: true });
       window.dispatchEvent(new Event("yieldo_ref_change"));
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
-  // Listen for ref changes from other components
-  useEffect(() => {
-    const onRefChange = () => setRef(getStoredRef());
-    window.addEventListener("yieldo_ref_change", onRefChange);
-    return () => window.removeEventListener("yieldo_ref_change", onRefChange);
-  }, []);
-
-  if (!ref || dismissed) return null;
-
-  return (
-    <div style={{
-      position: "fixed", bottom: 68, left: 20, zIndex: 9990,
-      display: "flex", alignItems: "center", gap: 8,
-      padding: "8px 14px", borderRadius: 10,
-      background: "#fff", border: "1px solid rgba(26,157,63,.2)",
-      boxShadow: "0 2px 12px rgba(0,0,0,.08)",
-      fontFamily: "'Inter',sans-serif", fontSize: 12,
-    }}>
-      <span style={{ color: "#1a9d3f", fontWeight: 600 }}>Referred by @{ref.handle}</span>
-      <button onClick={() => { clearStoredRef(); setRef(null); }} style={{
-        background: "none", border: "none", fontSize: 14, cursor: "pointer",
-        color: "rgba(0,0,0,.3)", padding: "0 2px", lineHeight: 1,
-      }} title="Remove referral">✕</button>
-    </div>
-  );
+  return null;
 }
