@@ -1017,11 +1017,19 @@ function InputStep({
             <button onClick={() => setAmount(tokenBalance.formatted)} style={{ marginLeft: 4, fontSize: 10, color: C.purple, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: "'Inter',sans-serif" }}>MAX</button>
           </span>
         )}
-        {minDepositHuman && (
+        {minDepositHuman ? (
           <span style={{ fontSize: 11, color: C.text3, fontWeight: 400, marginLeft: 8 }}>
-            Min: {minDepositHuman.toLocaleString()} {vaultAsset.toUpperCase()}
+            Min: <strong style={{ color: C.text }}>{minDepositHuman.toLocaleString()} {vaultAsset.toUpperCase()}</strong>
           </span>
-        )}
+        ) : vaultMeta?.no_minimum ? (
+          <span style={{ fontSize: 11, color: C.green, fontWeight: 500, marginLeft: 8 }}>
+            No minimum
+          </span>
+        ) : vaultMeta ? (
+          <span style={{ fontSize: 11, color: C.text4, fontWeight: 400, marginLeft: 8 }}>
+            Min: <em>unknown</em>
+          </span>
+        ) : null}
       </Label>
       <input type="text" inputMode="decimal" value={amount}
         onChange={e => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
