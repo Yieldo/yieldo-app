@@ -78,7 +78,7 @@ createRoot(document.getElementById('root')).render(
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />
-              <Route path="/dashboard" element={<VaultPage />} />
+              <Route path="/dashboard" element={<Navigate to="/portfolio" replace />} />
               <Route path="/vault/:vaultId" element={<VaultDetailPage />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/referrals" element={<ReferralsPage />} />
