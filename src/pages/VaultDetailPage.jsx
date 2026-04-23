@@ -395,6 +395,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const [fbDone, setFbDone] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [vaultType, setVaultType] = useState(null);
+  const [vaultMin, setVaultMin] = useState({ raw: null, decimals: 6, symbol: "USDC", noMin: false });
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
@@ -403,7 +404,15 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
     if (!vaultId) return;
     fetch(`${DEPOSIT_API}/v1/vaults`).then(r => r.json()).then(data => {
       const match = data.find(x => x.vault_id === vaultId);
-      if (match) setVaultType(match.type || "morpho");
+      if (match) {
+        setVaultType(match.type || "morpho");
+        setVaultMin({
+          raw: match.min_deposit ?? null,
+          decimals: match.asset?.decimals ?? 6,
+          symbol: (match.asset?.symbol || "USDC").toUpperCase(),
+          noMin: !!match.no_minimum,
+        });
+      }
     }).catch(() => {});
   }, [vaultId]);
 
@@ -549,6 +558,16 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                 <div style={{ marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600 }}>24H VOLUME</div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{fmtTvl(v.vol24h)}</div>
+                </div>
+              )}
+              {(vaultMin.raw || vaultMin.noMin) && (
+                <div style={{ marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: C.text4, fontWeight: 600 }}>MINIMUM DEPOSIT</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: vaultMin.noMin ? C.green : C.text }}>
+                    {vaultMin.noMin
+                      ? "No minimum"
+                      : `${(Number(vaultMin.raw) / Math.pow(10, vaultMin.decimals)).toLocaleString()} ${vaultMin.symbol}`}
+                  </div>
                 </div>
               )}
             </Card>
