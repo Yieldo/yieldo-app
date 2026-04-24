@@ -98,14 +98,7 @@ createRoot(document.getElementById('root')).render(
               />
               <Route path="/creator" element={<KolPage />} />
               <Route path="/kol" element={<CreatorDashboardRedirect />} />
-              <Route
-                path="/curator"
-                element={(
-                  <ProtectedRoute type="curator">
-                    <CuratorPage />
-                  </ProtectedRoute>
-                )}
-              />
+              <Route path="/curator" element={<CuratorPage />} />
             </Routes>
           </BrowserRouter>
         </RainbowKitProvider>

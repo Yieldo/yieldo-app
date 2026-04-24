@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { VaultExplorer } from "../components/VaultExplorer.jsx";
 import RoleSwitcher from "../components/RoleSwitcher.jsx";
+import PartnerApplyForm from "../components/PartnerApplyForm.jsx";
 
 const PARTNER_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -862,40 +863,23 @@ export default function WalletsPage() {
       <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", minWidth: 0 }}>
         {newKeys && <APIKeysModal keys={newKeys} onClose={() => setNewKeys(null)} />}
 
-        {/* Not connected */}
-        {authState === "not_connected" && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
-            <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
-              <span style={{ color: "#fff", fontWeight: 700 }}>Y</span>
+        {/* Pre-authenticated: always show the apply form. The SIWE-based wallet
+            partner flow is paused — every new wallet goes through application
+            review first. Existing authenticated partners still hit the
+            dashboard branch below. */}
+        {authState !== "authenticated" && (
+          <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 0" }}>
+            <div style={{ marginBottom: 22 }}>
+              <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 700, letterSpacing: "-.01em" }}>
+                Become a Wallet Partner
+              </h1>
+              <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
+                Integrate Yieldo's curated DeFi vaults into your wallet and earn 5 bps on every deposit your users make.
+                Apply below — we respond within 48 hours.
+              </p>
             </div>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Welcome to Yieldo Wallet Partners</h2>
-            <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 460, textAlign: "center", lineHeight: 1.6 }}>
-              Integrate Yieldo's curated DeFi vaults into your wallet and earn 5 bps on every deposit your users make. Connect your wallet to get started.
-            </p>
-            <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-              <StatCard icon="🏦" label="Available Vaults" value={vaults.length || "—"} />
-              <StatCard icon="📈" label="Avg APY" value={vaults.length ? `${(vaults.reduce((s, v) => s + (v.apy || 0), 0) / vaults.length).toFixed(2)}%` : "—"} />
-              <StatCard icon="🔗" label="Chains" value={new Set(vaults.map(v => v.chain_id)).size || "—"} />
-            </div>
-            <Btn primary onClick={openConnectModal} style={{ marginTop: 12, padding: "14px 32px", fontSize: 16 }}>
-              Connect Wallet to Get Started
-            </Btn>
+            <PartnerApplyForm audience="wallet" showHeader={false} />
           </div>
-        )}
-
-        {/* Checking session */}
-        {authState === "checking" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400, fontSize: 14, color: C.text3 }}>Loading...</div>
-        )}
-
-        {/* Signature verification */}
-        {authState === "verify" && address && (
-          <SignatureVerify address={address} onVerified={handleVerified} />
-        )}
-
-        {/* Registration */}
-        {authState === "register" && address && (
-          <RegistrationForm address={address} signature={registerData?.signature} onRegistered={handleRegistered} />
         )}
 
         {/* Authenticated dashboard */}
