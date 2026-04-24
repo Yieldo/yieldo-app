@@ -149,7 +149,7 @@ export default function ApplyPage() {
           <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Integrate Now</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Btn small onClick={() => navigate("/vault")}>Dashboard</Btn>
+          <Btn small onClick={() => navigate("/vault")}>Explore Vaults</Btn>
         </div>
       </div>
 
@@ -166,7 +166,7 @@ export default function ApplyPage() {
               Thanks for your interest in Yieldo. We'll review your application and get back to you within 48 hours.
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <Btn onClick={() => navigate("/vault")}>&#8592; Back to Dashboard</Btn>
+              <Btn onClick={() => navigate("/vault")}>&#8592; Back to Vaults</Btn>
             </div>
           </div>
         )}
