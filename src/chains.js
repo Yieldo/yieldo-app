@@ -21,6 +21,8 @@ export const CHAIN_NAMES = {
   8453: "Base",
   42161: "Arbitrum",
   10: "Optimism",
+  43114: "Avalanche",
+  56: "BNB Chain",
   143: "Monad",
   999: "HyperEVM",
   747474: "Katana",
@@ -31,7 +33,22 @@ export const CHAIN_EXPLORERS = {
   8453: "https://basescan.org",
   42161: "https://arbiscan.io",
   10: "https://optimistic.etherscan.io",
+  43114: "https://snowtrace.io",
+  56: "https://bscscan.com",
   143: "https://monadscan.com",
   999: "https://hyperevmscan.io",
   747474: "https://katanascan.com",
+};
+
+// Display labels that match each explorer's brand.
+export const EXPLORER_NAMES = {
+  1: "Etherscan",
+  8453: "Basescan",
+  42161: "Arbiscan",
+  10: "Optimism Explorer",
+  43114: "Snowtrace",
+  56: "BscScan",
+  143: "Monadscan",
+  999: "HyperEVM Scan",
+  747474: "Katanascan",
 };

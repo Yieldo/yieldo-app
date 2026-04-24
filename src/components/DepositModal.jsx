@@ -10,7 +10,7 @@ const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
 const CHAIN_ICONS = { 1: "\u039E", 8453: "\ud83d\udd35", 42161: "\ud83d\udfe0", 10: "\ud83d\udd34" };
-const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io", 143: "https://monadscan.com", 999: "https://hyperevmscan.io", 747474: "https://katanascan.com" };
+import { CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
 
 // Popular tokens shown as chips, rest go in dropdown
 const POPULAR_TOKENS = {

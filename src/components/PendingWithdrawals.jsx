@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
+import { CHAIN_NAMES as CHAINS, CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
-const EXPLORERS = { 1: "https://etherscan.io", 8453: "https://basescan.org", 42161: "https://arbiscan.io", 10: "https://optimistic.etherscan.io", 143: "https://monadscan.com", 999: "https://hyperevmscan.io", 747474: "https://katanascan.com" };
 
 const C = {
   white: "#fff", border: "rgba(0,0,0,.06)",

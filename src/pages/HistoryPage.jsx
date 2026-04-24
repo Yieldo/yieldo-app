@@ -3,7 +3,7 @@ import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
-import { CHAIN_NAMES, CHAIN_EXPLORERS } from "../chains.js";
+import { CHAIN_NAMES, CHAIN_EXPLORERS, EXPLORER_NAMES } from "../chains.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -18,11 +18,6 @@ const C = {
   amber: "#d97706", amberDim: "rgba(217,119,6,0.07)",
   red: "#d93636", redDim: "rgba(217,54,54,0.06)",
   text4dim: "rgba(0,0,0,0.04)",
-};
-
-const EXPLORER_NAME = {
-  1: "Etherscan", 8453: "Basescan", 42161: "Arbiscan", 10: "Optimism Explorer",
-  43114: "Snowtrace", 143: "Monadscan", 999: "HyperEVM Scan", 747474: "Katanascan",
 };
 
 const STATUS_STYLES = {
@@ -217,12 +212,12 @@ export default function HistoryPage() {
             const isPartial = d.status === "partial";
             const isFailed  = d.status === "failed";
 
-            const fromExplorer = CHAIN_EXPLORERS[d.from_chain_id] || "https://etherscan.io";
-            const fromExplorerName = EXPLORER_NAME[d.from_chain_id] || "Source explorer";
+            const fromExplorer = CHAIN_EXPLORERS[d.from_chain_id] || null;
+            const fromExplorerName = EXPLORER_NAMES[d.from_chain_id] || "Source explorer";
             const toExplorer = d.to_chain_id ? (CHAIN_EXPLORERS[d.to_chain_id] || null) : null;
-            const toExplorerName = d.to_chain_id ? (EXPLORER_NAME[d.to_chain_id] || "Dest explorer") : null;
+            const toExplorerName = d.to_chain_id ? (EXPLORER_NAMES[d.to_chain_id] || "Dest explorer") : null;
 
-            const srcUrl  = d.tx_hash ? `${fromExplorer}/tx/${d.tx_hash}` : null;
+            const srcUrl  = d.tx_hash && fromExplorer ? `${fromExplorer}/tx/${d.tx_hash}` : null;
             const destTxHash = d.dest_tx_hash;
             const destUrl = destTxHash && toExplorer ? `${toExplorer}/tx/${destTxHash}` : null;
 
