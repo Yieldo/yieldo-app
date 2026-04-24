@@ -4,6 +4,7 @@ import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
+import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -704,7 +705,8 @@ function DepositModal({ vault, onClose }) {
         {step === "review" && quote && (
           <ReviewStep quote={quote} fromToken={fromToken} amount={amount} vault={vault}
             referralResolved={referralResolved} onConfirm={executeBuild} onBack={() => setStep("input")}
-            selectedRoute={selectedRoute} onSelectRoute={setSelectedRoute} />
+            selectedRoute={selectedRoute} onSelectRoute={setSelectedRoute}
+            vaultId={vaultId} fromChainId={fromChainId} fromTokenAddress={fromToken?.address} />
         )}
 
         {step === "approving" && (
@@ -1142,7 +1144,17 @@ function fmtShares(raw) {
   return n.toFixed(4);
 }
 
-function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack, selectedRoute, onSelectRoute }) {
+function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfirm, onBack, selectedRoute, onSelectRoute, vaultId, fromChainId, fromTokenAddress }) {
+  // Real success-rate stats for this vault, scoped to the selected source chain+token.
+  // Used to (a) tag each route option with its observed reliability and (b) show
+  // an overall reliability badge above the route list.
+  const { stats } = useVaultStats(vaultId, { fromChainId, fromToken: fromTokenAddress, days: 30 });
+  const bridgeRate = (bridge) => {
+    if (!stats?.by_bridge) return null;
+    const b = stats.by_bridge.find(x => (x.bridge || "").toLowerCase() === (bridge || "").toLowerCase());
+    if (!b) return null;
+    return formatRate(b.rate, b.total);
+  };
   const est = quote.estimate;
   const vaultDecimals = quote.vault?.asset?.decimals || fromToken?.decimals || 6;
   const outDecimals = quote.quote_type === "direct" ? fromToken.decimals : vaultDecimals;
@@ -1241,12 +1253,25 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
       {/* Route selector — cross-chain with multiple bridge options */}
       {hasRoutes && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.text2, marginBottom: 8 }}>Select route</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.text2 }}>Select route</div>
+            {stats?.total > 0 && (
+              <div style={{ fontSize: 10, color: C.text3 }}>
+                Reliability from <strong style={{ color: C.text2 }}>{stats.total}</strong> past deposits (30d)
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {routes.map((r) => {
               const isSelected = r.bridge === selectedRoute;
               const isBest = r.tags?.includes("RECOMMENDED") || r.tags?.includes("CHEAPEST");
               const isFastest = r.tags?.includes("FASTEST");
+              const successPct = bridgeRate(r.bridge);
+              const ratePctNum = successPct ? parseInt(successPct) : null;
+              const successColor = ratePctNum == null ? null
+                : ratePctNum >= 95 ? C.green
+                : ratePctNum >= 80 ? C.amber
+                : C.red;
               return (
                 <div
                   key={r.bridge}
@@ -1263,10 +1288,16 @@ function ReviewStep({ quote, fromToken, amount, vault, referralResolved, onConfi
                     <img src={r.bridge_logo} alt="" style={{ width: 22, height: 22, borderRadius: 6 }} />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       {r.bridge_name}
                       {isBest && <span style={{ fontSize: 10, fontWeight: 700, color: C.green, background: C.greenDim, padding: "1px 6px", borderRadius: 4 }}>Best</span>}
                       {isFastest && <span style={{ fontSize: 10, fontWeight: 700, color: "#2563eb", background: "rgba(37,99,235,.07)", padding: "1px 6px", borderRadius: 4 }}>Fastest</span>}
+                      {successPct && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: successColor,
+                                       background: `${successColor}1f`, padding: "1px 6px", borderRadius: 4 }}>
+                          {successPct} success
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
                       {r.estimated_time != null && (r.estimated_time < 60 ? `~${r.estimated_time}s` : `~${Math.round(r.estimated_time / 60)} min`)}

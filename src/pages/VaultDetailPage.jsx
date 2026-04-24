@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaultDetail } from "../hooks/useVaultData.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
+import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -367,6 +368,9 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
   const vaultId = listVault?.id || params.vaultId || null;
   const { vault: detailVault, loading } = useVaultDetail(vaultId);
   const v = detailVault || listVault;
+  // Real overall success-rate from /v1/vaults/{id}/stats — shown on the vault card.
+  const { stats: vaultStats } = useVaultStats(vaultId, { days: 30 });
+  const overallSuccess = vaultStats ? formatRate(vaultStats.success_rate, vaultStats.total) : null;
   // Go back via history if there's somewhere to return to (e.g. /wallets), otherwise default to /vault
   const handleBack = onBack || (() => {
     if (window.history.length > 1) {
@@ -564,6 +568,21 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   </div>
                 </div>
               )}
+              {overallSuccess && vaultStats?.total > 0 && (() => {
+                const pct = parseInt(overallSuccess);
+                const col = pct >= 95 ? C.green : pct >= 80 ? C.amber : C.red;
+                return (
+                  <div style={{ marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.text4, fontWeight: 600 }}>DEPOSIT SUCCESS RATE (30D)</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: col }}>
+                      {overallSuccess}{" "}
+                      <span style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>
+                        ({vaultStats.completed}/{vaultStats.total})
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </Card>
           </div>
         </div>
