@@ -747,8 +747,8 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
             <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
             {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
-            <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 50 ? "critical" : v.top1 !== null && v.top1 > 25 ? "warning" : undefined} />
-            <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 80 ? "critical" : v.top5 !== null && v.top5 > 50 ? "warning" : undefined} desc="Share of TVL held by top 5" />
+            <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 25 ? "warning" : undefined} />
+            <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 50 ? "warning" : undefined} desc="Share of TVL held by top 5" />
             {(() => { const val = v.incidentCount[incTf] ?? 0; return (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
