@@ -116,11 +116,25 @@ function Spinner({ size = 10, color = C.amber }) {
   );
 }
 
+// Filter taxonomy. Pending+submitted are bucketed together since users don't
+// care about the difference. "All" disables the filter.
+const FILTERS = [
+  { id: "all",       label: "All",       match: () => true },
+  { id: "completed", label: "Completed", match: (s) => s === "completed" },
+  { id: "pending",   label: "Pending",   match: (s) => s === "pending" || s === "submitted" },
+  { id: "partial",   label: "Partial",   match: (s) => s === "partial" },
+  { id: "failed",    label: "Failed",    match: (s) => s === "failed" },
+  { id: "abandoned", label: "Abandoned", match: (s) => s === "abandoned" },
+];
+const PAGE_SIZE = 10;
+
 export default function HistoryPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const pollRef = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -204,9 +218,57 @@ export default function HistoryPage() {
         </Card>
       )}
 
-      {deposits.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {deposits.map((d, i) => {
+      {deposits.length > 0 && (() => {
+        // Counts per status for the filter chips. Pending+submitted bucket.
+        const counts = deposits.reduce((acc, d) => {
+          const s = d.status === "submitted" ? "pending" : d.status;
+          acc[s] = (acc[s] || 0) + 1;
+          return acc;
+        }, {});
+        const matcher = (FILTERS.find(f => f.id === filter) || FILTERS[0]).match;
+        const filtered = deposits.filter(d => matcher(d.status));
+        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        const safePage = Math.min(page, totalPages);
+        const start = (safePage - 1) * PAGE_SIZE;
+        const slice = filtered.slice(start, start + PAGE_SIZE);
+
+        const switchFilter = (id) => { setFilter(id); setPage(1); };
+
+        return (
+          <>
+            {/* Filter chips */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {FILTERS.map(f => {
+                const n = f.id === "all" ? deposits.length : (counts[f.id] || 0);
+                const active = filter === f.id;
+                return (
+                  <button key={f.id} onClick={() => switchFilter(f.id)}
+                    style={{
+                      padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: active ? 600 : 500,
+                      border: `1px solid ${active ? C.purple + "55" : C.border2}`,
+                      background: active ? C.purpleDim : C.white,
+                      color: active ? C.purple : C.text2,
+                      cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                    }}>
+                    {f.label}
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10,
+                      background: active ? C.white : C.text4dim, color: active ? C.purple : C.text3,
+                    }}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {filtered.length === 0 && (
+              <Card style={{ padding: 40, textAlign: "center", color: C.text3, fontSize: 13 }}>
+                No transactions match this filter.
+              </Card>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {slice.map((d, i) => {
             const st = STATUS_STYLES[d.status] || STATUS_STYLES.submitted;
             const isPending = d.status === "pending" || d.status === "submitted";
             const isPartial = d.status === "partial";
@@ -321,8 +383,43 @@ export default function HistoryPage() {
               </Card>
             );
           })}
-        </div>
-      )}
+            </div>
+
+            {/* Pagination footer */}
+            {filtered.length > PAGE_SIZE && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                            marginTop: 14, gap: 12, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12, color: C.text3 }}>
+                  Showing <strong style={{ color: C.text2 }}>{start + 1}</strong>–
+                  <strong style={{ color: C.text2 }}>{Math.min(start + PAGE_SIZE, filtered.length)}</strong>{" "}
+                  of <strong style={{ color: C.text2 }}>{filtered.length}</strong>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+                    style={{
+                      padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`,
+                      background: safePage <= 1 ? C.text4dim : C.white,
+                      color: safePage <= 1 ? C.text4 : C.text2,
+                      cursor: safePage <= 1 ? "not-allowed" : "pointer",
+                      fontSize: 12, fontFamily: "'Inter',sans-serif",
+                    }}>← Prev</button>
+                  <span style={{ fontSize: 12, color: C.text3, padding: "0 8px" }}>
+                    Page <strong style={{ color: C.text2 }}>{safePage}</strong> / {totalPages}
+                  </span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+                    style={{
+                      padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`,
+                      background: safePage >= totalPages ? C.text4dim : C.white,
+                      color: safePage >= totalPages ? C.text4 : C.text2,
+                      cursor: safePage >= totalPages ? "not-allowed" : "pointer",
+                      fontSize: 12, fontFamily: "'Inter',sans-serif",
+                    }}>Next →</button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
     </InvestorShell>
   );
 }
