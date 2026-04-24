@@ -69,13 +69,8 @@ function RoleSwitcher({ address }) {
             const unavailable = r.disabled || (r.needsRole && r.needsRole !== role);
             return (
               <button key={r.id} onClick={() => {
-                if (unavailable) {
-                  if (r.id === "creator") navigate("/referrals");
-                  else if (r.id === "wallet") navigate("/wallets");
-                  else if (r.id === "curator") navigate("/curator");
-                  setOpen(false);
-                  return;
-                }
+                // Always navigate to the role's canonical page. The page itself
+                // handles the "not yet registered" gate (invite popup / form).
                 navigate(r.to);
                 setOpen(false);
               }} style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "none",

@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { applyCuratorOverride } from "./_curator-overrides.js";
 
 let cachedClient = null;
 
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
           row[key] = metric_data;
         }
       }
-      return row;
+      return applyCuratorOverride(row);
     });
 
     res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");

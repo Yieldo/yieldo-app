@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { applyCuratorOverride } from "../_curator-overrides.js";
 
 let cachedClient = null;
 
@@ -55,6 +56,7 @@ export default async function handler(req, res) {
       total_assets_native: s.total_assets_native,
     }));
 
+    applyCuratorOverride(row);
     res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
     res.status(200).json(row);
   } catch (err) {

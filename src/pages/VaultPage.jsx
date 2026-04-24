@@ -217,156 +217,6 @@ const fmtNum = (n, suffix = "") => {
   return typeof n === "number" ? `${n.toFixed(1)}${suffix}` : `${n}${suffix}`;
 };
 
-function DashboardTab({ vaults, navigate }) {
-  const winW = useWindowWidth();
-  const { isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
-  const { balances, totalIdle } = useWalletBalances();
-  const topVaults = useMemo(() => vaults.filter(v => v.yieldoScore >= 70 && v.critFlags === 0).sort((a, b) => b.yieldoScore - a.yieldoScore).slice(0, 5), [vaults]);
-  const bestApy = topVaults[0]?.apy || 0;
-  const monthlyEarn = (totalIdle * bestApy / 100) / 12;
-  const totalTvl = useMemo(() => vaults.reduce((s, v) => s + (v.tvl || 0), 0), [vaults]);
-  const avgApy = useMemo(() => vaults.length ? vaults.reduce((s, v) => s + (v.apy || 0), 0) / vaults.length : 0, [vaults]);
-  const fmtTvlD = n => { if (n >= 1e9) return `$${(n/1e9).toFixed(2)}B`; if (n >= 1e6) return `$${(n/1e6).toFixed(1)}M`; return `$${(n/1e3).toFixed(0)}K`; };
-  const fmtUsd = n => `$${n.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px" }}>
-      {/* Hero — connected with idle balance */}
-      {isConnected && totalIdle > 0 ? (
-        <div style={{ backgroundImage: C.purpleGrad, borderRadius: 14, padding: "24px 28px", marginBottom: 20, color: "#fff", boxShadow: C.purpleShadow, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.05)" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ fontSize: 12, opacity: .7, marginBottom: 6 }}>Your idle stablecoins</div>
-            <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{fmtUsd(totalIdle)} earning 0%</div>
-            <div style={{ fontSize: 14, opacity: .85, marginBottom: 16 }}>At <strong>{bestApy.toFixed(2)}% APY</strong> (best scored vault) that's <strong>{fmtUsd(monthlyEarn)}/month</strong> you're leaving on the table.</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={() => navigate("/vault")} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Browse scored vaults →</button>
-              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.2)", color: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: 8, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div style={{ backgroundImage: C.purpleGrad, borderRadius: 14, padding: "28px 28px", marginBottom: 20, color: "#fff", boxShadow: C.purpleShadow, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.05)" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Curated on-chain yield — scored for safety</div>
-            <div style={{ fontSize: 13, opacity: .85, marginBottom: 18, maxWidth: 500 }}>Yieldo scores DeFi vaults across Capital, Performance, Risk, and Trust so you can find the best yield without the guesswork.</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {!isConnected && <button onClick={openConnectModal} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Connect Wallet</button>}
-              <button onClick={() => navigate("/vault")} style={{ background: "#fff", color: C.purple, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>Browse Vaults →</button>
-              <button onClick={() => navigate("/apply")} style={{ background: "rgba(255,255,255,.2)", color: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: 8, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Become a Partner</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Wallet Balances — only when connected */}
-      {isConnected && balances && (
-        <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? `repeat(${Math.min(Object.keys(balances).length, 4)}, 1fr)` : "repeat(2, 1fr)", gap: 10, marginBottom: 20 }}>
-          {Object.entries(balances).filter(([, b]) => b.balance > 0).map(([key, b]) => {
-            const isStable = ["USDC", "USDT", "DAI"].includes(b.symbol);
-            return (
-              <div key={key} style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`, padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <AssetIcon asset={b.symbol} size={14} />
-                  <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>{b.symbol}</span>
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{isStable ? fmtUsd(b.balance) : `${b.balance.toFixed(4)}`}</div>
-                {b.chains && b.chains.length > 1 && (
-                  <div style={{ fontSize: 9, color: C.text4, marginTop: 3 }}>
-                    {b.chains.map((c, ci) => <span key={ci}>{ci > 0 ? " · " : ""}{c.chain}: {isStable ? fmtUsd(c.balance) : c.balance.toFixed(3)}</span>)}
-                  </div>
-                )}
-                {isStable && b.balance > 0 && (
-                  <div style={{ fontSize: 10, color: C.red, marginTop: 3, display: "flex", alignItems: "center", gap: 3 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.red, display: "inline-block" }} />
-                    Earning 0% — could earn {fmtUsd((b.balance * bestApy / 100) / 12)}/mo
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* User positions & pending withdrawals — only when connected */}
-      {isConnected && (
-        <Suspense fallback={null}>
-          <UserPositions />
-          <PendingWithdrawals />
-        </Suspense>
-      )}
-
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: winW >= 640 ? "repeat(4,1fr)" : "repeat(2,1fr)", gap: 10, marginBottom: 24 }}>
-        {[
-          { icon: "🏦", label: "Total Vaults", value: vaults.length },
-          { icon: "💰", label: "Total TVL", value: fmtTvlD(totalTvl) },
-          { icon: "📈", label: "Avg APY", value: `${avgApy.toFixed(2)}%` },
-          { icon: "🔗", label: "Chains", value: new Set(vaults.map(v => v.chain)).size },
-        ].map((s, i) => (
-          <div key={i} style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{s.icon}</div>
-              <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>{s.label}</span>
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Top Picks */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>Top Scored Vaults</div>
-            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Score ≥ 70 · No critical flags</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {topVaults.map(v => {
-            const userStable = totalIdle;
-            const mp = (userStable * v.apy / 100) / 12;
-            return (
-              <div key={v.id} onClick={() => navigate(`/vault/${encodeURIComponent(v.id)}`)}
-                style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`, padding: "14px 18px", cursor: "pointer", transition: "border-color .15s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.purple; e.currentTarget.style.boxShadow = "0 2px 10px rgba(122,28,203,.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <ScoreRing score={v.yieldoScore} size={40} sw={4} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>{v.name}</span>
-                      <span style={{ fontSize: 11, color: C.text3 }}>{v.protocol} · {v.chain}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, fontSize: 11, color: C.text3 }}>
-                      <span>TVL: {fmtTvl(v.tvl)}</span>
-                      <span>{v.depositors} depositors</span>
-                      <span style={{ color: v.critFlags === 0 && v.warnFlags === 0 ? C.green : C.amber }}>{v.critFlags === 0 && v.warnFlags === 0 ? "✓ Clean" : `🟡 ${v.warnFlags} flags`}</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: C.green }}>{v.apy.toFixed(2)}%</div>
-                    <div style={{ fontSize: 10, color: C.text4 }}>APY</div>
-                    {isConnected && userStable > 0 && <div style={{ fontSize: 10, color: C.text2, marginTop: 2 }}>= <strong>{fmtUsd(mp)}</strong>/mo</div>}
-                  </div>
-                  <div style={{ fontSize: 16, color: C.text4 }}>›</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Disclaimer */}
-      <div style={{ padding: "10px 14px", borderRadius: 8, background: C.amberDim, border: `1px solid ${C.amber}20`, display: "flex", gap: 10 }}>
-        <span>⚠️</span>
-        <div style={{ fontSize: 11, color: "rgba(0,0,0,.5)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for data visualization only — not financial advice.</div>
-      </div>
-    </div>
-  );
-}
 
 export default function VaultPage() {
   const winW = useWindowWidth();
@@ -378,8 +228,6 @@ export default function VaultPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
-  const activeTab = location.pathname === "/dashboard" ? "dashboard" : "vaults";
-  const setActiveTab = (tab) => navigate(tab === "dashboard" ? "/dashboard" : "/vault");
   const [widgetDismissed, setWidgetDismissed] = useState(false);
   const { balances, totalIdle } = useWalletBalances();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
@@ -559,29 +407,13 @@ export default function VaultPage() {
 
   return (
     <InvestorShell maxWidth={1600}>
-      {/* Internal Dashboard / Explore tab bar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[["dashboard", "Dashboard"], ["vaults", "All Vaults"]].map(([id, label]) => (
-            <button key={id} onClick={() => setActiveTab(id)}
-              style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: activeTab === id ? 600 : 500,
-                       border: "none", cursor: "pointer", padding: "7px 16px", borderRadius: 7,
-                       background: activeTab === id ? C.purpleDim : "transparent",
-                       color: activeTab === id ? C.purple : C.text3, transition: "all .15s" }}>
-              {label}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {winW >= 768 && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
           {winW >= 640 && <Btn small onClick={() => navigate("/apply")}>Integrate Now</Btn>}
         </div>
       </div>
-      {/* Dashboard Tab */}
-      {activeTab === "dashboard" && <DashboardTab vaults={ALL} navigate={navigate} />}
-
-      {/* Vaults Tab */}
-      {activeTab === "vaults" && <><div style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+      <><div style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
         {/* ── ZONE 1: WALLET PRESETS ── */}
         <div style={{ padding: "14px 20px 0", maxWidth: 1600, margin: "0 auto" }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: C.text4, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Wallet Presets</div>
@@ -782,12 +614,12 @@ export default function VaultPage() {
           </div>
         )}
       </div>
-      </>}
+      </>
 
-      {/* Floating Idle Balance Widget — shown on Vaults tab when wallet connected */}
-      {activeTab === "vaults" && isConnected && totalIdle > 0 && !widgetDismissed && (
+      {/* Floating Idle Balance Widget — shown when wallet connected */}
+      {isConnected && totalIdle > 0 && !widgetDismissed && (
         <div style={{ position: "fixed", bottom: winW >= 640 ? 20 : 12, left: winW >= 640 ? 20 : 12, right: winW >= 640 ? "auto" : 12, zIndex: 90, background: C.white, borderRadius: 14, border: `1.5px solid ${C.purple}30`, boxShadow: "0 8px 32px rgba(122,28,203,.15)", padding: "14px 18px", maxWidth: winW >= 640 ? 280 : "none", fontFamily: "'Inter',sans-serif", cursor: "pointer", transition: "transform .2s" }}
-          onClick={() => setActiveTab("dashboard")}
+          onClick={() => navigate("/portfolio")}
           onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
           onMouseLeave={e => e.currentTarget.style.transform = "none"}>
           <button onClick={e => { e.stopPropagation(); setWidgetDismissed(true); }} style={{ position: "absolute", top: 6, right: 8, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.text4, padding: "2px 4px" }}>✕</button>

@@ -251,11 +251,35 @@ export default function PortfolioPage() {
             const depositedDisplay = p.deposited_assets
               ? fmtAmount(p.deposited_assets, assetDecimals)
               : null;
-            const yieldVal = p.yield_assets ? toFloat(p.yield_assets, assetDecimals) : null;
+            // Real yield in asset units. Use backend's yield_assets if present, else
+            // fall back to current - deposited when both are known. Only stays null
+            // when we genuinely have no baseline (e.g. position from before we began
+            // tracking deposits).
+            let yieldRaw = p.yield_assets;
+            if (yieldRaw == null && p.current_assets != null && p.deposited_assets != null) {
+              try { yieldRaw = (BigInt(p.current_assets) - BigInt(p.deposited_assets)).toString(); } catch {}
+            }
+            const yieldVal = yieldRaw != null ? toFloat(yieldRaw, assetDecimals) : null;
+            // USD-denominated yield when we can convert: scale the asset-unit yield
+            // by the position's USD/asset ratio from Zerion.
+            let yieldUsd = null;
+            if (yieldVal != null && p.value_usd != null && p.current_assets) {
+              const curF = toFloat(p.current_assets, assetDecimals);
+              if (curF > 0) yieldUsd = (yieldVal / curF) * p.value_usd;
+            }
+            const fmtUsdSigned = (n) => {
+              const s = n >= 0 ? "+" : "-";
+              const a = Math.abs(n);
+              if (a >= 1000) return `${s}$${a.toLocaleString("en", { maximumFractionDigits: 2 })}`;
+              return `${s}$${a.toFixed(2)}`;
+            };
+            const vaultUrl = `/vault/${encodeURIComponent(p.vault_id)}`;
+            const openVault = () => window.open(vaultUrl, "_blank", "noopener");
             return (
-              <div key={p.vault_id} style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`,
+              <div key={p.vault_id} onClick={openVault}
+                   style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`,
                        display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 44px 180px", gap: 8,
-                       alignItems: "center" }}>
+                       alignItems: "center", cursor: "pointer" }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: C.purpleDim,
                                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -281,8 +305,17 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600,
-                              color: yieldVal == null ? C.text4 : yieldVal >= 0 ? C.green : C.red }}>
-                  {yieldVal == null ? "—" : fmtAmountSigned(p.yield_assets, assetDecimals)}
+                              color: yieldVal != null && yieldVal < 0 ? C.red : C.green }}>
+                  {yieldUsd != null
+                    ? fmtUsdSigned(yieldUsd)
+                    : yieldVal != null
+                      ? fmtAmountSigned(yieldRaw, assetDecimals)
+                      : "+$0.00"}
+                  <div style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>
+                    {yieldUsd != null && yieldVal != null
+                      ? `${fmtAmountSigned(yieldRaw, assetDecimals)} ${p.asset_symbol}`
+                      : yieldVal == null ? "no baseline yet" : ""}
+                  </div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600,
                               color: p.displayApy != null ? C.green : C.text4 }}>
@@ -291,7 +324,7 @@ export default function PortfolioPage() {
                 <div style={{ display: "flex", justifyContent: "center" }}>
                   {p.score ? <ScoreRing score={p.score} size={32} /> : <span style={{ fontSize: 12, color: C.text4 }}>—</span>}
                 </div>
-                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => { if (canDeposit) setDepositFor(vaultForDeposit); }}
                           disabled={!canDeposit}
                           style={{ padding: "6px 12px", borderRadius: 7, border: "none",

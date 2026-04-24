@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { VaultExplorer } from "../components/VaultExplorer.jsx";
+
+const BecomeCreatorModal = lazy(() => import("../components/BecomeCreatorModal.jsx"));
 
 const KOL_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
@@ -681,9 +683,26 @@ export default function KolPage() {
       kolFetch("/v1/kols/me")
         .then(r => { if (r.ok) return r.json(); throw new Error(); })
         .then(data => { setKol(data); setAuthState("authenticated"); applyServerEnrollment(data.enrolled_vaults); })
-        .catch(() => { sessionStorage.removeItem("yieldo_kol_token"); setAuthState("verify"); });
+        .catch(() => { sessionStorage.removeItem("yieldo_kol_token"); checkRoleThenGate(address); });
     } else {
-      setAuthState("verify");
+      checkRoleThenGate(address);
+    }
+
+    function checkRoleThenGate(addr) {
+      // Check whether this address is already a Creator. If yes, go through
+      // the sign-to-login flow. If no, show the invite-only popup directly —
+      // skipping the old in-page username form.
+      setAuthState("checking");
+      fetch(`${KOL_API}/v1/users/role/${addr}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.role === "creator" || data?.role === "kol") {
+            setAuthState("verify");
+          } else {
+            setAuthState("apply");
+          }
+        })
+        .catch(() => setAuthState("apply"));
     }
   }, [address, isConnected]);
 
@@ -881,8 +900,27 @@ export default function KolPage() {
           <SignatureVerify address={address} onVerified={handleVerified} />
         )}
 
+        {authState === "apply" && address && (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
+              <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
+                <span style={{ color: "#fff", fontWeight: 700 }}>🎯</span>
+              </div>
+              <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Yieldo Creator Access</h2>
+              <p style={{ margin: 0, fontSize: 14, color: C.text3, maxWidth: 520, textAlign: "center", lineHeight: 1.6 }}>
+                Creator accounts are invite-only to keep campaign quality high and give early members the best deal flow.
+              </p>
+            </div>
+            <Suspense fallback={null}>
+              <BecomeCreatorModal onClose={() => { /* stay on /creator — modal re-opens below */ setAuthState("apply"); }} />
+            </Suspense>
+          </>
+        )}
+
         {authState === "register" && address && (
-          <RegistrationForm address={address} signature={registerData?.signature} onRegistered={handleRegistered} />
+          <Suspense fallback={null}>
+            <BecomeCreatorModal onClose={() => setAuthState("apply")} />
+          </Suspense>
         )}
 
         {authState === "authenticated" && kol && (
