@@ -3,6 +3,7 @@ import { useAccount, useReadContracts, useWriteContract, useSendTransaction, use
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
+import { useUserAuth } from "../hooks/useUserAuth.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -195,6 +196,17 @@ function DepositModal({ vault, onClose }) {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { switchChain } = useSwitchChain();
+  const { isAuthenticated, token: authToken, login: siweLogin, loading: authLoading } = useUserAuth();
+
+  // Registration gate: the API now rejects /v1/quote/build without a valid
+  // SIWE session, so we prompt-sign before the first build call if needed.
+  const ensureAuth = useCallback(async () => {
+    if (isAuthenticated && authToken) return authToken;
+    const ok = await siweLogin();
+    if (!ok) throw new Error("Please sign the wallet message to continue");
+    const raw = localStorage.getItem("yieldo_user_session");
+    try { return raw ? JSON.parse(raw).token : null; } catch { return null; }
+  }, [isAuthenticated, authToken, siweLogin]);
 
   const vaultChainId = vault.chain_id;
   const vaultId = vault.id;
@@ -371,8 +383,13 @@ function DepositModal({ vault, onClose }) {
     if (!qRes.ok) throw new Error("Fresh step-2 quote failed: " + qRes.status);
     const q = await qRes.json();
 
+    const sessionToken = await ensureAuth();
     const bRes = await fetch(`${API}/v1/quote/build`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+      },
       body: JSON.stringify({
         from_chain_id: destChainId, from_token: destToken,
         from_amount: delta.toString(), vault_id: vaultId,
@@ -584,8 +601,15 @@ function DepositModal({ vault, onClose }) {
     if (!quote || !fromToken || !address) return;
     setStep("approving"); setErrorMsg("");
     try {
+      let sessionToken;
+      try { sessionToken = await ensureAuth(); }
+      catch (e) { setErrorMsg(e.message || "Sign-in required"); setStep("input"); return; }
       const res = await fetch(`${API}/v1/quote/build`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
         body: JSON.stringify({
           from_chain_id: fromChainId, from_token: fromToken.address,
           from_amount: parseUnits(amount, fromToken.decimals).toString(),
