@@ -47,6 +47,7 @@ const ASSET_ICONS = {
   pyusd: "💵",
   susd: "💵",
   eurc: "💵",
+  eurcv: "💵",
   usds: "💵",
   usda: "💵",
   weth: "⟠",
@@ -63,7 +64,7 @@ const ASSET_ICONS = {
 function getAssetType(asset) {
   const a = (asset || "").toLowerCase();
   if (
-    ["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "usds", "usda"].includes(
+    ["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "eurcv", "usds", "usda"].includes(
       a
     )
   )
