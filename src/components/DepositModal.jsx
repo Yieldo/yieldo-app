@@ -643,6 +643,15 @@ function DepositModal({ vault, onClose }) {
       const txReq = build.transaction_request;
       const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
       setTxHash(hash);
+      // Close the loop with our backend so HistoryPage sees the tx_hash and
+      // /v1/status's poll can transition it pending -> completed/failed.
+      if (build.tracking_id) {
+        fetch(`${API}/v1/deposits/${build.tracking_id}/tx`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tx_hash: hash }),
+        }).catch(() => {});
+      }
       setStep("tracking");
     } catch (e) { setErrorMsg(e.message || "Transaction failed"); setStep("error"); }
   };
