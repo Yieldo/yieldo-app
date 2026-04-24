@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
+import { formatUnits } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
 import { CHAIN_NAMES, CHAIN_EXPLORERS } from "../chains.js";
@@ -24,12 +25,63 @@ const EXPLORER_NAME = {
 };
 
 const STATUS_STYLES = {
-  completed: { color: C.green, bg: C.greenDim, label: "Deposit" },
+  completed: { color: C.green, bg: C.greenDim, label: "Completed" },
   submitted: { color: C.amber, bg: C.amberDim, label: "Pending" },
   pending:   { color: C.amber, bg: C.amberDim, label: "Pending" },
   failed:    { color: C.red,   bg: C.redDim,   label: "Failed" },
   partial:   { color: C.amber, bg: C.amberDim, label: "Partial" },
 };
+
+// Best-effort token lookup: address → { symbol, decimals }. Keyed by `${chain}:${lc_addr}`.
+// Covers the common deposit sources we see across chains. Unknown addresses
+// render as a short 0x…abcd hex with 18-decimal assumption.
+const TOKEN_META = {
+  // Mainnet
+  "1:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
+  "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { symbol: "USDC", decimals: 6 },
+  "1:0xdac17f958d2ee523a2206206994597c13d831ec7": { symbol: "USDT", decimals: 6 },
+  "1:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { symbol: "WETH", decimals: 18 },
+  "1:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": { symbol: "WBTC", decimals: 8 },
+  "1:0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": { symbol: "cbBTC", decimals: 8 },
+  "1:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": { symbol: "wstETH", decimals: 18 },
+  "1:0x1abaea1f7c830bd89acc67ec4af516284b1bc33c": { symbol: "EURC", decimals: 6 },
+  // Base
+  "8453:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
+  "8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { symbol: "USDC", decimals: 6 },
+  "8453:0x4200000000000000000000000000000000000006": { symbol: "WETH", decimals: 18 },
+  "8453:0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": { symbol: "cbBTC", decimals: 8 },
+  "8453:0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42": { symbol: "EURC", decimals: 6 },
+  // Arbitrum
+  "42161:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
+  "42161:0xaf88d065e77c8cc2239327c5edb3a432268e5831": { symbol: "USDC", decimals: 6 },
+  "42161:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9": { symbol: "USDT", decimals: 6 },
+  // Optimism
+  "10:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
+  "10:0x0b2c639c533813f4aa9d7837caf62653d097ff85": { symbol: "USDC", decimals: 6 },
+  // HyperEVM
+  "999:0x5555555555555555555555555555555555555555": { symbol: "WHYPE", decimals: 18 },
+  "999:0xb88339cb7199b77e23db6e890353e22632ba630f": { symbol: "USDC", decimals: 6 },
+};
+
+function resolveToken(chainId, address) {
+  if (!address) return { symbol: "", decimals: 18 };
+  const key = `${chainId}:${String(address).toLowerCase()}`;
+  const meta = TOKEN_META[key];
+  if (meta) return meta;
+  return { symbol: `${address.slice(0, 6)}…${address.slice(-4)}`, decimals: 18 };
+}
+
+function fmtAmount(raw, decimals) {
+  if (raw == null) return "—";
+  try {
+    const s = formatUnits(BigInt(raw), decimals || 18);
+    const n = parseFloat(s);
+    if (n === 0) return "0";
+    if (n >= 1000) return n.toLocaleString("en", { maximumFractionDigits: 2 });
+    if (n >= 1) return n.toFixed(4);
+    return n.toFixed(6);
+  } catch { return String(raw); }
+}
 
 function Card({ children, style = {} }) {
   return (
@@ -40,7 +92,10 @@ function Card({ children, style = {} }) {
 
 function fmtDate(iso) {
   if (!iso) return "—";
-  try { return new Date(iso).toISOString().slice(0, 10); } catch { return "—"; }
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return "—"; }
 }
 
 export default function HistoryPage() {
@@ -79,7 +134,10 @@ export default function HistoryPage() {
 
   return (
     <InvestorShell>
-      <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>Transaction History</h1>
+      <h1 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700 }}>Transaction History</h1>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.text3 }}>
+        Every deposit and withdraw you've made through Yieldo, with on-chain + bridge receipts.
+      </p>
 
       {loading && (
         <Card style={{ padding: 40, textAlign: "center", color: C.text3 }}>Loading...</Card>
@@ -93,58 +151,78 @@ export default function HistoryPage() {
       )}
 
       {deposits.length > 0 && (
-        <Card>
-          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
-                        display: "grid", gridTemplateColumns: ".8fr .7fr 2fr 1fr 1fr", gap: 8,
-                        fontSize: 11, fontWeight: 600, color: C.text4, textTransform: "uppercase",
-                        letterSpacing: ".04em", alignItems: "center" }}>
-            <div>Date</div>
-            <div>Type</div>
-            <div>Vault</div>
-            <div style={{ textAlign: "right" }}>Amount</div>
-            <div style={{ textAlign: "right" }}></div>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {deposits.map((d, i) => {
             const st = STATUS_STYLES[d.status] || STATUS_STYLES.submitted;
             const explorerBase = CHAIN_EXPLORERS[d.from_chain_id] || "https://etherscan.io";
             const explorerName = EXPLORER_NAME[d.from_chain_id] || "Explorer";
             const txUrl = d.tx_hash ? `${explorerBase}/tx/${d.tx_hash}` : null;
-            const chainName = CHAIN_NAMES[d.from_chain_id] || `Chain ${d.from_chain_id}`;
-            const amount = d.from_amount ? `-${d.from_amount} ${d.from_token || ""}` : "—";
+            const fromChainName = d.from_chain_name || CHAIN_NAMES[d.from_chain_id] || `Chain ${d.from_chain_id}`;
+            const toChainName = d.to_chain_name || (d.to_chain_id ? (CHAIN_NAMES[d.to_chain_id] || `Chain ${d.to_chain_id}`) : null);
+            const crossChain = d.to_chain_id && d.from_chain_id && d.to_chain_id !== d.from_chain_id;
+            const token = resolveToken(d.from_chain_id, d.from_token);
+            const amountHuman = fmtAmount(d.from_amount, token.decimals);
+
             return (
-              <div key={d.tx_hash || i}
-                   style={{ padding: "14px 16px", borderBottom: i < deposits.length - 1 ? `1px solid ${C.border}` : "none",
-                            display: "grid", gridTemplateColumns: ".8fr .7fr 2fr 1fr 1fr", gap: 8, alignItems: "center" }}>
-                <div style={{ color: C.text3, fontSize: 12 }}>{fmtDate(d.created_at)}</div>
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 4,
-                                  background: st.bg, color: st.color, whiteSpace: "nowrap" }}>
-                    {st.label}
-                  </span>
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {d.vault_name || d.vault_id || "Unknown vault"}
+              <Card key={d.tx_hash || d._id || i} style={{ padding: "16px 18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
+                                     background: st.bg, color: st.color, whiteSpace: "nowrap", textTransform: "uppercase" }}>
+                        {d.kind === "withdraw" ? "Withdraw" : "Deposit"} · {st.label}
+                      </span>
+                      {crossChain && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
+                                       background: C.purpleDim, color: C.purple, whiteSpace: "nowrap" }}>
+                          Cross-chain · {d.bridge || "LiFi"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
+                      {d.vault_name || d.vault_id || "Unknown vault"}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                      {fromChainName}{crossChain ? ` → ${toChainName}` : ""} · {fmtDate(d.created_at)}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: C.text4 }}>{chainName}</div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>
+                      {amountHuman} <span style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>{token.symbol}</span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: C.text }}>
-                  {amount}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  {txUrl ? (
+
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                  {txUrl && (
                     <a href={txUrl} target="_blank" rel="noopener noreferrer"
-                       style={{ fontSize: 11, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
+                       style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500,
+                                display: "inline-flex", alignItems: "center", gap: 4 }}>
                       {explorerName} ↗
                     </a>
-                  ) : (
-                    <span style={{ fontSize: 11, color: C.text4 }}>—</span>
+                  )}
+                  {d.lifi_explorer && (
+                    <a href={d.lifi_explorer} target="_blank" rel="noopener noreferrer"
+                       style={{ fontSize: 12, color: C.purple, textDecoration: "none", fontWeight: 500,
+                                display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      LiFi scan ↗
+                    </a>
+                  )}
+                  {d.tx_hash && (
+                    <span style={{ fontSize: 11, color: C.text4, fontFamily: "monospace" }}>
+                      {d.tx_hash.slice(0, 10)}…{d.tx_hash.slice(-8)}
+                    </span>
+                  )}
+                  {d.referrer_handle && (
+                    <span style={{ fontSize: 11, color: C.green, marginLeft: "auto" }}>
+                      ref: @{d.referrer_handle}
+                    </span>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })}
-        </Card>
+        </div>
       )}
     </InvestorShell>
   );

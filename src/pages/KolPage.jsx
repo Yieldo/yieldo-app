@@ -4,6 +4,7 @@ import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { VaultExplorer } from "../components/VaultExplorer.jsx";
+import RoleSwitcher from "../components/RoleSwitcher.jsx";
 
 const BecomeCreatorModal = lazy(() => import("../components/BecomeCreatorModal.jsx"));
 
@@ -843,6 +844,9 @@ export default function KolPage() {
               </div>
             ) : (
               <div>
+                <div style={{ marginBottom: 10 }}>
+                  <RoleSwitcher address={address} currentRole="creator" anchor="bottom" />
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <div style={{ width: 8, height: 8, borderRadius: 4, background: authState === "authenticated" ? C.green : C.gold }} />
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{authState === "authenticated" ? "Connected" : "Unverified"}</span>
