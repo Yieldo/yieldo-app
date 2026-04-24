@@ -73,13 +73,16 @@ export default function ReferralsPage() {
   const tier = stats?.tier || 0;
   const tierUnlocked = tier >= 2;
 
-  const refCode = `${APP_URL}/?ref=${address?.slice(0, 6) || ""}`;
+  const refCode = stats?.ref_code
+    ? `${APP_URL}/?ref=${stats.ref_code}`
+    : "";
   const nextTarget = tier < 1 ? TIER1 : tier < 2 ? TIER2 : TIER2;
   const progress = Math.min((depositing / nextTarget) * 100, 100);
   const tierLabel = ["", "Active Referrer", "Top Referrer"][tier];
   const tierColor = ["", C.teal, C.amber][tier];
 
   const copy = () => {
+    if (!refCode) return;
     navigator.clipboard.writeText(refCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -113,12 +116,13 @@ export default function ReferralsPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
             <div style={{ flex: 1, padding: "10px 14px", background: C.surfaceAlt, borderRadius: 8,
                           border: `1px solid ${C.border2}`, fontSize: 13, fontFamily: "monospace",
-                          color: C.purple, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {refCode}
+                          color: refCode ? C.purple : C.text4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {refCode || "Loading your referral link…"}
             </div>
-            <button onClick={copy}
+            <button onClick={copy} disabled={!refCode}
               style={{ padding: "10px 18px", borderRadius: 8, border: `1px solid ${C.border2}`,
-                       background: C.white, color: C.text2, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                       background: C.white, color: refCode ? C.text2 : C.text4, fontSize: 13, fontWeight: 500,
+                       cursor: refCode ? "pointer" : "default",
                        fontFamily: "'Inter',sans-serif" }}>
               {copied ? "Copied!" : "Copy"}
             </button>
@@ -240,7 +244,7 @@ export default function ReferralsPage() {
                 style={{ padding: "10px 18px", borderRadius: 8, border: "none", cursor: "pointer",
                          backgroundImage: C.purpleGrad, color: "#fff", fontSize: 13, fontWeight: 600,
                          boxShadow: C.purpleShadow, fontFamily: "'Inter',sans-serif" }}>
-                Have a code? Apply →
+                Become a Creator →
               </button>
               <span style={{ fontSize: 13, color: C.text3 }}>
                 Need a code — {Math.max(TIER2 - depositing, 0)} referrals away

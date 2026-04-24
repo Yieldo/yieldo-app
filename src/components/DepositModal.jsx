@@ -279,9 +279,21 @@ function DepositModal({ vault, onClose }) {
     setReferralLoading(true);
     referralTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`${API}/v1/kols/resolve/${encodeURIComponent(val)}`);
-        if (!res.ok) { setReferralError("KOL not found"); setReferralLoading(false); return; }
-        setReferralResolved(await res.json());
+        const kolRes = await fetch(`${API}/v1/kols/resolve/${encodeURIComponent(val)}`);
+        if (kolRes.ok) {
+          setReferralResolved(await kolRes.json());
+          setReferralLoading(false);
+          return;
+        }
+        // Fallback: per-user random referral code.
+        const userRes = await fetch(`${API}/v1/users/resolve-ref/${encodeURIComponent(val.toUpperCase())}`);
+        if (userRes.ok) {
+          const u = await userRes.json();
+          setReferralResolved({ handle: null, name: "Referral", address: u.address });
+          setReferralLoading(false);
+          return;
+        }
+        setReferralError("Referral code not found");
       } catch { setReferralError("Failed to resolve"); }
       setReferralLoading(false);
     }, 500);
