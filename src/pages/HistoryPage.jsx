@@ -437,6 +437,15 @@ export default function HistoryPage() {
                       LiFi scan ↗
                     </a>
                   )}
+                  {d.tracking_id && (
+                    <span title="Yieldo tracking ID — quote this when reporting an issue"
+                          onClick={() => { try { navigator.clipboard.writeText(d.tracking_id); } catch {} }}
+                          style={{ fontSize: 11, color: C.purple, fontFamily: "monospace",
+                                   background: C.purpleDim, padding: "2px 7px", borderRadius: 4,
+                                   cursor: "pointer", userSelect: "all" }}>
+                      yld:{d.tracking_id.slice(-10)}
+                    </span>
+                  )}
                   {d.tx_hash && (
                     <span style={{ fontSize: 11, color: C.text4, fontFamily: "monospace" }}>
                       {d.tx_hash.slice(0, 10)}…{d.tx_hash.slice(-8)}
