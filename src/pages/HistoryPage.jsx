@@ -414,19 +414,39 @@ export default function HistoryPage() {
                 )}
 
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-                  {srcUrl && (
-                    <a href={srcUrl} target="_blank" rel="noopener noreferrer"
-                       style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
-                      {fromExplorerName}{isTwoStep ? " (bridge)" : ""} ↗
-                    </a>
-                  )}
-                  {destUrl && (
-                    <a href={destUrl} target="_blank" rel="noopener noreferrer"
-                       style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
-                      {toExplorerName} (dest) ↗
-                    </a>
-                  )}
-                  {/* Step-2 explorer link for two-step flows */}
+                  {srcUrl && (() => {
+                    // Context-aware label so the user knows what each link is:
+                    //   cross-chain two-step  -> source = bridge
+                    //   cross-chain composer  -> source = bridge+swap
+                    //   same-chain  two-step  -> source = swap
+                    //   same-chain  direct    -> source = deposit
+                    let label;
+                    if (crossChain) label = isTwoStep ? "bridge" : "source";
+                    else            label = isTwoStep ? "swap"   : "deposit";
+                    return (
+                      <a href={srcUrl} target="_blank" rel="noopener noreferrer"
+                         style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
+                        {fromExplorerName} ({label}) ↗
+                      </a>
+                    );
+                  })()}
+                  {destUrl && (() => {
+                    // dest_tx_hash from LiFi receiving:
+                    //   composer + completed -> the composer call IS the deposit
+                    //   two-step  + completed -> just the asset delivery (deposit is in child)
+                    //   partial/refunded     -> the refund tx
+                    let label;
+                    if (isPartial) label = "refund";
+                    else if (isTwoStep) label = "asset received";
+                    else label = "deposit";
+                    return (
+                      <a href={destUrl} target="_blank" rel="noopener noreferrer"
+                         style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
+                        {toExplorerName} ({label}) ↗
+                      </a>
+                    );
+                  })()}
+                  {/* Step-2 explorer link for two-step flows — the actual vault deposit */}
                   {isTwoStep && children.map((c, ci) => {
                     if (!c.tx_hash) return null;
                     const cExp = CHAIN_EXPLORERS[c.from_chain_id];
@@ -435,7 +455,7 @@ export default function HistoryPage() {
                     return (
                       <a key={`step2-${ci}`} href={`${cExp}/tx/${c.tx_hash}`} target="_blank" rel="noopener noreferrer"
                          style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
-                        {cName} (deposit) ↗
+                        {cName} (vault deposit) ↗
                       </a>
                     );
                   })}
