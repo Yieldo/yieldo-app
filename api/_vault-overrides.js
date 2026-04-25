@@ -36,7 +36,7 @@ export const PAUSED_OVERRIDES = {
   },
   "1:0xc824a08db624942c5e5f330d56530cd1598859fd": {
     paused: true,
-    reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
+    reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet (vault rejects external callers). Deposit via Upshift's app meanwhile.",
   },
 };
 
