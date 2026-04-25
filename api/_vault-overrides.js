@@ -20,9 +20,6 @@ export const PAUSED_OVERRIDES = {
 };
 
 export const UNSUPPORTED_OVERRIDES = {
-  "1:0x014e6da8f283c4af65b2aa0f201438680a004452": {
-    reason: "Lido Earn USD uses a non-standard pull mechanism we haven't yet integrated.",
-  },
   "999:0x81e064d0eb539de7c3170edf38c1a42cbd752a76": {
     reason: "Hyperbeat lstHYPE — Midas-style token; needs Issuance Vault mapping.",
   },
@@ -34,13 +31,35 @@ export const UNSUPPORTED_OVERRIDES = {
   },
 };
 
+// The indexer occasionally has the WRONG contract address for a vault (e.g.
+// it picked up a v2/test deployment instead of the live one). When we know
+// the canonical address, remap the indexer's vault_id to the real one so
+// /v1/quote/build can resolve it. Keys are the WRONG vault_id from the
+// indexer; values are { vault_id, address } of the real vault.
+export const VAULT_ALIASES = {
+  // Lido Earn USD — indexer has 0x014e6dA8 (zero TVL, unused). Real vault
+  // 0x4Ce1ac8F (symbol "earnUSD", $7M TVL, USDT-asset queue at 0x534d0beb).
+  "1:0x014e6da8f283c4af65b2aa0f201438680a004452": {
+    vault_id: "1:0x4ce1ac8f43e0e5bd7a346a98af777bf8fbea1981",
+    address:  "0x4Ce1ac8F43E0E5BD7A346A98aF777bF8fbeA1981",
+  },
+};
+
 export function applyVaultOverrides(row) {
   const vid = (row.vault_id || "").toLowerCase();
-  const c = CURATOR_OVERRIDES[vid];
+  // 1) Address aliases — remap before any other lookup so all overrides apply
+  // to the canonical vault id.
+  const alias = VAULT_ALIASES[vid];
+  if (alias) {
+    row.vault_id = alias.vault_id;
+    row.vault_address = alias.address;
+  }
+  const fid = (row.vault_id || "").toLowerCase();
+  const c = CURATOR_OVERRIDES[fid];
   if (c) row.curator = c;
-  const p = PAUSED_OVERRIDES[vid];
+  const p = PAUSED_OVERRIDES[fid];
   if (p) { row.paused = true; row.paused_reason = p.reason; }
-  const u = UNSUPPORTED_OVERRIDES[vid];
+  const u = UNSUPPORTED_OVERRIDES[fid];
   if (u) { row.unsupported = true; row.unsupported_reason = u.reason; }
   return row;
 }
