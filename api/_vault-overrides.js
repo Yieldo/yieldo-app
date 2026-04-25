@@ -31,35 +31,7 @@ export const UNSUPPORTED_OVERRIDES = {
   },
 };
 
-// The indexer occasionally has the WRONG contract address for a vault (e.g.
-// it picked up a v2/test deployment instead of the live one). When we know
-// the canonical address, remap the indexer's vault_id to the real one so
-// /v1/quote/build can resolve it. Keys are the WRONG vault_id from the
-// indexer; values are { vault_id, address } of the real vault.
-export const VAULT_ALIASES = {
-  // Lido Earn USD — indexer has 0x014e6dA8 (zero TVL, unused). Real vault
-  // 0x4Ce1ac8F (symbol "earnUSD", $7M TVL, USDT-asset queue at 0x534d0beb).
-  "1:0x014e6da8f283c4af65b2aa0f201438680a004452": {
-    vault_id: "1:0x4ce1ac8f43e0e5bd7a346a98af777bf8fbea1981",
-    address:  "0x4Ce1ac8F43E0E5BD7A346A98aF777bF8fbeA1981",
-  },
-  // Lido Earn ETH — indexer has 0x6A37725Ca (zero TVL, unused). Real vault
-  // 0xBBFC8683 (symbol "earnETH", ~107 ETH TVL).
-  "1:0x6a37725ca7f4ce81c004c955f7280d5c704a249e": {
-    vault_id: "1:0xbbfc8683c8fe8cf73777fede7ab9574935fea0a4",
-    address:  "0xBBFC8683C8fE8cF73777feDE7ab9574935fea0A4",
-  },
-};
-
 export function applyVaultOverrides(row) {
-  const vid = (row.vault_id || "").toLowerCase();
-  // 1) Address aliases — remap before any other lookup so all overrides apply
-  // to the canonical vault id.
-  const alias = VAULT_ALIASES[vid];
-  if (alias) {
-    row.vault_id = alias.vault_id;
-    row.vault_address = alias.address;
-  }
   const fid = (row.vault_id || "").toLowerCase();
   const c = CURATOR_OVERRIDES[fid];
   if (c) row.curator = c;
