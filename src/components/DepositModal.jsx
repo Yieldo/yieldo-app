@@ -264,10 +264,42 @@ function DepositModal({ vault, onClose }) {
   // re-quote the intent against real delivery (not the pre-bridged prediction).
   const preBridgeBalanceRef = useRef(null);
 
-  const allTokens = useMemo(() => ALL_TOKENS[fromChainId] || [], [fromChainId]);
+  // The vault's underlying asset — when the user is on the vault's own chain,
+  // depositing this token is the cheapest path (direct deposit, no bridge/swap
+  // fees). It MAY not be in our hardcoded ALL_TOKENS list (e.g., rsETH, NUSD,
+  // exotic curator tokens), so inject it dynamically.
+  const vaultUnderlying = useMemo(() => {
+    if (!_depositMetaRaw?.asset?.address || !_depositMetaRaw?.chain_id) return null;
+    if (fromChainId !== _depositMetaRaw.chain_id) return null; // only on the vault's own chain
+    return {
+      symbol: (_depositMetaRaw.asset.symbol || "").toUpperCase(),
+      address: _depositMetaRaw.asset.address,
+      decimals: _depositMetaRaw.asset.decimals ?? 18,
+      __underlying: true, // marker: this is the vault's native asset
+    };
+  }, [_depositMetaRaw, fromChainId]);
+
+  const allTokens = useMemo(() => {
+    const base = ALL_TOKENS[fromChainId] || [];
+    if (!vaultUnderlying) return base;
+    // Skip injection if the same address (or symbol) is already in the list
+    const exists = base.some(t =>
+      t.address.toLowerCase() === vaultUnderlying.address.toLowerCase()
+      || t.symbol.toLowerCase() === vaultUnderlying.symbol.toLowerCase()
+    );
+    return exists ? base : [vaultUnderlying, ...base];
+  }, [fromChainId, vaultUnderlying]);
+
   const popularSymbols = POPULAR_TOKENS[fromChainId] || [];
-  const popularTokens = useMemo(() => allTokens.filter(t => popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
-  const dropdownTokens = useMemo(() => allTokens.filter(t => !popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
+  // Always feature the vault's underlying token in the popular row when present —
+  // it's the optimal-cost deposit option for this vault.
+  const popularTokens = useMemo(() => {
+    const out = allTokens.filter(t => t.__underlying || popularSymbols.includes(t.symbol));
+    // Underlying first if it's there
+    out.sort((a, b) => (b.__underlying ? 1 : 0) - (a.__underlying ? 1 : 0));
+    return out;
+  }, [allTokens, popularSymbols]);
+  const dropdownTokens = useMemo(() => allTokens.filter(t => !t.__underlying && !popularSymbols.includes(t.symbol)), [allTokens, popularSymbols]);
 
   useEffect(() => {
     const tokens = ALL_TOKENS[fromChainId] || [];
