@@ -554,6 +554,7 @@ export function VaultExplorer({
             </div>
             {filtered.map(v => {
               const isEnr = enrolled?.has(v.id);
+              const isPaused = v.paused || v.unsupported;
               const rowStyle = {
                 display: "grid",
                 gridTemplateColumns: variant === "enroll"
@@ -563,6 +564,7 @@ export function VaultExplorer({
                 background: isEnr && variant === "enroll" ? "rgba(122,28,203,.04)" : "transparent",
                 minWidth: variant === "enroll" ? 960 : 900, cursor: "pointer", transition: "background .1s",
                 textDecoration: "none", color: "inherit",
+                opacity: isPaused ? 0.55 : 1,
               };
               return (
                 <Link
@@ -587,7 +589,16 @@ export function VaultExplorer({
                   <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                     <AssetIcon asset={v.asset} size={14} />
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6 }}>
+                        {v.name}
+                        {isPaused && (
+                          <span title={v.paused_reason || v.unsupported_reason || "Deposits paused"}
+                                style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                                         background: "rgba(217,119,6,0.14)", color: "#92400e", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                            Paused
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div>
                     </div>
                   </div>

@@ -17,28 +17,30 @@ export const PAUSED_OVERRIDES = {
     paused: true,
     reason: "Lido SyncDepositQueue paused upstream by Lido. Resumes when Lido unpauses (typically minutes to hours).",
   },
-  // Upshift currently has deposits paused on most of their vaults — confirmed
-  // on-chain via DepositsPaused() / "Deposits paused" reverts. Resumes when
-  // Upshift toggles their pause flag.
+  // Upshift vaults that revert our router's deposit with `DepositsPaused()` /
+  // "Deposits paused" / empty revert. Their UI is open, so the error is really
+  // an access-control reject — Upshift hasn't whitelisted our DepositRouter
+  // yet. Marked paused on our side until they whitelist 0x85f76c…, then we
+  // remove these entries.
   "1:0x80e1048ede66ec4c364b4f22c8768fc657ff6a42": {
     paused: true,
-    reason: "Upshift USDC: deposits paused upstream by Upshift.",
+    reason: "Upshift USDC: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
   "1:0xe9b725010a9e419412ed67d0fa5f3a5f40159d32": {
     paused: true,
-    reason: "Upshift Core USDC: deposits paused upstream by Upshift.",
+    reason: "Upshift Core USDC: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
   "1:0xe1b4d34e8754600962cd944b535180bd758e6c2e": {
     paused: true,
-    reason: "Upshift Kelp Gain: deposits paused upstream by Upshift.",
+    reason: "Upshift Kelp Gain: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
   "1:0xaeeb2fb279a5aa837367b9d2582f898a63b06ca1": {
     paused: true,
-    reason: "Upshift NUSD: deposits paused upstream by Upshift.",
+    reason: "Upshift NUSD: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
   "1:0xc824a08db624942c5e5f330d56530cd1598859fd": {
     paused: true,
-    reason: "Upshift High Growth ETH: deposits paused upstream by Upshift.",
+    reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
 };
 

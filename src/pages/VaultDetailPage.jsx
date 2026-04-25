@@ -414,7 +414,8 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
     noMin: !!depositMeta?.no_minimum,
   };
 
-  const depositDisabled = vaultType === "unsupported";
+  const depositDisabled = vaultType === "unsupported" || !!v.paused;
+  const pauseReason = v.paused_reason || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null);
 
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
@@ -470,11 +471,18 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
-          <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={depositDisabled ? "Deposits paused on protocol — not supported" : undefined}>{depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}</Btn>
+          <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>{depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}</Btn>
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
       <div style={{ padding: pad, maxWidth: 1200, margin: "0 auto" }}>
+        {pauseReason && (
+          <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
+                        background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.3)",
+                        color: C.amber || "#92400e", fontSize: 13, lineHeight: 1.5 }}>
+            <strong>Deposits paused.</strong> {pauseReason}
+          </div>
+        )}
         {/* Header */}
         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
           <Card style={{ flex: "1 1 0", padding: isMobile ? 16 : 24 }}>
