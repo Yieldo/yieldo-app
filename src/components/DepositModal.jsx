@@ -492,6 +492,11 @@ function DepositModal({ vault, onClose }) {
       }
     } catch (e) {
       if (isUserRejection(e)) {
+        // Mark step-2 record as abandoned so HistoryPage doesn't show "Pending"
+        // for hours just because the user rejected the second prompt.
+        if (step2.tracking_id) {
+          fetch(`${API}/v1/deposits/${step2.tracking_id}/abandon`, { method: "PATCH" }).catch(() => {});
+        }
         setStep2Status("rejected-deposit");
         setStep2Retryable("deposit");
         return;
@@ -682,7 +687,16 @@ function DepositModal({ vault, onClose }) {
         }).catch(() => {});
       }
       setStep("tracking");
-    } catch (e) { setErrorMsg(e.message || "Transaction failed"); setStep("error"); }
+    } catch (e) {
+      // User rejected in wallet OR tx broadcast failed. Either way, the build
+      // record is orphaned — mark it abandoned now so HistoryPage doesn't show
+      // it as "Pending" until the 4h timeout.
+      if (build.tracking_id && isUserRejection(e)) {
+        fetch(`${API}/v1/deposits/${build.tracking_id}/abandon`, { method: "PATCH" }).catch(() => {});
+      }
+      setErrorMsg(e.shortMessage || e.message || "Transaction failed");
+      setStep("error");
+    }
   };
 
   const needsChainSwitch = isConnected && walletChainId !== fromChainId;
