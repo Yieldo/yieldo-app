@@ -154,9 +154,11 @@ export default function HistoryPage() {
     refresh().finally(() => setLoading(false));
   }, [address, refresh]);
 
-  // Live status polling: while ANY transaction is pending/submitted, poll
-  // /v1/status (which calls LiFi + updates the DB) for each pending tx_hash.
-  // Then refresh the list. Stops automatically once nothing is pending.
+  // Live status polling. We resolve every pending tx aggressively so the user
+  // doesn't see "Pending" for hours when on-chain confirmation already happened:
+  //   1. Fire ONCE immediately on page load / when deposits change (no 25s wait)
+  //   2. Then poll every 6s while anything is still pending
+  //   3. Stop automatically once nothing is pending
   useEffect(() => {
     if (!address) return;
     const pendings = deposits.filter(d => (d.status === "pending" || d.status === "submitted") && d.tx_hash);
@@ -177,8 +179,9 @@ export default function HistoryPage() {
       }));
       refresh();
     };
+    tick(); // fire immediately, don't wait for first interval
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(tick, 25_000); // 25s — gentle on RPC + LiFi
+    pollRef.current = setInterval(tick, 6_000); // 6s — fast enough that "Pending" feels live
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [deposits, address, refresh]);
 

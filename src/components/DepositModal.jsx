@@ -421,6 +421,7 @@ function DepositModal({ vault, onClose }) {
     return {
       transaction_request: b.transaction_request,
       approval: b.approval,
+      tracking_id: b.tracking_id, // capture so sendStep2Deposit can PATCH the tx_hash
     };
   };
 
@@ -476,6 +477,16 @@ function DepositModal({ vault, onClose }) {
       }
       const hash = await sendDeposit({ to: txReq.to, data: txReq.data, value: BigInt(txReq.value || "0"), chainId: txReq.chain_id });
       setStep2TxHash(hash);
+      // Close the loop with our backend so the step-2 tracking record (created by
+      // freshStep2 build) gets its tx_hash and HistoryPage's poll can resolve it.
+      // Without this, step 2 stays "pending" forever even after on-chain success.
+      if (step2.tracking_id) {
+        fetch(`${API}/v1/deposits/${step2.tracking_id}/tx`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tx_hash: hash }),
+        }).catch(() => {});
+      }
     } catch (e) {
       if (isUserRejection(e)) {
         setStep2Status("rejected-deposit");
