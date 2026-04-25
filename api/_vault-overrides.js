@@ -34,10 +34,6 @@ export const PAUSED_OVERRIDES = {
     paused: true,
     reason: "Upshift Kelp Gain: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
   },
-  "1:0xaeeb2fb279a5aa837367b9d2582f898a63b06ca1": {
-    paused: true,
-    reason: "Upshift NUSD: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
-  },
   "1:0xc824a08db624942c5e5f330d56530cd1598859fd": {
     paused: true,
     reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
