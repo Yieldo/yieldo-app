@@ -29,6 +29,9 @@ export const UNSUPPORTED_OVERRIDES = {
   "999:0x5e105266db42f78fa814322bce7f388b4c2e61eb": {
     reason: "Hyperbeat USDT — needs Issuance Vault mapping.",
   },
+  "1:0x07ed467acd4ffd13023046968b0859781cb90d9b": {
+    reason: "9Summits Flagship ETH — Mellow architecture; needs share_token + router queue mapping (same as Lido Earn).",
+  },
 };
 
 export function applyVaultOverrides(row) {
