@@ -13,7 +13,7 @@ export const CURATOR_OVERRIDES = {
 };
 
 export const PAUSED_OVERRIDES = {
-  "1:0x6a37725ca7f4ce81c004c955f7280d5c704a249e": {
+  "1:0xbbfc8683c8fe8cf73777fede7ab9574935fea0a4": {
     paused: true,
     reason: "Lido SyncDepositQueue paused upstream by Lido. Resumes when Lido unpauses (typically minutes to hours).",
   },
@@ -42,6 +42,12 @@ export const VAULT_ALIASES = {
   "1:0x014e6da8f283c4af65b2aa0f201438680a004452": {
     vault_id: "1:0x4ce1ac8f43e0e5bd7a346a98af777bf8fbea1981",
     address:  "0x4Ce1ac8F43E0E5BD7A346A98aF777bF8fbeA1981",
+  },
+  // Lido Earn ETH — indexer has 0x6A37725Ca (zero TVL, unused). Real vault
+  // 0xBBFC8683 (symbol "earnETH", ~107 ETH TVL).
+  "1:0x6a37725ca7f4ce81c004c955f7280d5c704a249e": {
+    vault_id: "1:0xbbfc8683c8fe8cf73777fede7ab9574935fea0a4",
+    address:  "0xBBFC8683C8fE8cF73777feDE7ab9574935fea0A4",
   },
 };
 
