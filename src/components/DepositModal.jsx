@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAccount, useReadContracts, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { useAccount, useBalance, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
@@ -18,9 +18,9 @@ const POPULAR_TOKENS = {
   8453: ["ETH", "USDC", "WETH", "cbBTC", "wstETH"],
   42161: ["ETH", "USDC", "USDT", "WETH", "WBTC"],
   10: ["ETH", "USDC", "USDT", "WETH"],
-  999: ["HYPE", "USDC", "USDT0", "WHYPE"],
-  143: ["MON", "USDC", "WETH"],
-  747474: ["ETH", "USDC"],
+  999: ["HYPE", "USDC", "USDT0", "WHYPE", "UBTC"],
+  143: ["MON", "USDC", "WETH", "AUSD"],
+  747474: ["ETH", "USDC", "WETH", "WBTC", "AUSD"],
 };
 
 // Native ETH marker used by LiFi / our API for source-chain native deposits.
@@ -99,17 +99,33 @@ const ALL_TOKENS = {
     { symbol: "USDT0", address: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", decimals: 6 },
     { symbol: "WHYPE", address: "0x5555555555555555555555555555555555555555", decimals: 18 },
     { symbol: "UBTC", address: "0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463", decimals: 8 },
+    { symbol: "USDe", address: "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34", decimals: 18 },
+    { symbol: "USDT", address: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", decimals: 6 },
+    { symbol: "USR", address: "0x66E7c10e6f5C90B70C49F71B3Cf7E7a0eD5dD4fA", decimals: 18 },
+    { symbol: "LHYPE", address: "0x5748ae796AE46A4F1348a1693de4b50560485562", decimals: 18 },
+    { symbol: "stHYPE", address: "0xfFaA4a3D97fE9107Cef8a3F48c069F577Ff76cC1", decimals: 18 },
   ],
   143: [
     { symbol: "MON", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", decimals: 6 },
     { symbol: "WETH", address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37", decimals: 18 },
+    { symbol: "WMON", address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", decimals: 18 },
     { symbol: "AUSD", address: "0x5af9eD8A57Fa07A1fCeB5bB1eD50B11E4b5bF53D", decimals: 6 },
+    { symbol: "USDT", address: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D", decimals: 6 },
+    { symbol: "WBTC", address: "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d", decimals: 8 },
   ],
   747474: [
     { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0x8Ff7Af1de8dC20cA3Eae3cf0bF4A93894706B7F4", decimals: 6 },
-    { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
+    { symbol: "WETH", address: "0xee7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62", decimals: 18 },
+    { symbol: "USDT", address: "0x2DCa96907fde857dd3D816880A0df407eeB2D2F2", decimals: 6 },
+    { symbol: "WBTC", address: "0x0913dA6Da4b42f538B445599b46Bb4622342Cf52", decimals: 8 },
+    { symbol: "AUSD", address: "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a", decimals: 6 },
+    { symbol: "KAT", address: "0x7F1f4b4b29f5058fA32CC7a97141b8D7e5abdC2d", decimals: 18 },
+    { symbol: "vbUSDC", address: "0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36", decimals: 6 },
+    { symbol: "vbUSDT", address: "0x2DCa96907fde857dd3D816880A0df407eeB2D2F2", decimals: 6 },
+    { symbol: "vbWBTC", address: "0x0913dA6Da4b42f538B445599b46Bb4622342Cf52", decimals: 8 },
+    { symbol: "vbETH", address: "0xee7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62", decimals: 18 },
   ],
 };
 
@@ -161,10 +177,6 @@ const C = {
   red: "#d93636", redBg: "#FFF0F0",
   amber: "#d97706",
 };
-
-const ERC20_ABI = [
-  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
-];
 
 const getExplorerTx = (chainId, hash) => `${EXPLORERS[chainId] || EXPLORERS[1]}/tx/${hash}`;
 
@@ -262,21 +274,24 @@ function DepositModal({ vault, onClose }) {
     setFromToken(match || tokens[0] || null);
   }, [fromChainId]);
 
-  const tokenContracts = useMemo(() => {
-    if (!isConnected || !address || !fromToken) return [];
-    return [{ address: fromToken.address, abi: ERC20_ABI, functionName: "balanceOf", args: [address], chainId: fromChainId }];
-  }, [isConnected, address, fromToken, fromChainId]);
-
-  const { data: balanceResults } = useReadContracts({
-    contracts: tokenContracts,
-    query: { enabled: tokenContracts.length > 0, staleTime: 30_000 },
+  // Single balance hook that handles BOTH native (ETH/HYPE/MON) and ERC-20.
+  // wagmi's useBalance treats `token: undefined` as native — pass the token
+  // address only when it's an actual contract. Without this branch, native
+  // selections call balanceOf(0xeee...eee) which always returns "no balance".
+  const { data: balanceData } = useBalance({
+    address: isConnected && address ? address : undefined,
+    chainId: fromChainId,
+    token: fromToken && !fromToken.native ? fromToken.address : undefined,
+    query: {
+      enabled: !!isConnected && !!address && !!fromToken,
+      staleTime: 30_000,
+    },
   });
 
   const tokenBalance = useMemo(() => {
-    if (!balanceResults?.[0] || balanceResults[0].status !== "success" || !fromToken) return null;
-    const raw = BigInt(balanceResults[0].result);
-    return { raw, formatted: formatUnits(raw, fromToken.decimals) };
-  }, [balanceResults, fromToken]);
+    if (!balanceData || !fromToken) return null;
+    return { raw: balanceData.value, formatted: formatUnits(balanceData.value, fromToken.decimals) };
+  }, [balanceData, fromToken]);
 
   // Referral resolution (debounced)
   useEffect(() => {
