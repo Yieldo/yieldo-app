@@ -42,6 +42,19 @@ export const PAUSED_OVERRIDES = {
   },
 };
 
+// The indexer occasionally has the wrong asset symbol/decimals for a vault
+// (it reads a parent strategy's asset rather than the vault's true asset()).
+// We override here so the UI shows the actual deposit token instead of the
+// misleading default. Confirmed on-chain via vault.asset().
+export const ASSET_OVERRIDES = {
+  // Upshift Kelp Gain — vault.asset() = rsETH, indexer says weth
+  "1:0xe1b4d34e8754600962cd944b535180bd758e6c2e": { asset: "rseth", asset_decimals: 18 },
+  // Upshift High Growth ETH — vault.asset() = rsETH, indexer says weth
+  "1:0xc824a08db624942c5e5f330d56530cd1598859fd": { asset: "rseth", asset_decimals: 18 },
+  // Upshift NUSD — vault.asset() = Neutrl USD (NUSD)
+  "1:0xaeeb2fb279a5aa837367b9d2582f898a63b06ca1": { asset: "nusd", asset_decimals: 18 },
+};
+
 export const UNSUPPORTED_OVERRIDES = {
   "999:0x81e064d0eb539de7c3170edf38c1a42cbd752a76": {
     reason: "Hyperbeat lstHYPE — Midas-style token; needs Issuance Vault mapping.",
@@ -65,6 +78,11 @@ export function applyVaultOverrides(row) {
   if (p) { row.paused = true; row.paused_reason = p.reason; }
   const u = UNSUPPORTED_OVERRIDES[fid];
   if (u) { row.unsupported = true; row.unsupported_reason = u.reason; }
+  const a = ASSET_OVERRIDES[fid];
+  if (a) {
+    if (a.asset) row.asset = a.asset;
+    if (a.asset_decimals) row.asset_decimals = a.asset_decimals;
+  }
   return row;
 }
 
