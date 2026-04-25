@@ -725,6 +725,36 @@ function DepositModal({ vault, onClose }) {
     );
   }
 
+  // Per-vault deposit blockers from the indexer/Vercel layer.
+  if (vault?.paused) {
+    return (
+      <Overlay onClose={onClose}>
+        <div style={{ textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⏸️</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Deposits Paused</div>
+          <div style={{ fontSize: 14, color: C.text3, marginBottom: 20, lineHeight: 1.5 }}>
+            {vault.paused_reason || "This vault's deposit queue is temporarily paused upstream. Try again in a few minutes."}
+          </div>
+          <ActionBtn onClick={onClose}>Close</ActionBtn>
+        </div>
+      </Overlay>
+    );
+  }
+  if (vault?.unsupported) {
+    return (
+      <Overlay onClose={onClose}>
+        <div style={{ textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Deposits Unavailable</div>
+          <div style={{ fontSize: 14, color: C.text3, marginBottom: 20, lineHeight: 1.5 }}>
+            {vault.unsupported_reason || "This vault uses a deposit interface we haven't integrated yet."}
+          </div>
+          <ActionBtn onClick={onClose}>Close</ActionBtn>
+        </div>
+      </Overlay>
+    );
+  }
+
   return (
     <Overlay onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>

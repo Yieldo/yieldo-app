@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import { applyCuratorOverride } from "./_curator-overrides.js";
+import { applyVaultOverrides as applyCuratorOverride } from "./_vault-overrides.js";
 
 let cachedClient = null;
 
