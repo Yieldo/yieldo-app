@@ -159,7 +159,16 @@ const KNOWN = {
   "42161:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9": "USDT",
   "10:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
   "10:0x0b2c639c533813f4aa9d7837caf62653d097ff85": "USDC",
+  "43114:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "AVAX",
   "43114:0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e": "USDC",
+  "999:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "HYPE",
+  "999:0x5555555555555555555555555555555555555555": "WHYPE",
+  "999:0xb88339cb7199b77e23db6e890353e22632ba630f": "USDC",
+  "999:0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb": "USDT0",
+  "143:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "MON",
+  "143:0xf817257fed379853cde0fa4f97ab987181b1e5ea": "USDC",
+  "8453:0x4200000000000000000000000000000000000006": "WETH",
+  "8453:0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": "cbBTC",
 };
 function guessTokenSymbol(chain, addr) {
   if (!addr) return null;

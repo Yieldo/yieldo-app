@@ -56,10 +56,18 @@ const TOKEN_META = {
   "10:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
   "10:0x0b2c639c533813f4aa9d7837caf62653d097ff85": { symbol: "USDC", decimals: 6 },
   // Avalanche
+  "43114:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "AVAX", decimals: 18 },
   "43114:0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e": { symbol: "USDC", decimals: 6 },
   // HyperEVM
+  "999:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "HYPE", decimals: 18 },
   "999:0x5555555555555555555555555555555555555555": { symbol: "WHYPE", decimals: 18 },
   "999:0xb88339cb7199b77e23db6e890353e22632ba630f": { symbol: "USDC", decimals: 6 },
+  "999:0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb": { symbol: "USDT0", decimals: 6 },
+  "999:0x9fdbda0a5e284c32744d2f17ee5c74b284993463": { symbol: "UBTC", decimals: 8 },
+  // Monad
+  "143:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "MON", decimals: 18 },
+  "143:0xf817257fed379853cde0fa4f97ab987181b1e5ea": { symbol: "USDC", decimals: 6 },
+  "143:0xb5a30b0fdc5ea94a52fdc42e3e9760cb8449fb37": { symbol: "WETH", decimals: 18 },
 };
 
 function resolveToken(chainId, address) {
