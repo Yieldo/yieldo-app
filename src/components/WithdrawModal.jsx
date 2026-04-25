@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useAccount, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId } from "wagmi";
+import { useAccount, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId, useConfig } from "wagmi";
+import { readContract } from "wagmi/actions";
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { CHAIN_NAMES as CHAINS, CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
 
@@ -69,6 +70,7 @@ export default function WithdrawModal({ position, onClose }) {
 
   const { writeContractAsync } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
+  const wagmiConfig = useConfig();
   const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash || undefined });
 
   const getQuote = useCallback(async () => {
@@ -109,14 +111,27 @@ export default function WithdrawModal({ position, onClose }) {
       }
 
       if (needsApproval) {
-        setView("approving");
-        const approveTx = await writeContractAsync({
-          address: position.vault_address,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [quote.approval.spender_address, BigInt(sharesBN.toString())],
-        });
-        setApprovalTxHash(approveTx);
+        // Skip the approval prompt entirely if the user already has enough
+        // shares approved to the spender (repeat withdraws, infinite approvals,
+        // or a previously-cancelled withdraw where approval was already signed).
+        let cur = 0n;
+        try {
+          cur = BigInt(await readContract(wagmiConfig, {
+            chainId: position.chain_id, address: position.vault_address,
+            abi: erc20Abi, functionName: "allowance",
+            args: [address, quote.approval.spender_address],
+          }));
+        } catch {}
+        if (cur < BigInt(sharesBN.toString())) {
+          setView("approving");
+          const approveTx = await writeContractAsync({
+            address: position.vault_address,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [quote.approval.spender_address, BigInt(sharesBN.toString())],
+          });
+          setApprovalTxHash(approveTx);
+        }
       }
 
       setView("signing");

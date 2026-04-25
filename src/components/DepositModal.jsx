@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAccount, useBalance, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { useAccount, useBalance, useWriteContract, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useConfig } from "wagmi";
+import { readContract } from "wagmi/actions";
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
@@ -330,6 +331,25 @@ function DepositModal({ vault, onClose }) {
 
   const { writeContractAsync: writeApproval } = useWriteContract();
   const { sendTransactionAsync: sendDeposit } = useSendTransaction();
+  const wagmiConfig = useConfig();
+
+  // Returns true iff the user already has >= `needed` allowance for `spender`
+  // on `token` for the given chain. Skips a redundant approve when the user
+  // previously approved a higher amount (e.g., infinite approval, or cancelled
+  // a previous deposit but already signed approval, or repeat deposits to the
+  // same vault).
+  const hasSufficientAllowance = useCallback(async (token, spender, needed, chainId) => {
+    if (!token || !spender || !address) return false;
+    try {
+      const cur = await readContract(wagmiConfig, {
+        chainId, address: token, abi: erc20Abi, functionName: "allowance",
+        args: [address, spender],
+      });
+      return BigInt(cur) >= BigInt(needed);
+    } catch {
+      return false; // on error, fall through to approve — safer than skipping
+    }
+  }, [wagmiConfig, address]);
 
   const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({
     hash: approvalTxHash, query: { enabled: !!approvalTxHash },
@@ -448,13 +468,19 @@ function DepositModal({ vault, onClose }) {
         setFreshStep2(step2);
       }
       if (step2.approval && BigInt(step2.approval.amount) > 0n) {
-        setStep2Status("approving2");
-        const appHash = await writeApproval({
-          address: step2.approval.token_address, abi: erc20Abi, functionName: "approve",
-          args: [step2.approval.spender_address, BigInt(step2.approval.amount)], chainId: destChainId,
-        });
-        setStep2ApprovalHash(appHash);
-        return; // Wait for approval confirmation via useEffect below
+        const enough = await hasSufficientAllowance(
+          step2.approval.token_address, step2.approval.spender_address,
+          step2.approval.amount, destChainId,
+        );
+        if (!enough) {
+          setStep2Status("approving2");
+          const appHash = await writeApproval({
+            address: step2.approval.token_address, abi: erc20Abi, functionName: "approve",
+            args: [step2.approval.spender_address, BigInt(step2.approval.amount)], chainId: destChainId,
+          });
+          setStep2ApprovalHash(appHash);
+          return; // Wait for approval confirmation via useEffect below
+        }
       }
       await sendStep2Deposit(step2);
     } catch (e) {
@@ -660,11 +686,21 @@ function DepositModal({ vault, onClose }) {
       const build = await res.json();
       setBuildData(build);
       if (build.approval) {
-        const hash = await writeApproval({
-          address: build.approval.token_address, abi: erc20Abi, functionName: "approve",
-          args: [build.approval.spender_address, BigInt(build.approval.amount)], chainId: fromChainId,
-        });
-        setApprovalTxHash(hash);
+        // Skip redundant approve if the user already has enough allowance
+        // (infinite approval, repeat deposit, or cancelled mid-flow after signing approval).
+        const enough = await hasSufficientAllowance(
+          build.approval.token_address, build.approval.spender_address,
+          build.approval.amount, fromChainId,
+        );
+        if (enough) {
+          await executeDepositWithBuild(build);
+        } else {
+          const hash = await writeApproval({
+            address: build.approval.token_address, abi: erc20Abi, functionName: "approve",
+            args: [build.approval.spender_address, BigInt(build.approval.amount)], chainId: fromChainId,
+          });
+          setApprovalTxHash(hash);
+        }
       } else {
         await executeDepositWithBuild(build);
       }
