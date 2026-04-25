@@ -3,6 +3,7 @@ import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
+import TxFlowDiagram from "../components/TxFlowDiagram.jsx";
 import { CHAIN_NAMES, CHAIN_EXPLORERS, EXPLORER_NAMES } from "../chains.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -222,14 +223,43 @@ export default function HistoryPage() {
       )}
 
       {deposits.length > 0 && (() => {
-        // Counts per status for the filter chips. Pending+submitted bucket.
-        const counts = deposits.reduce((acc, d) => {
-          const s = d.status === "submitted" ? "pending" : d.status;
+        // Group two-step deposits: any record with parent_tracking_id is the
+        // step-2 leg of its parent's bridge. We render one card per parent and
+        // hide step-2 records from the top-level list (their data goes into
+        // the parent card's flow diagram instead).
+        const childByParent = new Map();
+        for (const d of deposits) {
+          const pid = d.parent_tracking_id;
+          if (pid) {
+            if (!childByParent.has(pid)) childByParent.set(pid, []);
+            childByParent.get(pid).push(d);
+          }
+        }
+        const childIds = new Set();
+        for (const [, kids] of childByParent) for (const k of kids) childIds.add(k._id || k.tracking_id);
+        const topLevel = deposits.filter(d => !d.parent_tracking_id);
+
+        // Counts per status — count by the EFFECTIVE status of each top-level
+        // group (parent's status overridden by terminal child status if any).
+        const effectiveStatus = (rec) => {
+          const id = rec._id || rec.tracking_id;
+          const kids = id ? childByParent.get(id) : null;
+          if (!kids || !kids.length) return rec.status;
+          // If any leg failed → failed. If any leg partial → partial. If all complete → completed.
+          if (kids.some(k => k.status === "failed")) return "failed";
+          if (kids.some(k => k.status === "partial")) return "partial";
+          if (rec.status === "completed" && kids.every(k => k.status === "completed")) return "completed";
+          return rec.status === "completed" ? (kids[0].status || "pending") : rec.status;
+        };
+
+        const counts = topLevel.reduce((acc, d) => {
+          const s0 = effectiveStatus(d);
+          const s = s0 === "submitted" ? "pending" : s0;
           acc[s] = (acc[s] || 0) + 1;
           return acc;
         }, {});
         const matcher = (FILTERS.find(f => f.id === filter) || FILTERS[0]).match;
-        const filtered = deposits.filter(d => matcher(d.status));
+        const filtered = topLevel.filter(d => matcher(effectiveStatus(d)));
         const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
         const safePage = Math.min(page, totalPages);
         const start = (safePage - 1) * PAGE_SIZE;
@@ -242,7 +272,7 @@ export default function HistoryPage() {
             {/* Filter chips */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
               {FILTERS.map(f => {
-                const n = f.id === "all" ? deposits.length : (counts[f.id] || 0);
+                const n = f.id === "all" ? topLevel.length : (counts[f.id] || 0);
                 const active = filter === f.id;
                 return (
                   <button key={f.id} onClick={() => switchFilter(f.id)}
@@ -271,7 +301,14 @@ export default function HistoryPage() {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {slice.map((d, i) => {
+              {slice.map((parent, i) => {
+                const parentId = parent._id || parent.tracking_id;
+                const children = parentId ? (childByParent.get(parentId) || []) : [];
+                const legs = [parent, ...children]; // bridge first, deposit second
+                // Use the EFFECTIVE status (worst child overrides happy parent).
+                const eff = effectiveStatus(parent);
+                const d = { ...parent, status: eff };
+                const isTwoStep = children.length > 0;
             const st = STATUS_STYLES[d.status] || STATUS_STYLES.submitted;
             const isPending = d.status === "pending" || d.status === "submitted";
             const isPartial = d.status === "partial";
@@ -316,6 +353,12 @@ export default function HistoryPage() {
                           Cross-chain · {d.bridge || "LiFi"}
                         </span>
                       )}
+                      {isTwoStep && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
+                                       background: "rgba(46,154,184,0.10)", color: C.teal, whiteSpace: "nowrap" }}>
+                          Two-step · bridge + deposit
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
                       {d.vault_name || d.vault_id || "Unknown vault"}
@@ -329,6 +372,15 @@ export default function HistoryPage() {
                       {sentAmount} <span style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>{sentToken.symbol}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Bubble flow diagram — visualises the full path of this txn */}
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10,
+                              background: C.bg, border: `1px solid ${C.border}` }}>
+                  <TxFlowDiagram
+                    legs={legs}
+                    vault={{ name: d.vault_name, asset_symbol: sentToken.symbol }}
+                  />
                 </div>
 
                 {/* PARTIAL outcome — show what the user actually got back */}
@@ -357,7 +409,7 @@ export default function HistoryPage() {
                   {srcUrl && (
                     <a href={srcUrl} target="_blank" rel="noopener noreferrer"
                        style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
-                      {fromExplorerName} ↗
+                      {fromExplorerName}{isTwoStep ? " (bridge)" : ""} ↗
                     </a>
                   )}
                   {destUrl && (
@@ -366,6 +418,19 @@ export default function HistoryPage() {
                       {toExplorerName} (dest) ↗
                     </a>
                   )}
+                  {/* Step-2 explorer link for two-step flows */}
+                  {isTwoStep && children.map((c, ci) => {
+                    if (!c.tx_hash) return null;
+                    const cExp = CHAIN_EXPLORERS[c.from_chain_id];
+                    const cName = EXPLORER_NAMES[c.from_chain_id] || "Step 2 explorer";
+                    if (!cExp) return null;
+                    return (
+                      <a key={`step2-${ci}`} href={`${cExp}/tx/${c.tx_hash}`} target="_blank" rel="noopener noreferrer"
+                         style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
+                        {cName} (deposit) ↗
+                      </a>
+                    );
+                  })}
                   {d.lifi_explorer && (
                     <a href={d.lifi_explorer} target="_blank" rel="noopener noreferrer"
                        style={{ fontSize: 12, color: C.purple, textDecoration: "none", fontWeight: 500 }}>

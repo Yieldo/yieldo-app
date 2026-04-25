@@ -414,6 +414,9 @@ function DepositModal({ vault, onClose }) {
         referrer_handle: referralResolved?.handle || undefined,
         partner_id: referralResolved?.handle || "",
         partner_type: referralResolved?.handle ? 1 : 0,
+        // Link this step-2 record back to its parent bridge so HistoryPage
+        // can show one card with both legs instead of two separate entries.
+        parent_tracking_id: buildData?.tracking_id,
       }),
     });
     if (!bRes.ok) throw new Error("Fresh step-2 build failed: " + bRes.status);
