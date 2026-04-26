@@ -108,7 +108,11 @@ const ALL_TOKENS = {
   ],
   143: [
     { symbol: "MON", address: NATIVE_ETH, decimals: 18, native: true },
-    { symbol: "USDC", address: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", decimals: 6 },
+    // Monad has multiple USDC contracts. This is the one our Hyperithm /
+    // Yuzu / Upshift vaults take as `asset()`. The other (0xf817257f...) is
+    // a different/older deployment — using it here causes "No route found"
+    // because backend's vault.asset() match fails.
+    { symbol: "USDC", address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6 },
     { symbol: "WETH", address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37", decimals: 18 },
     { symbol: "WMON", address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", decimals: 18 },
     { symbol: "AUSD", address: "0x5af9eD8A57Fa07A1fCeB5bB1eD50B11E4b5bF53D", decimals: 6 },
