@@ -63,9 +63,8 @@ export const ASSET_OVERRIDES = {
 export const UNSUPPORTED_OVERRIDES = {
   // Hyperbeat lstHYPE wired via HyperbeatStakingAdapter (IC 0x205aC1e0…).
   // Removed from unsupported list — accepts WHYPE for direct deposit.
-  "999:0x441794d6a8f9a3739f5d4e98a728937b33489d29": {
-    reason: "liquidHYPE — needs Issuance Vault mapping.",
-  },
+  // liquidHYPE wired via HyperbeatStakingAdapter (IC 0x5bfb09Dd…).
+  // Removed from unsupported list — accepts beHYPE for direct deposit.
   // Hyperbeat USDT now wired (Midas IV at 0xbE8A4f1a... on HyperEVM router).
   // Removed from unsupported list — accepts USDT0/USDe/USR as direct deposits.
   "1:0x07ed467acd4ffd13023046968b0859781cb90d9b": {
