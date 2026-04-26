@@ -402,8 +402,20 @@ function DepositModal({ vault, onClose }) {
 
   useEffect(() => {
     if (depositConfirmed && step === "tracking") {
-      const isCrossChain = buildData?.tracking?.from_chain_id !== buildData?.tracking?.to_chain_id;
-      if (!isCrossChain) finishDeposit("completed");
+      // For ANY two-step flow (cross-chain bridge OR same-chain swap into a
+      // non-composer vault like Midas/Veda/IPOR/Lido), we still need to fire
+      // step 2 after step 1 confirms. Only single-tx flows finish here.
+      if (buildData?.two_step) {
+        const isCrossChain = buildData?.tracking?.from_chain_id !== buildData?.tracking?.to_chain_id;
+        if (!isCrossChain) {
+          // Same-chain two-step: source tx (swap) is done — fire deposit immediately.
+          executeStep2();
+        }
+        // Cross-chain two-step: bridge needs to deliver first; step 2 is fired
+        // by the LiFi-status polling effect when receiving.txHash arrives.
+      } else {
+        finishDeposit("completed");
+      }
     }
   }, [depositConfirmed]);
 
