@@ -20,7 +20,7 @@ const POPULAR_TOKENS = {
   42161: ["ETH", "USDC", "USDT", "WETH", "WBTC"],
   10: ["ETH", "USDC", "USDT", "WETH"],
   999: ["HYPE", "USDC", "USDT0", "WHYPE", "UBTC"],
-  143: ["MON", "USDC", "WETH", "AUSD"],
+  143: ["MON", "USDC", "AUSD", "WETH"],
   747474: ["ETH", "USDC", "WETH", "WBTC", "AUSD"],
 };
 
@@ -107,17 +107,13 @@ const ALL_TOKENS = {
     { symbol: "stHYPE", address: "0xfFaA4a3D97fE9107Cef8a3F48c069F577Ff76cC1", decimals: 18 },
   ],
   143: [
-    { symbol: "MON", address: NATIVE_ETH, decimals: 18, native: true },
-    // Monad has multiple USDC contracts. This is the one our Hyperithm /
-    // Yuzu / Upshift vaults take as `asset()`. The other (0xf817257f...) is
-    // a different/older deployment — using it here causes "No route found"
-    // because backend's vault.asset() match fails.
+    // All Monad ERC-20 addresses verified on-chain via vault.asset() —
+    // previous addresses were testnet artifacts, which is why balance reads
+    // silently failed (no contract at those addresses on mainnet).
+    { symbol: "MON",  address: NATIVE_ETH, decimals: 18, native: true },
     { symbol: "USDC", address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6 },
-    { symbol: "WETH", address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37", decimals: 18 },
-    { symbol: "WMON", address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", decimals: 18 },
-    { symbol: "AUSD", address: "0x5af9eD8A57Fa07A1fCeB5bB1eD50B11E4b5bF53D", decimals: 6 },
-    { symbol: "USDT", address: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D", decimals: 6 },
-    { symbol: "WBTC", address: "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d", decimals: 8 },
+    { symbol: "AUSD", address: "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a", decimals: 6 },
+    { symbol: "WETH", address: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242", decimals: 18 },
   ],
   747474: [
     { symbol: "ETH", address: NATIVE_ETH, decimals: 18, native: true },
