@@ -12,38 +12,35 @@ export const CURATOR_OVERRIDES = {
   "1:0x5f46d540b6ed704c3c8789105f30e075aa900726": "Ether.fi", // Liquid BTC
 };
 
+// User-facing messages only — no internal jargon (architecture names, contract
+// addresses, "router queue mapping" etc). Two flavours:
+//   - paused upstream by the protocol → "Deposits temporarily paused by <protocol>"
+//   - integration not yet enabled on our side → handled in UNSUPPORTED_OVERRIDES
+//     with an "Under maintenance" message.
 export const PAUSED_OVERRIDES = {
   "1:0xbbfc8683c8fe8cf73777fede7ab9574935fea0a4": {
     paused: true,
-    reason: "Lido SyncDepositQueue paused upstream by Lido. Resumes when Lido unpauses (typically minutes to hours).",
+    reason: "Deposits temporarily paused by Lido. Resumes when they reopen the queue.",
   },
-  // Upshift vaults that revert our router's deposit with `DepositsPaused()` /
-  // "Deposits paused" / empty revert. Their UI is open, so the error is really
-  // an access-control reject — Upshift hasn't whitelisted our DepositRouter
-  // yet. Marked paused on our side until they whitelist 0x85f76c…, then we
-  // remove these entries.
   "1:0x80e1048ede66ec4c364b4f22c8768fc657ff6a42": {
     paused: true,
-    reason: "Upshift USDC: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
+    reason: "Deposits temporarily unavailable. Please check back later.",
   },
   "1:0xe9b725010a9e419412ed67d0fa5f3a5f40159d32": {
     paused: true,
-    reason: "Upshift Core USDC: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
+    reason: "Deposits temporarily unavailable. Please check back later.",
   },
   "1:0xe1b4d34e8754600962cd944b535180bd758e6c2e": {
     paused: true,
-    reason: "Upshift Kelp Gain: direct router deposits aren't whitelisted yet. Deposit via Upshift's app meanwhile.",
+    reason: "Deposits temporarily unavailable. Please check back later.",
   },
   "1:0xc824a08db624942c5e5f330d56530cd1598859fd": {
     paused: true,
-    reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet (vault rejects external callers). Deposit via Upshift's app meanwhile.",
+    reason: "Deposits temporarily unavailable. Please check back later.",
   },
-  // Hyperbeat Ultra HYPE: vault contract returns DepositsPaused() to ANY caller
-  // (incl. an EOA going direct). Confirmed via on-chain probe. Will resume
-  // when Hyperbeat unsets their pause flag.
   "999:0x96c6cbb6251ee1c257b2162ca0f39aa5fa44b1fb": {
     paused: true,
-    reason: "Hyperbeat Ultra HYPE: deposits paused upstream by Hyperbeat. Resumes when they unpause the vault contract.",
+    reason: "Deposits temporarily paused by Hyperbeat. Resumes when they reopen the vault.",
   },
 };
 
@@ -61,14 +58,8 @@ export const ASSET_OVERRIDES = {
 };
 
 export const UNSUPPORTED_OVERRIDES = {
-  // Hyperbeat lstHYPE wired via HyperbeatStakingAdapter (IC 0x205aC1e0…).
-  // Removed from unsupported list — accepts WHYPE for direct deposit.
-  // liquidHYPE wired via HyperbeatStakingAdapter (IC 0x5bfb09Dd…).
-  // Removed from unsupported list — accepts beHYPE for direct deposit.
-  // Hyperbeat USDT now wired (Midas IV at 0xbE8A4f1a... on HyperEVM router).
-  // Removed from unsupported list — accepts USDT0/USDe/USR as direct deposits.
   "1:0x07ed467acd4ffd13023046968b0859781cb90d9b": {
-    reason: "9Summits Flagship ETH — Mellow architecture; needs share_token + router queue mapping (same as Lido Earn).",
+    reason: "Under maintenance — integration in progress. Please check back soon.",
   },
 };
 
