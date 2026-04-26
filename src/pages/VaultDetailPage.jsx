@@ -414,8 +414,11 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
     noMin: !!depositMeta?.no_minimum,
   };
 
-  const depositDisabled = vaultType === "unsupported" || !!v.paused;
-  const pauseReason = v.paused_reason || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null);
+  // Guard against `v` being undefined during initial load — VaultDetailPage
+  // renders before useVaultDetail resolves, and dereferencing v.paused without
+  // optional-chaining throws and white-screens the page.
+  const depositDisabled = vaultType === "unsupported" || !!v?.paused;
+  const pauseReason = v?.paused_reason || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null);
 
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
