@@ -38,6 +38,13 @@ export const PAUSED_OVERRIDES = {
     paused: true,
     reason: "Upshift High Growth ETH: direct router deposits aren't whitelisted yet (vault rejects external callers). Deposit via Upshift's app meanwhile.",
   },
+  // Hyperbeat Ultra HYPE: vault contract returns DepositsPaused() to ANY caller
+  // (incl. an EOA going direct). Confirmed via on-chain probe. Will resume
+  // when Hyperbeat unsets their pause flag.
+  "999:0x96c6cbb6251ee1c257b2162ca0f39aa5fa44b1fb": {
+    paused: true,
+    reason: "Hyperbeat Ultra HYPE: deposits paused upstream by Hyperbeat. Resumes when they unpause the vault contract.",
+  },
 };
 
 // The indexer occasionally has the wrong asset symbol/decimals for a vault
