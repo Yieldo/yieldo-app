@@ -64,10 +64,13 @@ const TOKEN_META = {
   "999:0xb88339cb7199b77e23db6e890353e22632ba630f": { symbol: "USDC", decimals: 6 },
   "999:0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb": { symbol: "USDT0", decimals: 6 },
   "999:0x9fdbda0a5e284c32744d2f17ee5c74b284993463": { symbol: "UBTC", decimals: 8 },
-  // Monad
-  "143:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "MON", decimals: 18 },
-  "143:0xf817257fed379853cde0fa4f97ab987181b1e5ea": { symbol: "USDC", decimals: 6 },
-  "143:0xb5a30b0fdc5ea94a52fdc42e3e9760cb8449fb37": { symbol: "WETH", decimals: 18 },
+  // Monad — verified on-chain via vault.asset(). Old testnet addresses
+  // (0xf817257f…, 0xb5a30b0f…) had no contract on mainnet, so any tx using
+  // them rendered as "0 0x…" because resolveToken fell through.
+  "143:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "MON",  decimals: 18 },
+  "143:0x754704bc059f8c67012fed69bc8a327a5aafb603": { symbol: "USDC", decimals: 6 },
+  "143:0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD", decimals: 6 },
+  "143:0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": { symbol: "WETH", decimals: 18 },
 };
 
 function resolveToken(chainId, address) {
@@ -75,7 +78,11 @@ function resolveToken(chainId, address) {
   const key = `${chainId}:${String(address).toLowerCase()}`;
   const meta = TOKEN_META[key];
   if (meta) return meta;
-  return { symbol: `${address.slice(0, 6)}…${address.slice(-4)}`, decimals: 18 };
+  // Unknown token: fall back to truncated addr label, but guess decimals
+  // conservatively — 18 is the wrong default for stablecoins (USDC/USDT/AUSD
+  // are all 6) and would format any deposit as "0". Use 6 since the most
+  // common case for "unknown token" is a stablecoin we haven't catalogued.
+  return { symbol: `${address.slice(0, 6)}…${address.slice(-4)}`, decimals: 6 };
 }
 
 // Compact amount formatter — 2 dp for big numbers, 4 dp max for small.
