@@ -1170,7 +1170,11 @@ function InputStep({
       <Label>Token {vaultAsset && <span style={{ fontSize: 11, color: C.text3, fontWeight: 400, marginLeft: 6 }}>— vault accepts <strong style={{ color: C.green, textTransform: "uppercase" }}>{vaultAsset}</strong></span>}</Label>
       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
         {popularTokens.map(t => {
-          const matchesAsset = t.symbol.toLowerCase() === vaultAsset;
+          // DIRECT = either matches the primary asset OR is in accepted_assets
+          // (marked with __underlying by vaultUnderlyings injection). Multi-asset
+          // vaults (Lido Earn USD, Veda Liquid USD, etc.) accept several tokens
+          // for direct deposit; previously only the primary got the badge.
+          const matchesAsset = t.symbol.toLowerCase() === vaultAsset || !!t.__underlying;
           const isDirect = matchesAsset && fromChainId === vaultChainId;
           return (
             <ChipBtn key={t.symbol} active={fromToken?.symbol === t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}>
@@ -1192,7 +1196,7 @@ function InputStep({
                 boxShadow: "0 8px 24px rgba(0,0,0,.12)", minWidth: 160, overflow: "hidden",
               }}>
                 {dropdownTokens.map(t => {
-                  const matchesAsset = t.symbol.toLowerCase() === vaultAsset;
+                  const matchesAsset = t.symbol.toLowerCase() === vaultAsset || !!t.__underlying;
                   const isDirect = matchesAsset && fromChainId === vaultChainId;
                   return (
                     <button key={t.symbol} onClick={() => { setFromToken(t); setShowMore(false); }}
