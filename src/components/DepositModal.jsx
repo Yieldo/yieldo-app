@@ -287,17 +287,19 @@ function DepositModal({ vault, onClose }) {
   const allTokens = useMemo(() => {
     const base = ALL_TOKENS[fromChainId] || [];
     if (!vaultUnderlyings.length) return base;
-    // For each underlying, prepend it if not already in the base list (by
-    // address). De-dupe across multiple underlyings + base in one pass.
-    const seen = new Set(base.map(t => t.address.toLowerCase()));
-    const extras = [];
-    for (const u of vaultUnderlyings) {
-      const a = u.address.toLowerCase();
-      if (seen.has(a)) continue;
-      seen.add(a);
-      extras.push(u);
-    }
-    return [...extras, ...base];
+    // Build a set of "this token is direct-deposit eligible" addresses from the
+    // backend's accepted_assets. Then mark every token we render — base or
+    // injected — with __underlying when its address is in that set. Without
+    // this merge, a multi-asset vault (Lido USD: USDT+USDC) would only badge
+    // USDC because USDT comes from the base ALL_TOKENS list and would lose
+    // the __underlying flag during dedupe.
+    const underlyingAddrs = new Set(vaultUnderlyings.map(u => u.address.toLowerCase()));
+    const baseAnnotated = base.map(t =>
+      underlyingAddrs.has(t.address.toLowerCase()) ? { ...t, __underlying: true } : t
+    );
+    const baseAddrs = new Set(base.map(t => t.address.toLowerCase()));
+    const extras = vaultUnderlyings.filter(u => !baseAddrs.has(u.address.toLowerCase()));
+    return [...extras, ...baseAnnotated];
   }, [fromChainId, vaultUnderlyings]);
 
   const popularSymbols = POPULAR_TOKENS[fromChainId] || [];
