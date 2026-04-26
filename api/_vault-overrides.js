@@ -67,9 +67,8 @@ export const UNSUPPORTED_OVERRIDES = {
   "999:0x441794d6a8f9a3739f5d4e98a728937b33489d29": {
     reason: "liquidHYPE — needs Issuance Vault mapping.",
   },
-  "999:0x5e105266db42f78fa814322bce7f388b4c2e61eb": {
-    reason: "Hyperbeat USDT — needs Issuance Vault mapping.",
-  },
+  // Hyperbeat USDT now wired (Midas IV at 0xbE8A4f1a... on HyperEVM router).
+  // Removed from unsupported list — accepts USDT0/USDe/USR as direct deposits.
   "1:0x07ed467acd4ffd13023046968b0859781cb90d9b": {
     reason: "9Summits Flagship ETH — Mellow architecture; needs share_token + router queue mapping (same as Lido Earn).",
   },
