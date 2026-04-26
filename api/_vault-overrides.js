@@ -61,9 +61,8 @@ export const ASSET_OVERRIDES = {
 };
 
 export const UNSUPPORTED_OVERRIDES = {
-  "999:0x81e064d0eb539de7c3170edf38c1a42cbd752a76": {
-    reason: "Hyperbeat lstHYPE — Midas-style token; needs Issuance Vault mapping.",
-  },
+  // Hyperbeat lstHYPE wired via HyperbeatStakingAdapter (IC 0x205aC1e0…).
+  // Removed from unsupported list — accepts WHYPE for direct deposit.
   "999:0x441794d6a8f9a3739f5d4e98a728937b33489d29": {
     reason: "liquidHYPE — needs Issuance Vault mapping.",
   },
