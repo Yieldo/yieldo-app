@@ -264,31 +264,41 @@ function DepositModal({ vault, onClose }) {
   // re-quote the intent against real delivery (not the pre-bridged prediction).
   const preBridgeBalanceRef = useRef(null);
 
-  // The vault's underlying asset — when the user is on the vault's own chain,
-  // depositing this token is the cheapest path (direct deposit, no bridge/swap
-  // fees). It MAY not be in our hardcoded ALL_TOKENS list (e.g., rsETH, NUSD,
-  // exotic curator tokens), so inject it dynamically.
-  const vaultUnderlying = useMemo(() => {
-    if (!_depositMetaRaw?.asset?.address || !_depositMetaRaw?.chain_id) return null;
-    if (fromChainId !== _depositMetaRaw.chain_id) return null; // only on the vault's own chain
-    return {
-      symbol: (_depositMetaRaw.asset.symbol || "").toUpperCase(),
-      address: _depositMetaRaw.asset.address,
-      decimals: _depositMetaRaw.asset.decimals ?? 18,
-      __underlying: true, // marker: this is the vault's native asset
-    };
+  // The vault's accepted deposit assets — when the user is on the vault's own
+  // chain, depositing any of these tokens is the cheapest path (direct deposit,
+  // no bridge/swap fees). Some vaults accept multiple (e.g. Lido Earn USD takes
+  // USDT or USDC). For vaults with only one accepted asset, this is just that
+  // asset. None of these may be in our hardcoded ALL_TOKENS list (e.g., rsETH,
+  // NUSD, exotic curator tokens), so inject all of them dynamically.
+  const vaultUnderlyings = useMemo(() => {
+    if (!_depositMetaRaw?.chain_id) return [];
+    if (fromChainId !== _depositMetaRaw.chain_id) return []; // only on the vault's own chain
+    const list = (_depositMetaRaw.accepted_assets && _depositMetaRaw.accepted_assets.length)
+      ? _depositMetaRaw.accepted_assets
+      : (_depositMetaRaw.asset ? [_depositMetaRaw.asset] : []);
+    return list.map(a => ({
+      symbol: (a.symbol || "").toUpperCase(),
+      address: a.address,
+      decimals: a.decimals ?? 18,
+      __underlying: true,
+    }));
   }, [_depositMetaRaw, fromChainId]);
 
   const allTokens = useMemo(() => {
     const base = ALL_TOKENS[fromChainId] || [];
-    if (!vaultUnderlying) return base;
-    // Skip injection if the same address (or symbol) is already in the list
-    const exists = base.some(t =>
-      t.address.toLowerCase() === vaultUnderlying.address.toLowerCase()
-      || t.symbol.toLowerCase() === vaultUnderlying.symbol.toLowerCase()
-    );
-    return exists ? base : [vaultUnderlying, ...base];
-  }, [fromChainId, vaultUnderlying]);
+    if (!vaultUnderlyings.length) return base;
+    // For each underlying, prepend it if not already in the base list (by
+    // address). De-dupe across multiple underlyings + base in one pass.
+    const seen = new Set(base.map(t => t.address.toLowerCase()));
+    const extras = [];
+    for (const u of vaultUnderlyings) {
+      const a = u.address.toLowerCase();
+      if (seen.has(a)) continue;
+      seen.add(a);
+      extras.push(u);
+    }
+    return [...extras, ...base];
+  }, [fromChainId, vaultUnderlyings]);
 
   const popularSymbols = POPULAR_TOKENS[fromChainId] || [];
   // Always feature the vault's underlying token in the popular row when present —
