@@ -317,7 +317,8 @@ function ScoreBar({ subScores, weights, finalScore, conf }) {
   const cats = [
     { key: "capital", label: "Capital", w: weights.capital, color: "#6366f1" },
     { key: "performance", label: "Perf.", w: weights.performance, color: C.teal },
-    { key: "risk", label: "Risk", w: weights.risk, color: "#ef4444" },
+    // Risk uses amber, not red — red reads as "bad" but a high Risk score is good.
+    { key: "risk", label: "Risk", w: weights.risk, color: "#f59e0b" },
     { key: "trust", label: "Trust", w: weights.trust, color: C.gold },
   ];
   return (
@@ -747,7 +748,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           {/* Risk */}
           <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#ef4444" }} />
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b" }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Risk</span>
               <ScoreRing score={v.subScores.risk} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>35% weight</span>
