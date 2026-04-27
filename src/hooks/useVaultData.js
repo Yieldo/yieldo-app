@@ -500,10 +500,14 @@ function deriveFlags(v) {
   else if (depCount < 50)
     flags.push({ id: "F14", severity: "warning", label: "Low Depositors (<50)", penalty: -5 });
 
+  // Incentive dependency is a YIELD QUALITY signal, not a safety risk —
+  // an incentivized vault isn't dangerous, just less sustainable. Use warning
+  // (amber) for high dependency and info (blue) for moderate, instead of
+  // critical (red) which read as "danger" and looked alarmist.
   if (v.P11 === true || v.P11 === "critical")
-    flags.push({ id: "F07", severity: "critical", label: "High Incentive Dep.", penalty: -10 });
+    flags.push({ id: "F07", severity: "warning", label: "High Incentive Dep.", penalty: -10 });
   else if (v.P11 === "warning")
-    flags.push({ id: "F17", severity: "warning", label: "Moderate Incentive", penalty: -5 });
+    flags.push({ id: "F17", severity: "info", label: "Moderate Incentive", penalty: -5 });
 
   if (v.R08 === true || v.R08 === "critical")
     flags.push({ id: "F08", severity: "critical", label: "Withdrawal Queue Crisis", penalty: -20 });
