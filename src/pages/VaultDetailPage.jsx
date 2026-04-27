@@ -474,6 +474,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
           {!isMobile && <><span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 13, fontWeight: 500, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span></>}
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {!isMobile && <Btn small onClick={() => navigate(`/embed?v=${encodeURIComponent(vaultId)}`)} title="Get embeddable badge for this vault">Embed Badge</Btn>}
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
           <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>{depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}</Btn>
         </div>

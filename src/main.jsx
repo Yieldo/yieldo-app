@@ -19,6 +19,7 @@ import VaultScoringPage from './pages/VaultScoringPage.jsx'
 import PortfolioPage from './pages/PortfolioPage.jsx'
 import ReferralsPage from './pages/ReferralsPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
+import EmbedBadgePage from './pages/EmbedBadgePage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
@@ -85,6 +86,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/wallets" element={<WalletsPage />} />
+              <Route path="/embed" element={<EmbedBadgePage />} />
               <Route path="/u/:handle" element={<KolLandingPage />} />
               <Route path="/kol/:handle" element={<KolRedirect />} />
               <Route path="/vault-provider" element={<VaultProviderPage />} />

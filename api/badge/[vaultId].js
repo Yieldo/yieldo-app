@@ -98,6 +98,25 @@ function escapeXml(s) {
   return String(s || "").replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]));
 }
 
+// Inline-SVG approximation of the Yieldo logo (gradient circle with rising
+// chart + arrow). Fits in a 28x28 viewBox so it can be transformed/scaled
+// freely. No external image fetch — renders identically everywhere.
+function yieldoLogoMark(scale = 1, gradId = "yg") {
+  return `<g transform="scale(${scale})">
+    <defs>
+      <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#7A1CCB"/><stop offset="100%" stop-color="#3F8CFF"/>
+      </linearGradient>
+    </defs>
+    <path d="M14 3.5 A10.5 10.5 0 1 0 24.5 14" stroke="url(#${gradId})" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <rect x="8.5" y="16" width="2.4" height="6" rx="1" fill="url(#${gradId})"/>
+    <rect x="12.5" y="13.5" width="2.4" height="8.5" rx="1" fill="url(#${gradId})"/>
+    <rect x="16.5" y="11" width="2.4" height="11" rx="1" fill="url(#${gradId})"/>
+    <path d="M8.5 19.5 L13.5 15 L17 17.5 L23 9" stroke="url(#${gradId})" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M19 8 L23.5 8 L23.5 12.5" stroke="url(#${gradId})" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>`;
+}
+
 function renderCompact({ score, vaultName, theme }) {
   const dark = theme === "dark";
   const bg = dark ? "#111827" : "#ffffff";
@@ -109,12 +128,9 @@ function renderCompact({ score, vaultName, theme }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="68" viewBox="0 0 220 68" role="img" aria-label="Rated ${score} by Yieldo">
   <style>.t{font:600 11px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.04em}.n{font:600 12px -apple-system,Segoe UI,Roboto,sans-serif}.s{font:800 30px -apple-system,Segoe UI,Roboto,sans-serif;font-feature-settings:"tnum"}</style>
   <rect x="0.5" y="0.5" width="219" height="67" rx="8" fill="${bg}" stroke="${border}"/>
-  <g transform="translate(12,14)">
-    <rect width="22" height="22" rx="5" fill="#7A1CCB"/>
-    <text x="11" y="16" text-anchor="middle" fill="#fff" font-family="-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="800">Y</text>
-  </g>
-  <text x="42" y="22" class="t" fill="${muted}">RATED BY YIELDO</text>
-  <text x="42" y="42" class="n" fill="${text}">${name}</text>
+  <g transform="translate(12,18)">${yieldoLogoMark(1.1, "ygc")}</g>
+  <text x="52" y="26" class="t" fill="${muted}">RATED BY YIELDO</text>
+  <text x="52" y="46" class="n" fill="${text}">${name}</text>
   <g transform="translate(146,8)">
     <rect width="62" height="52" rx="6" fill="${t.bg}"/>
     <text x="31" y="34" class="s" text-anchor="middle" fill="${t.fg}">${score}</text>
@@ -138,12 +154,9 @@ function renderDetailed({ score, sub, vaultName, theme }) {
     </g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Rated ${score} by Yieldo">
   <rect x="0.5" y="0.5" width="319" height="119" rx="10" fill="${bg}" stroke="${border}"/>
-  <g transform="translate(16,16)">
-    <rect width="26" height="26" rx="6" fill="#7A1CCB"/>
-    <text x="13" y="19" text-anchor="middle" fill="#fff" font-family="-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800">Y</text>
-  </g>
-  <text x="50" y="26" font-family="-apple-system,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="${muted}" letter-spacing=".04em">RATED BY YIELDO</text>
-  <text x="50" y="44" font-family="-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="${text}">${name}</text>
+  <g transform="translate(14,14)">${yieldoLogoMark(1.25, "ygd")}</g>
+  <text x="56" y="26" font-family="-apple-system,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="${muted}" letter-spacing=".04em">RATED BY YIELDO</text>
+  <text x="56" y="44" font-family="-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="${text}">${name}</text>
   <g transform="translate(220,14)">
     <rect width="84" height="54" rx="8" fill="${t.bg}"/>
     <text x="42" y="38" font-family="-apple-system,Segoe UI,sans-serif" font-size="32" font-weight="800" text-anchor="middle" fill="${t.fg}" font-feature-settings="tnum">${score}</text>
