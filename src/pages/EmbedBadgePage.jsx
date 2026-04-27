@@ -154,9 +154,6 @@ export default function EmbedBadgePage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 28, fontSize: 12, color: C.text3 }}>
-          Documentation: <a href="https://docs.yieldo.xyz/guides/embed-badges" target="_blank" rel="noopener noreferrer" style={{ color: C.purple }}>Embed Badge Guide</a>
-        </div>
       </div>
       <style>{`@media (max-width: 720px) { .embed-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>

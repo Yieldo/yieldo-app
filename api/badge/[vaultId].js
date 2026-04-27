@@ -17,6 +17,7 @@
 // the roadmap; this endpoint will pick that up automatically when it lands.
 
 import { applyVaultOverrides } from "../_vault-overrides.js";
+import { computeYieldoScore } from "../../src/lib/scoring.js";
 import { MongoClient } from "mongodb";
 
 let cachedClient = null;
@@ -26,66 +27,8 @@ async function getDb() {
   return cachedClient.db("yieldo_v1");
 }
 
-// Range helpers — clamp + linear interpolate to a 0-100 score
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const linear = (v, vMin, vMax, sMin = 0, sMax = 100) => {
-  if (v <= vMin) return sMin;
-  if (v >= vMax) return sMax;
-  return sMin + ((v - vMin) / (vMax - vMin)) * (sMax - sMin);
-};
-
-function computeScore(raw) {
-  // Simplified version of the React-app scoring. Same 4 dimensions,
-  // same weights (Capital 0.20, Perf 0.20, Risk 0.35, Trust 0.25), but
-  // computes each dimension from a small subset of metrics.
-  const tvl = (raw.C01 || (raw.snapshots?.[raw.snapshots.length - 1]?.total_assets_usd) || 0);
-  const dep = raw.C07 || 0;
-  const apy = typeof raw.P01 === "number" ? raw.P01 : 0;
-  const sharpe = typeof raw.P05 === "number" ? raw.P05 : null;
-
-  // Capital: log-scaled TVL + depositor count
-  const tvlScore = tvl > 0 ? clamp(linear(Math.log10(tvl), 4, 9, 30, 100), 0, 100) : 0;
-  const depScore = dep > 0 ? clamp(linear(Math.log10(dep), 0, 4, 30, 100), 0, 100) : 0;
-  const capScore = tvlScore * 0.6 + depScore * 0.4;
-
-  // Performance: APY + Sharpe-ish
-  const apyScore = clamp(linear(apy, 0, 15, 30, 100), 0, 100);
-  const sharpeScore = sharpe == null ? 50 : clamp(linear(sharpe, 0, 2.5, 30, 100), 0, 100);
-  const perfScore = apyScore * 0.6 + sharpeScore * 0.4;
-
-  // Risk: invert depeg/incidents/concentration into a "safety" score (high = safe)
-  const r10 = raw.R10;
-  const incidents = typeof r10 === "number" ? r10 : (r10 && typeof r10 === "object" ? (r10["90d"] ?? 0) : 0);
-  const top5raw = typeof raw.R09_top5 === "number" ? raw.R09_top5 : 0;
-  const top5pct = top5raw > 1 ? top5raw : top5raw * 100;
-  const depeg = raw.R03 > 0 || raw.R04;
-  let riskScore = 90;
-  if (incidents > 0) riskScore -= Math.min(40, incidents * 12);
-  if (top5pct > 50) riskScore -= 15;
-  if (depeg) riskScore -= 30;
-  if (raw.R05) riskScore -= 50;
-  riskScore = clamp(riskScore, 0, 100);
-
-  // Trust: holders-90+ ratio + retention
-  const t01 = raw.T01;
-  const ret30d = t01 && typeof t01 === "object" ? t01["30d"] : (typeof t01 === "number" ? t01 : null);
-  const holders90 = typeof raw.T07 === "number" ? raw.T07 : 0;
-  const holderRatio = dep > 0 ? holders90 / dep : 0;
-  const retScore = ret30d == null ? 50 : clamp(linear(ret30d, 0, 1, 30, 100), 0, 100);
-  const holdScore = clamp(linear(holderRatio, 0, 0.5, 30, 100), 0, 100);
-  const trustScore = retScore * 0.6 + holdScore * 0.4;
-
-  const composite = capScore * 0.20 + perfScore * 0.20 + riskScore * 0.35 + trustScore * 0.25;
-  return {
-    score: clamp(Math.round(composite), 0, 100),
-    sub: {
-      capital: Math.round(capScore),
-      performance: Math.round(perfScore),
-      risk: Math.round(riskScore),
-      trust: Math.round(trustScore),
-    },
-  };
-}
+// Score now comes from src/lib/scoring.js — exact same logic the React app
+// uses, so the embed always matches what's shown on the vault page.
 
 function tierColor(score) {
   if (score >= 80) return { fg: "#16a34a", bg: "#dcfce7" }; // green
@@ -98,43 +41,58 @@ function escapeXml(s) {
   return String(s || "").replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]));
 }
 
-// Inline-SVG approximation of the Yieldo logo (gradient circle with rising
-// chart + arrow). Fits in a 28x28 viewBox so it can be transformed/scaled
-// freely. No external image fetch — renders identically everywhere.
+// Clean Yieldo mark — gradient ring (open at top-right) + rising arrow.
+// Minimal, recognizable, scales cleanly. 28x28 viewBox.
 function yieldoLogoMark(scale = 1, gradId = "yg") {
   return `<g transform="scale(${scale})">
     <defs>
       <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#7A1CCB"/><stop offset="100%" stop-color="#3F8CFF"/>
+        <stop offset="0%" stop-color="#7A1CCB"/>
+        <stop offset="100%" stop-color="#3F8CFF"/>
       </linearGradient>
     </defs>
-    <path d="M14 3.5 A10.5 10.5 0 1 0 24.5 14" stroke="url(#${gradId})" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-    <rect x="8.5" y="16" width="2.4" height="6" rx="1" fill="url(#${gradId})"/>
-    <rect x="12.5" y="13.5" width="2.4" height="8.5" rx="1" fill="url(#${gradId})"/>
-    <rect x="16.5" y="11" width="2.4" height="11" rx="1" fill="url(#${gradId})"/>
-    <path d="M8.5 19.5 L13.5 15 L17 17.5 L23 9" stroke="url(#${gradId})" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M19 8 L23.5 8 L23.5 12.5" stroke="url(#${gradId})" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Open ring (~285°), gap at top-right -->
+    <path d="M19 4.8 A11 11 0 1 0 23.2 19"
+          stroke="url(#${gradId})" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <!-- Rising arrow from bottom-left up through ring -->
+    <path d="M9 19 L14 14 L17 16 L23 9"
+          stroke="url(#${gradId})" stroke-width="2.4" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Arrow head -->
+    <path d="M19 9 L23 9 L23 13"
+          stroke="url(#${gradId})" stroke-width="2.4" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
   </g>`;
 }
 
 function renderCompact({ score, vaultName, theme }) {
   const dark = theme === "dark";
-  const bg = dark ? "#111827" : "#ffffff";
-  const text = dark ? "#f3f4f6" : "#111827";
-  const muted = dark ? "#9ca3af" : "#6b7280";
-  const border = dark ? "#374151" : "#e5e7eb";
+  const bg = dark ? "#0f172a" : "#ffffff";
+  const cardBg = dark ? "#1e293b" : "#fafafb";
+  const text = dark ? "#f3f4f6" : "#0f172a";
+  const muted = dark ? "#94a3b8" : "#64748b";
+  const border = dark ? "#334155" : "#e2e8f0";
   const t = tierColor(score);
-  const name = escapeXml(vaultName.length > 22 ? vaultName.slice(0, 21) + "…" : vaultName);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="68" viewBox="0 0 220 68" role="img" aria-label="Rated ${score} by Yieldo">
-  <style>.t{font:600 11px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.04em}.n{font:600 12px -apple-system,Segoe UI,Roboto,sans-serif}.s{font:800 30px -apple-system,Segoe UI,Roboto,sans-serif;font-feature-settings:"tnum"}</style>
-  <rect x="0.5" y="0.5" width="219" height="67" rx="8" fill="${bg}" stroke="${border}"/>
-  <g transform="translate(12,18)">${yieldoLogoMark(1.1, "ygc")}</g>
-  <text x="52" y="26" class="t" fill="${muted}">RATED BY YIELDO</text>
-  <text x="52" y="46" class="n" fill="${text}">${name}</text>
-  <g transform="translate(146,8)">
-    <rect width="62" height="52" rx="6" fill="${t.bg}"/>
-    <text x="31" y="34" class="s" text-anchor="middle" fill="${t.fg}">${score}</text>
-    <text x="31" y="48" font-family="-apple-system,Segoe UI,sans-serif" font-size="9" font-weight="700" text-anchor="middle" fill="${t.fg}" opacity=".7">/100</text>
+  const name = escapeXml(vaultName.length > 24 ? vaultName.slice(0, 23) + "…" : vaultName);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="76" viewBox="0 0 260 76" role="img" aria-label="Rated ${score} by Yieldo">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${bg}"/>
+      <stop offset="100%" stop-color="${cardBg}"/>
+    </linearGradient>
+    <linearGradient id="scoreBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${t.bg}"/>
+      <stop offset="100%" stop-color="${t.bg}" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="259" height="75" rx="10" fill="url(#bgGrad)" stroke="${border}"/>
+  <g transform="translate(14,22)">${yieldoLogoMark(1.15, "ygc")}</g>
+  <text x="58" y="28" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="9.5" font-weight="700" fill="${muted}" letter-spacing=".09em">RATED BY YIELDO</text>
+  <text x="58" y="50" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="13" font-weight="600" fill="${text}">${name}</text>
+  <g transform="translate(186,12)">
+    <rect width="62" height="52" rx="8" fill="url(#scoreBg)"/>
+    <text x="31" y="35" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="28" font-weight="800" text-anchor="middle" fill="${t.fg}" font-feature-settings="tnum">${score}</text>
+    <text x="31" y="47" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="8.5" font-weight="700" text-anchor="middle" fill="${t.fg}" opacity=".65" letter-spacing=".08em">/ 100</text>
   </g>
 </svg>`;
 }
@@ -203,7 +161,11 @@ export default async function handler(req, res) {
 
     const theme = req.query.theme === "dark" ? "dark" : "light";
     const style = req.query.style === "detailed" ? "detailed" : "compact";
-    const { score, sub } = computeScore(row);
+    // Same scoring function the React app uses — embeds and the vault page
+    // will always show the same number. age = D01 (days since creation) if
+    // present, else assume mature so confidence multiplier doesn't dampen.
+    const age = typeof row.D01 === "number" ? row.D01 : 365;
+    const { score, sub } = computeYieldoScore(row, age);
     const svg = style === "detailed"
       ? renderDetailed({ score, sub, vaultName: row.vault_name, theme })
       : renderCompact({ score, vaultName: row.vault_name, theme });
