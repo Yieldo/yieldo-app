@@ -526,7 +526,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>Current APY</div>
-                  <div style={{ fontSize: 32, fontWeight: 700, color: C.purple, margin: "2px 0" }}>{v.apy.toFixed(2)}%</div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: v.apy < 0 ? C.red : C.purple, margin: "2px 0" }}>{v.apy.toFixed(2)}%</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>vs. Benchmark</div>
@@ -693,7 +693,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                   <option value="30d">30d</option>
                 </select>
               </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: C.purple }}>{(() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null ? `${val.toFixed(2)}%` : "N/A"; })()}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null && val < 0 ? C.red : C.purple; })() }}>{(() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null ? `${val.toFixed(2)}%` : "N/A"; })()}</span>
             </div>
             {v._raw?.P02 && <MR label="Negative Daily APY" value="Yes" flag="warning" />}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
