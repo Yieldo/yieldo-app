@@ -77,7 +77,7 @@ function MetricCell({ label, value, delta, deltaTone, isText }) {
   );
 }
 
-function HighSignalCard({ signal, onPrimary, onSecondary }) {
+function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -114,12 +114,37 @@ function HighSignalCard({ signal, onPrimary, onSecondary }) {
 
       {signal.affected && signal.affected.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
-          {signal.affected.map((v, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 7, fontSize: 13 }}>
-              <span style={{ color: C.ink, fontWeight: 500 }}>{v.name}</span>
-              <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: C.negInk, fontWeight: 600 }}>{v.from} → {v.to}</span>
-            </div>
-          ))}
+          {signal.affected.map((v, i) => {
+            const clickable = !!v.vaultId;
+            const inner = (
+              <>
+                <span style={{ color: C.ink, fontWeight: 500, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  {v.name}
+                  {v.chain && (
+                    <span style={{ color: C.muted, fontSize: 11, fontWeight: 400 }}>({v.chain})</span>
+                  )}
+                  {v.asset && !v.name?.toUpperCase()?.includes(v.asset.toUpperCase()) && (
+                    <span style={{ color: C.hint, fontSize: 11, fontWeight: 400, fontFamily: FONT_MONO }}>{v.asset}</span>
+                  )}
+                </span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: (v.delta != null ? (v.delta < 0 ? C.negInk : C.posInk) : C.negInk), fontWeight: 600 }}>{v.from} → {v.to}</span>
+              </>
+            );
+            return clickable ? (
+              <a
+                key={i}
+                onClick={(e) => { e.preventDefault(); onAffectedClick?.(v.vaultId); }}
+                href={`/vault/${encodeURIComponent(v.vaultId)}`}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 7, fontSize: 13, textDecoration: 'none', cursor: 'pointer' }}
+              >
+                {inner}
+              </a>
+            ) : (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 7, fontSize: 13 }}>
+                {inner}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -356,6 +381,7 @@ export default function IntelPage() {
                     signal={s}
                     onPrimary={() => goToVault(s.vaultId)}
                     onSecondary={() => goToVault(s.vaultId)}
+                    onAffectedClick={goToVault}
                   />
                 ))}
               </div>
