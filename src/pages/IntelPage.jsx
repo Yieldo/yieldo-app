@@ -115,7 +115,7 @@ function AffectedVaultsModal({ signal, onClose, onVaultClick }) {
                 </>
               );
               return clickable ? (
-                <a key={i} onClick={(e) => { e.preventDefault(); onVaultClick(v.vaultId); }} href={`/vault/${encodeURIComponent(v.vaultId)}`}
+                <a key={i} onClick={(e) => { e.preventDefault(); onVaultClick(v.vaultId); }} href={`/vault/${encodeURIComponent(v.vaultId)}`} target="_blank" rel="noopener noreferrer"
                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
                   {inner}
                   <span style={{ color: C.muted, fontSize: 13 }}>→</span>
@@ -191,6 +191,8 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
                 key={i}
                 onClick={(e) => { e.preventDefault(); onAffectedClick?.(v.vaultId); }}
                 href={`/vault/${encodeURIComponent(v.vaultId)}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 7, fontSize: 13, textDecoration: 'none', cursor: 'pointer' }}
               >
                 {inner}
@@ -355,7 +357,12 @@ export default function IntelPage() {
 
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const goToVault = (vaultId) => { if (vaultId) navigate(`/vault/${encodeURIComponent(vaultId)}`); };
+  // Open vault detail in a new tab so users don't lose their place on the
+  // Intel feed (often scanning multiple signals).
+  const goToVault = (vaultId) => {
+    if (!vaultId) return;
+    window.open(`/vault/${encodeURIComponent(vaultId)}`, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <InvestorShell maxWidth={1280}>
