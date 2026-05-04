@@ -77,6 +77,62 @@ function MetricCell({ label, value, delta, deltaTone, isText }) {
   );
 }
 
+function AffectedVaultsModal({ signal, onClose, onVaultClick }) {
+  if (!signal) return null;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,11,26,.55)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bg, borderRadius: 14, maxWidth: 520, width: '100%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(15,11,26,.25)' }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.highInk, background: C.highBg, border: `1px solid ${C.highBorder}`, padding: '3px 9px', borderRadius: 4, letterSpacing: '.06em', textTransform: 'uppercase', display: 'inline-block', marginBottom: 8 }}>
+              {signal.label || signal.tag} · {signal.id}
+            </div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{signal.headline}</h3>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 22, color: C.muted, padding: 0, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '16px 24px' }}>
+          <p style={{ fontSize: 13, color: C.body, margin: '0 0 16px', lineHeight: 1.5 }}>{signal.summary}</p>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+            Affected vaults ({signal.affected?.length || 0})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(signal.affected || []).map((v, i) => {
+              const clickable = !!v.vaultId;
+              const tone = (v.delta != null ? (v.delta < 0 ? C.negInk : C.posInk) : C.negInk);
+              const inner = (
+                <>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.ink, marginBottom: 2 }}>
+                      {v.name}
+                      {v.chain && <span style={{ color: C.muted, fontSize: 11, fontWeight: 400, marginLeft: 6 }}>({v.chain})</span>}
+                    </div>
+                    {v.asset && <div style={{ fontSize: 10, color: C.hint, fontFamily: FONT_MONO }}>{v.asset}</div>}
+                  </div>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: tone, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {v.from} → {v.to}{v.delta != null && <span style={{ marginLeft: 6, opacity: .7 }}>({v.delta > 0 ? '+' : ''}{v.delta})</span>}
+                  </span>
+                </>
+              );
+              return clickable ? (
+                <a key={i} onClick={(e) => { e.preventDefault(); onVaultClick(v.vaultId); }} href={`/vault/${encodeURIComponent(v.vaultId)}`}
+                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
+                  {inner}
+                  <span style={{ color: C.muted, fontSize: 13 }}>→</span>
+                </a>
+              ) : (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 8 }}>
+                  {inner}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
   const [hover, setHover] = useState(false);
   return (
@@ -263,6 +319,7 @@ export default function IntelPage() {
   const [feed, setFeed] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [modalSignal, setModalSignal] = useState(null); // for "View correlation" / "All affected"
 
   const fetchFeed = useCallback(async () => {
     setError(null);
@@ -379,8 +436,23 @@ export default function IntelPage() {
                   <HighSignalCard
                     key={s.signalId || s.id}
                     signal={s}
-                    onPrimary={() => goToVault(s.vaultId)}
-                    onSecondary={() => goToVault(s.vaultId)}
+                    onPrimary={() => {
+                      // If signal is for a single vault, jump to that vault.
+                      // If it's a multi-vault signal (contagion / curator),
+                      // open a modal listing all affected vaults.
+                      if (s.vaultId) goToVault(s.vaultId);
+                      else if (s.affected?.length) setModalSignal(s);
+                    }}
+                    onSecondary={() => {
+                      // Secondary CTA on multi-vault signals also opens the
+                      // affected list. On single-vault signals (where it
+                      // would be 'Score breakdown'), jump to vault detail.
+                      if (s.affected?.length && (s.secondaryCta?.toLowerCase().includes('affected') || s.secondaryCta?.toLowerCase().includes('correlation'))) {
+                        setModalSignal(s);
+                      } else if (s.vaultId) {
+                        goToVault(s.vaultId);
+                      }
+                    }}
                     onAffectedClick={goToVault}
                   />
                 ))}
@@ -439,6 +511,13 @@ export default function IntelPage() {
           </aside>
         </div>
       )}
+
+      {/* Affected-vaults modal (for "View correlation" / "All affected vaults" CTAs) */}
+      <AffectedVaultsModal
+        signal={modalSignal}
+        onClose={() => setModalSignal(null)}
+        onVaultClick={(vid) => { setModalSignal(null); goToVault(vid); }}
+      />
 
       {/* Mobile collapse */}
       <style>{`
