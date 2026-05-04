@@ -658,6 +658,10 @@ export default function WalletsPage() {
   const [authState, setAuthState] = useState("checking"); // checking | not_connected | verify | register | authenticated
   const [registerData, setRegisterData] = useState(null);
   const [newKeys, setNewKeys] = useState(null);
+  // Application status for the connected wallet — used to decide whether to
+  // show the apply form (no app / rejected), a "pending" banner, or the
+  // SIWE-verify flow (approved → can register, or already a registered partner).
+  const [appCheck, setAppCheck] = useState({ loading: true, status: null, isExistingPartner: false });
 
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
@@ -685,6 +689,7 @@ export default function WalletsPage() {
     if (!isConnected || !address) {
       setAuthState("not_connected");
       setPartner(null);
+      setAppCheck({ loading: false, status: null, isExistingPartner: false });
       sessionStorage.removeItem("yieldo_partner_token");
       return;
     }
@@ -698,6 +703,27 @@ export default function WalletsPage() {
     } else {
       setAuthState("verify");
     }
+  }, [address, isConnected]);
+
+  // Independently check application status + whether this wallet is already
+  // a registered partner. The /v1/partners/nonce response message contains
+  // "login" when the address exists in the partners collection, "register"
+  // otherwise — we use that to detect existing partners without needing a
+  // session.
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    let cancelled = false;
+    setAppCheck(s => ({ ...s, loading: true }));
+    Promise.all([
+      fetch(`${PARTNER_API}/v1/applications/me/${address}`).then(r => r.ok ? r.json() : { applications: [] }).catch(() => ({ applications: [] })),
+      fetch(`${PARTNER_API}/v1/partners/nonce`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address }) }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([apps, nonce]) => {
+      if (cancelled) return;
+      const walletApp = apps?.applications?.find(a => a.audience === "wallet");
+      const isExistingPartner = !!nonce?.message?.toLowerCase().includes("login");
+      setAppCheck({ loading: false, status: walletApp?.status || null, isExistingPartner });
+    });
+    return () => { cancelled = true; };
   }, [address, isConnected]);
 
   const handleVerified = useCallback((result) => {
@@ -863,24 +889,71 @@ export default function WalletsPage() {
       <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", minWidth: 0 }}>
         {newKeys && <APIKeysModal keys={newKeys} onClose={() => setNewKeys(null)} />}
 
-        {/* Pre-authenticated: always show the apply form. The SIWE-based wallet
-            partner flow is paused — every new wallet goes through application
-            review first. Existing authenticated partners still hit the
-            dashboard branch below. */}
-        {authState !== "authenticated" && (
-          <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 0" }}>
-            <div style={{ marginBottom: 22 }}>
-              <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 700, letterSpacing: "-.01em" }}>
-                Become a Wallet Partner
-              </h1>
-              <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
-                Integrate Yieldo's curated DeFi vaults into your wallet — give your users one-tap access to scored, monitored yield opportunities across 7 chains.
-                Apply below — we respond within 48 hours.
-              </p>
+        {/* Pre-authenticated branch.
+            Routes by application status + existing-partner check:
+              - existing partner OR application approved  → SignatureVerify (sign in / register)
+              - application pending                       → "under review" banner
+              - application rejected                      → re-apply form (banner inside)
+              - no application                            → apply form (default)
+        */}
+        {authState !== "authenticated" && (() => {
+          // Not connected — apply form will show its own connect-wallet CTA.
+          if (!isConnected) {
+            return (
+              <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 0" }}>
+                <div style={{ marginBottom: 22 }}>
+                  <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 700, letterSpacing: "-.01em" }}>Become a Wallet Partner</h1>
+                  <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
+                    Invite-only · Connect your wallet to apply.
+                  </p>
+                </div>
+                <PartnerApplyForm audience="wallet" showHeader={false} />
+              </div>
+            );
+          }
+
+          if (appCheck.loading) {
+            return <div style={{ padding: 60, textAlign: "center", fontSize: 14, color: C.text3 }}>Checking your application status…</div>;
+          }
+
+          // Mid-register state (after SignatureVerify success on a fresh wallet)
+          if (authState === "register" && registerData) {
+            return <RegistrationForm address={address} signature={registerData.signature} onRegistered={handleRegistered} />;
+          }
+
+          // Existing partner OR approved application → sign-in flow
+          if (appCheck.isExistingPartner || appCheck.status === "approved") {
+            return <SignatureVerify address={address} onVerified={handleVerified} />;
+          }
+
+          // Pending — friendly banner, no form
+          if (appCheck.status === "pending") {
+            return (
+              <div style={{ maxWidth: 560, margin: "60px auto 0", padding: "32px 28px", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, textAlign: "center" }}>
+                <div style={{ width: 56, height: 56, borderRadius: 28, background: "rgba(217,140,54,.12)", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>⏳</div>
+                <h2 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 700 }}>Application under review</h2>
+                <p style={{ margin: "0 0 4px", fontSize: 14, color: C.text2, lineHeight: 1.55 }}>
+                  We've received your wallet partner application. Our team reviews every application manually and will respond within 48 hours.
+                </p>
+                <p style={{ margin: "12px 0 0", fontSize: 12, fontFamily: "monospace", color: C.text3 }}>{address}</p>
+              </div>
+            );
+          }
+
+          // No application or rejected — show form (form itself surfaces rejected banner)
+          return (
+            <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 0" }}>
+              <div style={{ marginBottom: 22 }}>
+                <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 700, letterSpacing: "-.01em" }}>Become a Wallet Partner</h1>
+                <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
+                  Integrate Yieldo's curated DeFi vaults into your wallet — give your users one-tap access to scored, monitored yield opportunities across 7 chains.
+                  Apply below — we respond within 48 hours.
+                </p>
+              </div>
+              <PartnerApplyForm audience="wallet" showHeader={false} />
             </div>
-            <PartnerApplyForm audience="wallet" showHeader={false} />
-          </div>
-        )}
+          );
+        })()}
 
         {/* Authenticated dashboard */}
         {authState === "authenticated" && partner && (
