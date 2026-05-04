@@ -739,22 +739,12 @@ export default function WalletsPage() {
 
     if (result.type !== "register") return;
 
-    // Auto-register using approved application data. We do NOT fall back to a
-    // manual form — the application form already collected company/email/etc,
-    // there's no reason to ask again. If anything fails, show a clear error
-    // and let the user retry (re-render of SignatureVerify).
+    // Auto-register. Backend pulls form_data from the approved application
+    // server-side, so we don't need to send name/email/etc. If anything
+    // fails, show an inline error and let the user retry by clicking Sign
+    // again — never fall back to a manual form.
     setRegisterError("");
     try {
-      const appsRes = await fetch(`${PARTNER_API}/v1/applications/me/${address}`);
-      const apps = appsRes.ok ? await appsRes.json() : { applications: [] };
-      const walletApp = apps.applications?.find(a => a.audience === "wallet");
-      const formData = walletApp?.form_data;
-
-      if (!formData || walletApp?.status !== "approved") {
-        setRegisterError("No approved application found for this wallet. Please apply first.");
-        return;
-      }
-
       const regRes = await fetch(`${PARTNER_API}/v1/partners/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -762,15 +752,6 @@ export default function WalletsPage() {
           address,
           signature: result.signature,
           nonce: result.nonce,
-          name: formData.company || "Wallet Partner",
-          website: "",
-          contact_email: formData.email || "",
-          description: [
-            formData.role && `Role: ${formData.role}`,
-            formData.mau && `MAU: ${formData.mau}`,
-            formData.chains?.length && `Chains: ${formData.chains.join(", ")}`,
-            formData.telegram && `Telegram: ${formData.telegram}`,
-          ].filter(Boolean).join(" · "),
         }),
       });
       if (!regRes.ok) {
