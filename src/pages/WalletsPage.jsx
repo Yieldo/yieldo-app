@@ -138,7 +138,7 @@ function SignatureVerify({ address, onVerified }) {
         const res = await fetch(`${PARTNER_API}/v1/partners/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address, signature }),
+          body: JSON.stringify({ address, signature, nonce }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -756,13 +756,16 @@ export default function WalletsPage() {
         return;
       }
 
-      // Register using application data
+      // Register using application data — pass the EXACT nonce we signed so
+      // the backend doesn't pick a different one if other components have
+      // racing /partners/nonce calls.
       const regRes = await fetch(`${PARTNER_API}/v1/partners/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address,
           signature: result.signature,
+          nonce: result.nonce,
           name: formData.company || "Wallet Partner",
           website: "",
           contact_email: formData.email || "",
@@ -776,7 +779,6 @@ export default function WalletsPage() {
       });
       if (!regRes.ok) {
         const err = await regRes.json().catch(() => ({}));
-        // Fall back to manual form on unexpected backend errors
         console.error("Auto-register failed:", err.detail);
         setRegisterData(result);
         setAuthState("register");
@@ -785,22 +787,9 @@ export default function WalletsPage() {
       const regData = await regRes.json();
       setNewKeys({ api_key: regData.api_key, api_secret: regData.api_secret });
 
-      // Get a fresh nonce + sign for login (creates the session)
-      const nonceRes = await fetch(`${PARTNER_API}/v1/partners/nonce`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
-      const { message: loginMsg } = await nonceRes.json();
-      const loginSig = await signTopLevel({ message: loginMsg });
-      const loginRes = await fetch(`${PARTNER_API}/v1/partners/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature: loginSig }),
-      });
-      if (loginRes.ok) {
-        const loginData = await loginRes.json();
-        sessionStorage.setItem("yieldo_partner_token", loginData.session_token);
+      // V3.3+: /register returns a session_token, no second signature needed.
+      if (regData.session_token) {
+        sessionStorage.setItem("yieldo_partner_token", regData.session_token);
       }
 
       // Fetch full partner profile
