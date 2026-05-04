@@ -133,12 +133,23 @@ function AffectedVaultsModal({ signal, onClose, onVaultClick }) {
   );
 }
 
-function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
+function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCardClick }) {
   const [hover, setHover] = useState(false);
+  // Card is clickable when there's somewhere to go (single vault OR affected list).
+  const cardClickable = !!(signal.vaultId || signal.affected?.length);
+
+  // Stop propagation on inner buttons + links so clicking them doesn't ALSO
+  // trigger the card-level click (would otherwise fire twice).
+  const stop = (handler) => (e) => { e.stopPropagation(); handler?.(e); };
+
   return (
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={cardClickable ? onCardClick : undefined}
+      role={cardClickable ? 'button' : undefined}
+      tabIndex={cardClickable ? 0 : undefined}
+      onKeyDown={cardClickable ? (e) => { if (e.key === 'Enter') onCardClick?.(); } : undefined}
       style={{
         background: C.bg,
         border: `1px solid ${hover ? 'rgba(214,59,44,.25)' : C.border}`,
@@ -148,6 +159,7 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
         marginBottom: 14,
         boxShadow: hover ? C.shadowHover : C.shadow,
         transition: 'all .18s ease',
+        cursor: cardClickable ? 'pointer' : 'default',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -189,7 +201,7 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
             return clickable ? (
               <a
                 key={i}
-                onClick={(e) => { e.preventDefault(); onAffectedClick?.(v.vaultId); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAffectedClick?.(v.vaultId); }}
                 href={`/vault/${encodeURIComponent(v.vaultId)}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -207,11 +219,11 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick }) {
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onPrimary} style={{ padding: '9px 18px', fontSize: 13, backgroundImage: C.purpleGrad, color: 'white', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(122,28,203,.25)' }}>
+        <button onClick={stop(onPrimary)} style={{ padding: '9px 18px', fontSize: 13, backgroundImage: C.purpleGrad, color: 'white', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(122,28,203,.25)' }}>
           {signal.primaryCta || 'View vault'} →
         </button>
         {signal.secondaryCta && (
-          <button onClick={onSecondary} style={{ padding: '9px 18px', fontSize: 13, background: 'transparent', color: C.ink, border: `1px solid ${C.border}`, borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={stop(onSecondary)} style={{ padding: '9px 18px', fontSize: 13, background: 'transparent', color: C.ink, border: `1px solid ${C.border}`, borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>
             {signal.secondaryCta}
           </button>
         )}
@@ -429,94 +441,92 @@ export default function IntelPage() {
       )}
 
       {feed && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 24, alignItems: 'flex-start' }} className="intel-grid">
-          {/* MAIN COLUMN — high + notable */}
-          <div style={{ minWidth: 0 }}>
-            <SectionHeader dot={C.highAccent} accent="rgba(214,59,44,.12)" label="What matters today" count={`${high.length} · last ${activeTime}`} />
-            {high.length === 0 ? (
-              <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 28, textAlign: 'center', fontSize: 13, color: C.muted, marginBottom: 24 }}>
-                No high-importance signals in the last {activeTime}. Engine scanning {engine.vaults ?? 0} vaults · all clear.
-              </div>
-            ) : (
-              <div style={{ marginBottom: 24 }}>
-                {high.map((s) => (
-                  <HighSignalCard
-                    key={s.signalId || s.id}
-                    signal={s}
-                    onPrimary={() => {
-                      // If signal is for a single vault, jump to that vault.
-                      // If it's a multi-vault signal (contagion / curator),
-                      // open a modal listing all affected vaults.
-                      if (s.vaultId) goToVault(s.vaultId);
-                      else if (s.affected?.length) setModalSignal(s);
-                    }}
-                    onSecondary={() => {
-                      // Secondary CTA on multi-vault signals also opens the
-                      // affected list. On single-vault signals (where it
-                      // would be 'Score breakdown'), jump to vault detail.
-                      if (s.affected?.length && (s.secondaryCta?.toLowerCase().includes('affected') || s.secondaryCta?.toLowerCase().includes('correlation'))) {
-                        setModalSignal(s);
-                      } else if (s.vaultId) {
-                        goToVault(s.vaultId);
-                      }
-                    }}
-                    onAffectedClick={goToVault}
-                  />
-                ))}
-              </div>
-            )}
+        <>
+          {/* HIGH tier */}
+          <SectionHeader dot={C.highAccent} accent="rgba(214,59,44,.12)" label="What matters today" count={`${high.length} · last ${activeTime}`} />
+          {high.length === 0 ? (
+            <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 28, textAlign: 'center', fontSize: 13, color: C.muted, marginBottom: 28 }}>
+              No high-importance signals in the last {activeTime}. Engine scanning {engine.vaults ?? 0} vaults · all clear.
+            </div>
+          ) : (
+            <div style={{ marginBottom: 28 }}>
+              {high.map((s) => (
+                <HighSignalCard
+                  key={s.signalId || s.id}
+                  signal={s}
+                  onPrimary={() => {
+                    if (s.vaultId) goToVault(s.vaultId);
+                    else if (s.affected?.length) setModalSignal(s);
+                  }}
+                  onSecondary={() => {
+                    if (s.affected?.length && (s.secondaryCta?.toLowerCase().includes('affected') || s.secondaryCta?.toLowerCase().includes('correlation'))) {
+                      setModalSignal(s);
+                    } else if (s.vaultId) {
+                      goToVault(s.vaultId);
+                    }
+                  }}
+                  onAffectedClick={goToVault}
+                  onCardClick={() => {
+                    // Whole-card click goes to the vault (single-vault) or
+                    // opens the affected list (multi-vault). Makes scanning
+                    // faster — users don't need to hit the small CTA button.
+                    if (s.vaultId) goToVault(s.vaultId);
+                    else if (s.affected?.length) setModalSignal(s);
+                  }}
+                />
+              ))}
+            </div>
+          )}
 
-            <SectionHeader dot={C.medAccent} accent="rgba(198,138,31,.14)" label="Notable signals" count={`${totals.notable ?? notable.length} · last ${activeTime}`} />
-            {notable.length === 0 ? (
-              <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 22, textAlign: 'center', fontSize: 12, color: C.muted }}>
-                No notable signals in this window.
-              </div>
-            ) : (
-              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
-                {visibleNotable.map((s, i) => (
-                  <NotableSignalRow
-                    key={s.signalId || `${s.id}-${i}`}
-                    signal={s}
-                    isLast={i === visibleNotable.length - 1}
-                    onClick={() => goToVault(s.vaultId)}
-                  />
-                ))}
-              </div>
-            )}
-            {notable.length > 6 && (
-              <button onClick={() => setShowAllNotable(!showAllNotable)} style={{ marginTop: 10, width: '100%', padding: 12, fontSize: 13, background: 'transparent', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-                {showAllNotable ? 'Show less' : `Show ${notable.length - 6} more notable signals`}
-              </button>
-            )}
-          </div>
+          {/* MEDIUM tier */}
+          <SectionHeader dot={C.medAccent} accent="rgba(198,138,31,.14)" label="Notable signals" count={`${totals.notable ?? notable.length} · last ${activeTime}`} />
+          {notable.length === 0 ? (
+            <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 22, textAlign: 'center', fontSize: 12, color: C.muted, marginBottom: 28 }}>
+              No notable signals in this window.
+            </div>
+          ) : (
+            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow, marginBottom: 28 }}>
+              {visibleNotable.map((s, i) => (
+                <NotableSignalRow
+                  key={s.signalId || `${s.id}-${i}`}
+                  signal={s}
+                  isLast={i === visibleNotable.length - 1}
+                  onClick={() => goToVault(s.vaultId)}
+                />
+              ))}
+            </div>
+          )}
+          {notable.length > 6 && (
+            <button onClick={() => setShowAllNotable(!showAllNotable)} style={{ marginBottom: 28, width: '100%', padding: 12, fontSize: 13, background: 'transparent', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              {showAllNotable ? 'Show less' : `Show ${notable.length - 6} more notable signals`}
+            </button>
+          )}
 
-          {/* RIGHT SIDEBAR — activity */}
-          <aside style={{ minWidth: 0, position: 'sticky', top: 80 }} className="intel-sidebar">
-            <SectionHeader dot={C.hint} label="All activity" count={`${totals.activity ?? activity.length} · ${activeTime}`} />
-            {activity.length === 0 ? (
-              <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 22, textAlign: 'center', fontSize: 12, color: C.muted }}>
-                No score changes recorded.
+          {/* LOW tier — full width at the bottom (per design spec) */}
+          <SectionHeader dot={C.hint} label="All activity" count={`${totals.activity ?? activity.length} · ${activeTime}`} />
+          {activity.length === 0 ? (
+            <div style={{ background: C.bg, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 22, textAlign: 'center', fontSize: 12, color: C.muted }}>
+              No score changes recorded.
+            </div>
+          ) : (
+            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
+              <div style={{ padding: '11px 20px', display: 'grid', gridTemplateColumns: '120px 1fr 70px 60px', gap: 12, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: C.hint, borderBottom: `1px solid ${C.borderLight}`, background: C.bgSoft }}>
+                <span>Time</span>
+                <span>Event</span>
+                <span>Δ</span>
+                <span style={{ textAlign: 'right' }}>Score</span>
               </div>
-            ) : (
-              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
-                <div style={{ padding: '11px 20px', display: 'grid', gridTemplateColumns: '92px 1fr 70px 60px', gap: 12, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: C.hint, borderBottom: `1px solid ${C.borderLight}`, background: C.bgSoft }}>
-                  <span>Time</span>
-                  <span>Event</span>
-                  <span>Δ</span>
-                  <span style={{ textAlign: 'right' }}>Score</span>
-                </div>
-                {visibleActivity.map((row, i) => (
-                  <ActivityRow key={row.signalId || i} row={row} onClick={() => goToVault(row.vaultId)} />
-                ))}
-              </div>
-            )}
-            {activity.length > 8 && (
-              <button onClick={() => setShowAllActivity(!showAllActivity)} style={{ marginTop: 10, width: '100%', padding: 12, fontSize: 13, background: 'transparent', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-                {showAllActivity ? 'Show less' : `Show all ${totals.activity ?? activity.length} events`}
-              </button>
-            )}
-          </aside>
-        </div>
+              {visibleActivity.map((row, i) => (
+                <ActivityRow key={row.signalId || i} row={row} onClick={() => goToVault(row.vaultId)} />
+              ))}
+            </div>
+          )}
+          {activity.length > 8 && (
+            <button onClick={() => setShowAllActivity(!showAllActivity)} style={{ marginTop: 10, width: '100%', padding: 12, fontSize: 13, background: 'transparent', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              {showAllActivity ? 'Show less' : `Show all ${totals.activity ?? activity.length} events`}
+            </button>
+          )}
+        </>
       )}
 
       {/* Affected-vaults modal (for "View correlation" / "All affected vaults" CTAs) */}
@@ -525,14 +535,6 @@ export default function IntelPage() {
         onClose={() => setModalSignal(null)}
         onVaultClick={(vid) => { setModalSignal(null); goToVault(vid); }}
       />
-
-      {/* Mobile collapse */}
-      <style>{`
-        @media (max-width: 960px) {
-          .intel-grid { grid-template-columns: 1fr !important; }
-          .intel-sidebar { position: static !important; }
-        }
-      `}</style>
     </InvestorShell>
   );
 }
