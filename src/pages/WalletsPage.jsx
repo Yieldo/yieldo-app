@@ -355,17 +355,20 @@ function DashboardPage({ partner }) {
         <StatCard icon="🎯" label="Txns (7d)" value={stats ? txns7d : "—"} />
       </div>
 
-      {/* Quick Integration code snippet */}
+      {/* Quick Integration — real REST API (no SDK package yet) */}
       <Card style={{ padding: 20, marginBottom: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Quick Integration</div>
         <div style={{ background: "#1a1a2e", borderRadius: 8, padding: 16, fontFamily: "monospace",
                       fontSize: 12, color: "#e2e8f0", lineHeight: 1.8, overflow: "auto" }}>
-          <span style={{ color: "#7c3aed" }}>npm</span> install @yieldo/sdk<br/>
+          <span style={{ color: "#94a3b8" }}>{"# List curated vaults"}</span><br/>
+          <span style={{ color: "#7c3aed" }}>curl</span> https://api.yieldo.xyz/v1/vaults \<br/>
+          &nbsp;&nbsp;-H <span style={{ color: "#10b981" }}>"X-API-Key: yd_live_..."</span><br/>
           <br/>
-          <span style={{ color: "#94a3b8" }}>{"// Fetch the vault catalog"}</span><br/>
-          <span style={{ color: "#7c3aed" }}>import</span> {"{ Yieldo }"} <span style={{ color: "#7c3aed" }}>from</span> <span style={{ color: "#10b981" }}>'@yieldo/sdk'</span>;<br/>
-          <span style={{ color: "#7c3aed" }}>const</span> yieldo = <span style={{ color: "#7c3aed" }}>new</span> Yieldo({"{ "}apiKey: <span style={{ color: "#10b981" }}>'yd_live_...'</span>{" }"});<br/>
-          <span style={{ color: "#7c3aed" }}>const</span> vaults = <span style={{ color: "#7c3aed" }}>await</span> yieldo.getVaults();
+          <span style={{ color: "#94a3b8" }}>{"# Build a deposit transaction"}</span><br/>
+          <span style={{ color: "#7c3aed" }}>curl</span> -X POST https://api.yieldo.xyz/v1/quote/build \<br/>
+          &nbsp;&nbsp;-H <span style={{ color: "#10b981" }}>"X-API-Key: yd_live_..."</span> \<br/>
+          &nbsp;&nbsp;-H <span style={{ color: "#10b981" }}>"Content-Type: application/json"</span> \<br/>
+          &nbsp;&nbsp;-d <span style={{ color: "#10b981" }}>{`'{"vault_id":"1:0xbeef...","from_chain_id":1,...}'`}</span>
         </div>
       </Card>
 

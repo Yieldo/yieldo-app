@@ -515,21 +515,27 @@ export default function WalletApp() {
             <Card style={{ padding: 24 }}>
               <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>Quick Start</h3>
               <div style={{ background: "#faf9fe", borderRadius: 8, padding: "16px 18px", fontFamily: "monospace", fontSize: 12, color: C.text2, lineHeight: 1.8, border: `1px solid ${C.purple}08`, whiteSpace: "pre-wrap" }}>
-                  {"npm install @yieldo" + "/sdk\n\n"}
-                  {"imp" + "ort { Yieldo } " + "from '@yieldo/sdk';\n\n"}
-                  {"const yieldo = new Yieldo({\n"}
-                  {"  apiKey: 'yd_live_pk_7a1c...b9e2',\n"}
-                  {"  partnerId: 'phantom',\n"}
-                  {"});\n\n"}
                   {"// List curated vaults\n"}
-                  {"const vaults = await yieldo.getVaults();\n\n"}
-                  {"// Deposit\n"}
-                  {"await yieldo.deposit({\n"}
-                  {"  vaultId: vaults[0].id,\n"}
-                  {"  amount: '10000',\n"}
-                  {"  token: 'USDC',\n"}
-                  {"  userAddress: '0x...',\n"}
-                  {"});"}
+                  {"const r = await fetch('https://api.yieldo.xyz/v1/vaults', {\n"}
+                  {"  headers: { 'X-API-Key': 'yd_live_...' },\n"}
+                  {"});\n"}
+                  {"const vaults = await r.json();\n\n"}
+                  {"// Build a deposit transaction\n"}
+                  {"const tx = await fetch('https://api.yieldo.xyz/v1/quote/build', {\n"}
+                  {"  method: 'POST',\n"}
+                  {"  headers: {\n"}
+                  {"    'X-API-Key': 'yd_live_...',\n"}
+                  {"    'Content-Type': 'application/json',\n"}
+                  {"  },\n"}
+                  {"  body: JSON.stringify({\n"}
+                  {"    vault_id: vaults[0].vault_id,\n"}
+                  {"    from_chain_id: 1,\n"}
+                  {"    from_token: '0xA0b8...USDC',\n"}
+                  {"    from_amount: '10000000', // 10 USDC\n"}
+                  {"    user_address: '0x...',\n"}
+                  {"  }),\n"}
+                  {"});\n"}
+                  {"// User signs tx returned in response"}
                 </div>
             </Card>
             <Card style={{ padding: 24 }}>
