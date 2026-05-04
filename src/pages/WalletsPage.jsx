@@ -874,7 +874,7 @@ export default function WalletsPage() {
                 Become a Wallet Partner
               </h1>
               <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
-                Integrate Yieldo's curated DeFi vaults into your wallet and earn 5 bps on every deposit your users make.
+                Integrate Yieldo's curated DeFi vaults into your wallet — give your users one-tap access to scored, monitored yield opportunities across 7 chains.
                 Apply below — we respond within 48 hours.
               </p>
             </div>
