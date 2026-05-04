@@ -655,8 +655,8 @@ export default function WalletsPage() {
     try { return localStorage.getItem("yieldo_partner_sidebar_collapsed") === "1"; } catch { return false; }
   });
   const [partner, setPartner] = useState(null);
-  const [authState, setAuthState] = useState("checking"); // checking | not_connected | verify | register | authenticated
-  const [registerData, setRegisterData] = useState(null);
+  const [authState, setAuthState] = useState("checking"); // checking | not_connected | verify | authenticated
+  const [registerError, setRegisterError] = useState("");
   const [newKeys, setNewKeys] = useState(null);
   // Application status for the connected wallet — used to decide whether to
   // show the apply form (no app / rejected), a "pending" banner, or the
@@ -739,26 +739,22 @@ export default function WalletsPage() {
 
     if (result.type !== "register") return;
 
-    // Auto-register from approved application data — user already filled the
-    // company/email in the apply form, no reason to ask again. Falls back to
-    // the manual RegistrationForm if the application isn't found (legacy or
-    // unexpected state).
+    // Auto-register using approved application data. We do NOT fall back to a
+    // manual form — the application form already collected company/email/etc,
+    // there's no reason to ask again. If anything fails, show a clear error
+    // and let the user retry (re-render of SignatureVerify).
+    setRegisterError("");
     try {
       const appsRes = await fetch(`${PARTNER_API}/v1/applications/me/${address}`);
       const apps = appsRes.ok ? await appsRes.json() : { applications: [] };
       const walletApp = apps.applications?.find(a => a.audience === "wallet");
       const formData = walletApp?.form_data;
 
-      if (!formData) {
-        // No application data — fall back to manual form
-        setRegisterData(result);
-        setAuthState("register");
+      if (!formData || walletApp?.status !== "approved") {
+        setRegisterError("No approved application found for this wallet. Please apply first.");
         return;
       }
 
-      // Register using application data — pass the EXACT nonce we signed so
-      // the backend doesn't pick a different one if other components have
-      // racing /partners/nonce calls.
       const regRes = await fetch(`${PARTNER_API}/v1/partners/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -779,33 +775,29 @@ export default function WalletsPage() {
       });
       if (!regRes.ok) {
         const err = await regRes.json().catch(() => ({}));
-        console.error("Auto-register failed:", err.detail);
-        setRegisterData(result);
-        setAuthState("register");
+        setRegisterError(`Registration failed: ${err.detail || regRes.status}. Please try again.`);
         return;
       }
       const regData = await regRes.json();
       setNewKeys({ api_key: regData.api_key, api_secret: regData.api_secret });
 
-      // V3.3+: /register returns a session_token, no second signature needed.
+      // /register returns session_token in V3.3+, no second signature needed.
       if (regData.session_token) {
         sessionStorage.setItem("yieldo_partner_token", regData.session_token);
       }
 
-      // Fetch full partner profile
       partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(p => {
         if (p) { setPartner(p); applyServerEnrollment(p.enrolled_vaults); }
       });
       setAuthState("authenticated");
     } catch (e) {
-      // User cancelled or unexpected error → fall back to manual form
-      if (!(e?.message?.includes("User rejected") || e?.message?.includes("User denied"))) {
+      const userCancelled = e?.message?.toLowerCase().includes("user reject") || e?.message?.toLowerCase().includes("user denied");
+      if (!userCancelled) {
         console.error("Auto-register exception:", e);
+        setRegisterError(e?.message || "Registration failed. Please try again.");
       }
-      setRegisterData(result);
-      setAuthState("register");
     }
-  }, [address, signTopLevel]);
+  }, [address]);
 
   const handleRegistered = useCallback((data) => {
     setNewKeys({ api_key: data.api_key, api_secret: data.api_secret });
@@ -983,14 +975,21 @@ export default function WalletsPage() {
             return <div style={{ padding: 60, textAlign: "center", fontSize: 14, color: C.text3 }}>Checking your application status…</div>;
           }
 
-          // Mid-register state (after SignatureVerify success on a fresh wallet)
-          if (authState === "register" && registerData) {
-            return <RegistrationForm address={address} signature={registerData.signature} onRegistered={handleRegistered} />;
-          }
-
-          // Existing partner OR approved application → sign-in flow
+          // Existing partner OR approved application → sign-in flow.
+          // No more manual RegistrationForm — auto-register pulls form data from
+          // the approved application. If anything fails, an error banner shows
+          // above SignatureVerify and the user can retry by clicking Sign again.
           if (appCheck.isExistingPartner || appCheck.status === "approved") {
-            return <SignatureVerify address={address} onVerified={handleVerified} />;
+            return (
+              <>
+                {registerError && (
+                  <div style={{ maxWidth: 480, margin: "0 auto 18px", padding: "12px 16px", background: "rgba(217,54,54,.08)", border: "1px solid rgba(217,54,54,.18)", borderRadius: 10, color: "#9c2727", fontSize: 13, textAlign: "center" }}>
+                    {registerError}
+                  </div>
+                )}
+                <SignatureVerify address={address} onVerified={handleVerified} />
+              </>
+            );
           }
 
           // Pending — friendly banner, no form
