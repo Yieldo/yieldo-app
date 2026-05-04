@@ -666,6 +666,7 @@ export default function WalletsPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  const { signMessageAsync: signTopLevel } = useSignMessage();
   const navigate = useNavigate();
   const { vaults, loading: vaultsLoading } = useVaults();
 
@@ -726,19 +727,96 @@ export default function WalletsPage() {
     return () => { cancelled = true; };
   }, [address, isConnected]);
 
-  const handleVerified = useCallback((result) => {
+  const handleVerified = useCallback(async (result) => {
     if (result.type === "login") {
       setPartner(result.partner);
-      // Fetch full profile
       partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(data => {
         if (data) { setPartner(data); applyServerEnrollment(data.enrolled_vaults); }
       });
       setAuthState("authenticated");
-    } else if (result.type === "register") {
+      return;
+    }
+
+    if (result.type !== "register") return;
+
+    // Auto-register from approved application data — user already filled the
+    // company/email in the apply form, no reason to ask again. Falls back to
+    // the manual RegistrationForm if the application isn't found (legacy or
+    // unexpected state).
+    try {
+      const appsRes = await fetch(`${PARTNER_API}/v1/applications/me/${address}`);
+      const apps = appsRes.ok ? await appsRes.json() : { applications: [] };
+      const walletApp = apps.applications?.find(a => a.audience === "wallet");
+      const formData = walletApp?.form_data;
+
+      if (!formData) {
+        // No application data — fall back to manual form
+        setRegisterData(result);
+        setAuthState("register");
+        return;
+      }
+
+      // Register using application data
+      const regRes = await fetch(`${PARTNER_API}/v1/partners/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address,
+          signature: result.signature,
+          name: formData.company || "Wallet Partner",
+          website: "",
+          contact_email: formData.email || "",
+          description: [
+            formData.role && `Role: ${formData.role}`,
+            formData.mau && `MAU: ${formData.mau}`,
+            formData.chains?.length && `Chains: ${formData.chains.join(", ")}`,
+            formData.telegram && `Telegram: ${formData.telegram}`,
+          ].filter(Boolean).join(" · "),
+        }),
+      });
+      if (!regRes.ok) {
+        const err = await regRes.json().catch(() => ({}));
+        // Fall back to manual form on unexpected backend errors
+        console.error("Auto-register failed:", err.detail);
+        setRegisterData(result);
+        setAuthState("register");
+        return;
+      }
+      const regData = await regRes.json();
+      setNewKeys({ api_key: regData.api_key, api_secret: regData.api_secret });
+
+      // Get a fresh nonce + sign for login (creates the session)
+      const nonceRes = await fetch(`${PARTNER_API}/v1/partners/nonce`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      const { message: loginMsg } = await nonceRes.json();
+      const loginSig = await signTopLevel({ message: loginMsg });
+      const loginRes = await fetch(`${PARTNER_API}/v1/partners/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature: loginSig }),
+      });
+      if (loginRes.ok) {
+        const loginData = await loginRes.json();
+        sessionStorage.setItem("yieldo_partner_token", loginData.session_token);
+      }
+
+      // Fetch full partner profile
+      partnerFetch("/v1/partners/me").then(r => r.ok ? r.json() : null).then(p => {
+        if (p) { setPartner(p); applyServerEnrollment(p.enrolled_vaults); }
+      });
+      setAuthState("authenticated");
+    } catch (e) {
+      // User cancelled or unexpected error → fall back to manual form
+      if (!(e?.message?.includes("User rejected") || e?.message?.includes("User denied"))) {
+        console.error("Auto-register exception:", e);
+      }
       setRegisterData(result);
       setAuthState("register");
     }
-  }, []);
+  }, [address, signTopLevel]);
 
   const handleRegistered = useCallback((data) => {
     setNewKeys({ api_key: data.api_key, api_secret: data.api_secret });
