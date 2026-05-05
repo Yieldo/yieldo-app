@@ -3,6 +3,7 @@ import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
+import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import { useVaults } from "../hooks/useVaultData.js";
 import { AssetIcon } from "../components/VaultExplorer.jsx";
 import { DEPOSITABLE_CHAINS } from "../chains.js";
@@ -12,7 +13,7 @@ const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana", 100: "Gnosis" };
+// CHAINS imported from chains.js — single source of truth.
 
 const C = {
   white: "#fff", bg: "#f8f7fc", border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",

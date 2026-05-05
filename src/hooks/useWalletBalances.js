@@ -25,7 +25,16 @@ const DAI = {
   [optimism.id]: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
 };
 
-const CHAIN_NAMES = { [mainnet.id]: "Ethereum", [base.id]: "Base", [arbitrum.id]: "Arbitrum", [optimism.id]: "Optimism" };
+// Local subset — wallet-balance hook only queries the 4 chains where USDC is
+// canonical (Ethereum/Base/Arbitrum/Optimism). For all other display lookups,
+// import CHAIN_NAMES from chains.js — that's the single source of truth.
+import { CHAIN_NAMES as CANONICAL_CHAIN_NAMES } from "../chains.js";
+const CHAIN_NAMES = {
+  [mainnet.id]: CANONICAL_CHAIN_NAMES[mainnet.id],
+  [base.id]: CANONICAL_CHAIN_NAMES[base.id],
+  [arbitrum.id]: CANONICAL_CHAIN_NAMES[arbitrum.id],
+  [optimism.id]: CANONICAL_CHAIN_NAMES[optimism.id],
+};
 
 const ERC20_ABI = [{ inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" }];
 

@@ -4,6 +4,7 @@ import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { VaultExplorer } from "../components/VaultExplorer.jsx";
+import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import RoleSwitcher from "../components/RoleSwitcher.jsx";
 import PartnerApplyForm from "../components/PartnerApplyForm.jsx";
 
@@ -23,7 +24,7 @@ const C = {
   gold: "#b8960a", goldDim: "rgba(184,150,10,0.07)",
 };
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad" };
+// CHAINS imported from chains.js — single source of truth.
 const PROTOCOL_COLORS = {
   Morpho: { color: "#1E90FF", bg: "rgba(30,144,255,0.08)" },
   Hyperbeat: { color: "#00D4AA", bg: "rgba(0,212,170,0.08)" },

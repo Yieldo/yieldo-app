@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
+import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { AssetIcon, ScoreRing, fmtTvl } from "../components/VaultExplorer.jsx";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
@@ -23,7 +24,7 @@ const C = {
   orange: "#d97706", orangeDim: "rgba(217,119,6,0.07)",
 };
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad", 100: "Gnosis" };
+// CHAINS imported from chains.js — single source of truth.
 
 function fmtApy(n) {
   if (!n && n !== 0) return "\u2014";

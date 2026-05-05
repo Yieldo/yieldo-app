@@ -11,10 +11,9 @@
 //   ?style=compact   -> 220×68 compact (default)
 //   ?style=detailed  -> 320×120 with sub-scores
 //
-// Score algorithm: simplified composite (TVL + APY + risk + trust signals) — NOT
-// identical to the full in-app score yet. Numbers are within ~5pts of the React
-// computation. Consolidating to a single source-of-truth scoring module is on
-// the roadmap; this endpoint will pick that up automatically when it lands.
+// Score source: latest row from indexer's `score_snapshots` collection — the same
+// numbers the API/UI consume via /v1/scores/*. Falls back to client-side compute
+// only if no snapshot exists yet for the vault (fresh vault, indexer not yet run).
 
 import { applyVaultOverrides } from "../_vault-overrides.js";
 import { computeYieldoScore } from "../../src/lib/scoring.js";
@@ -161,11 +160,29 @@ export default async function handler(req, res) {
 
     const theme = req.query.theme === "dark" ? "dark" : "light";
     const style = req.query.style === "detailed" ? "detailed" : "compact";
-    // Same scoring function the React app uses — embeds and the vault page
-    // will always show the same number. age = D01 (days since creation) if
-    // present, else assume mature so confidence multiplier doesn't dampen.
-    const age = typeof row.D01 === "number" ? row.D01 : 365;
-    const { score, sub } = computeYieldoScore(row, age);
+
+    // Prefer the canonical server-side score (indexer writes hourly snapshots
+    // and the API serves them via /v1/scores/*). Fall back to client compute
+    // only if no snapshot exists yet for this vault.
+    let score, sub;
+    const snap = await db.collection("score_snapshots").findOne(
+      { vault_id: vaultId },
+      { sort: { ts: -1 } },
+    );
+    if (snap && typeof snap.yieldo_score === "number") {
+      score = Math.round(snap.yieldo_score);
+      sub = {
+        capital:     Math.round(snap.capital_score ?? 0),
+        performance: Math.round(snap.performance_score ?? 0),
+        risk:        Math.round(snap.risk_score ?? 0),
+        trust:       Math.round(snap.trust_score ?? 0),
+      };
+    } else {
+      const age = typeof row.D01 === "number" ? row.D01 : 365;
+      const r = computeYieldoScore(row, age);
+      score = r.score;
+      sub = r.sub;
+    }
     const svg = style === "detailed"
       ? renderDetailed({ score, sub, vaultName: row.vault_name, theme })
       : renderCompact({ score, vaultName: row.vault_name, theme });

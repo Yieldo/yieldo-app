@@ -56,3 +56,14 @@ export const EXPLORER_NAMES = {
   747474: "Katanascan",
   100: "Gnosisscan",
 };
+
+// Chains shown in vault filters / explorer UI. Subset of CHAIN_NAMES — only
+// chains where Yieldo actually lists vaults. Derived from CHAIN_NAMES so any
+// chain we add appears in the filter automatically.
+export const SUPPORTED_CHAIN_NAMES = [
+  "Ethereum", "Base", "Arbitrum", "Optimism",
+  "Monad", "HyperEVM", "Katana", "Gnosis",
+];
+
+// Helper: chain_id -> display name with safe fallback. Single canonical lookup.
+export const chainName = (id) => CHAIN_NAMES[id] || `Chain ${id}`;

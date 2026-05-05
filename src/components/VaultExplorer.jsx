@@ -1,6 +1,7 @@
 // Shared vault filter + table used by VaultPage and WalletsPage
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { SUPPORTED_CHAIN_NAMES } from "../chains.js";
 
 export const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
@@ -310,10 +311,9 @@ export function VaultExplorer({
 
   const tog = (a, s, v) => s(a.includes(v) ? a.filter(x => x !== v) : [...a, v]);
 
-  const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Optimism", "Monad", "HyperEVM", "Katana", "Gnosis"];
   const CHAINS = useMemo(() => {
     const all = [...new Set(ALL.map(v => v.chain))].sort();
-    return all.filter(c => SUPPORTED_CHAINS.includes(c));
+    return all.filter(c => SUPPORTED_CHAIN_NAMES.includes(c));
   }, [ALL]);
   const PROTOCOLS = useMemo(() => [...new Set(ALL.map(v => v.protocol))].filter(Boolean).sort(), [ALL]);
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);

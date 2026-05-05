@@ -12,7 +12,7 @@ const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const WithdrawModal = lazy(() => import("../components/WithdrawModal.jsx"));
 import InvestorShell from "../components/InvestorShell.jsx";
 
-import { DEPOSITABLE_CHAINS } from "../chains.js";
+import { DEPOSITABLE_CHAINS, SUPPORTED_CHAIN_NAMES } from "../chains.js";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
 function useWindowWidth() {
@@ -324,10 +324,9 @@ export default function VaultPage() {
 
   const tog = (a,s,v) => { s(a.includes(v)?a.filter(x=>x!==v):[...a,v]); setActivePreset(null); };
 
-  const SUPPORTED_CHAINS = ["Ethereum", "Base", "Arbitrum", "Optimism", "Monad", "HyperEVM", "Katana"];
   const CHAINS = useMemo(() => {
     const all = [...new Set(ALL.map(v => v.chain))].sort();
-    return all.filter(c => SUPPORTED_CHAINS.includes(c));
+    return all.filter(c => SUPPORTED_CHAIN_NAMES.includes(c));
   }, [ALL]);
   const PROTOCOLS = useMemo(() => [...new Set(ALL.map(v => v.protocol))].filter(Boolean).sort(), [ALL]);
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);

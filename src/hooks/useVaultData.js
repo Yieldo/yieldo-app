@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CHAIN_NAMES } from "../chains.js";
 // Scoring lives in a shared module so the same logic powers both the React
 // app and the server-rendered embed badge (api/badge/[vaultId].js).
 import {
@@ -47,16 +48,7 @@ function setCache(key, data) {
   }
 }
 
-const CHAIN_NAMES = {
-  1: "Ethereum",
-  8453: "Base",
-  42161: "Arbitrum",
-  10: "Optimism",
-  999: "HyperEVM",
-  747474: "Katana",
-  143: "Monad",
-  100: "Gnosis",
-};
+// CHAIN_NAMES is imported from chains.js — single source of truth.
 
 const ASSET_ICONS = {
   usdc: "💵",

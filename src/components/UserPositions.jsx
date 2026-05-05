@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
-import { DEPOSITABLE_CHAINS } from "../chains.js";
+import { DEPOSITABLE_CHAINS, CHAIN_NAMES as CHAINS } from "../chains.js";
 
 const WithdrawModal = lazy(() => import("./WithdrawModal.jsx"));
 const DepositModal = lazy(() => import("./DepositModal.jsx"));
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
 
 const C = {
   white: "#fff", border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",
