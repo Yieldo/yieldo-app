@@ -17,7 +17,7 @@ import {
   getConfidence, calcExternalRatingBonus, deriveFlags,
 } from "../lib/scoring.js";
 
-const CACHE_KEY = "yieldo_vaults_cache_v3";
+const CACHE_KEY = "yieldo_vaults_cache_v4";  // bumped 2026-05-05 — Gnosis chain support
 const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v2_";
 const CACHE_TTL = 5 * 60 * 1000;
 
