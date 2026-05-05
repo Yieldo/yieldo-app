@@ -192,50 +192,72 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
   cap = Math.min(cap, 50);
   // If the data never reaches the cap, just use rawMax (no clipping needed)
   const needsClipping = rawMax > cap;
-  const mx = needsClipping ? cap : rawMax;
-  const mn = Math.min(rawMin, 0);
-  const pad = { t: 20, r: 16, b: 32, l: 44 };
+  // Smarter Y-domain: when all values are positive, don't force the floor to 0
+  // (squashes the line into the top half). Pad min/max with ~8% headroom so
+  // peaks and troughs aren't pinned to the chart edges.
+  const visMax = needsClipping ? cap : rawMax;
+  const visMin = rawMin < 0 ? rawMin : Math.max(0, rawMin - Math.abs(rawMax - rawMin) * 0.08);
+  const mx = visMax + Math.abs(visMax - visMin) * 0.05;
+  const mn = visMin;
+  const pad = { t: 22, r: 18, b: 32, l: 46 };
   const cw = width - pad.l - pad.r, ch = height - pad.t - pad.b;
   const rng = mx - mn || 1;
   const toX = i => pad.l + (i / (sliced.length - 1)) * cw;
   // Clamp y to chart bounds — values above cap pin to top of chart
   const toY = v => {
-    const clamped = Math.min(Math.max(v, mn), mx);
+    const clamped = Math.min(Math.max(v, mn), visMax);
     return pad.t + ch - ((clamped - mn) / rng) * ch;
   };
   // Identify outliers so we can render them as labeled markers at the top
   const outliers = needsClipping
     ? sliced.map((v, i) => (typeof v === "number" && v > cap ? { i, v } : null)).filter(Boolean)
     : [];
-  // Catmull-Rom → cubic Bezier smoothing. Produces a curve that passes
-  // through every data point (no value distortion) but eliminates the
-  // jagged-polyline look of straight `M`/`L` segments. Tension 0.2 is a
-  // mild smoothing — high enough to round corners, low enough that we
-  // don't overshoot near outliers.
+  // Monotone cubic (Fritsch–Carlson) interpolation. Unlike Catmull-Rom this
+  // never overshoots between data points — important when APY has sharp
+  // step-like transitions near the cap. Curve still passes through every
+  // sample, so values are exact.
   function smoothPath(values) {
     const pts = values.map((v, i) => [toX(i), toY(v)]);
-    if (pts.length < 2) return "";
-    if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
-    const t = 0.2;
+    const n = pts.length;
+    if (n < 2) return "";
+    if (n === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
+    const dx = [], slopes = [];
+    for (let i = 0; i < n - 1; i++) {
+      const ddx = pts[i + 1][0] - pts[i][0] || 1e-9;
+      dx.push(ddx);
+      slopes.push((pts[i + 1][1] - pts[i][1]) / ddx);
+    }
+    const tangents = new Array(n);
+    tangents[0] = slopes[0];
+    tangents[n - 1] = slopes[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+      if (slopes[i - 1] * slopes[i] <= 0) {
+        tangents[i] = 0;
+      } else {
+        const w1 = 2 * dx[i] + dx[i - 1];
+        const w2 = dx[i] + 2 * dx[i - 1];
+        tangents[i] = (w1 + w2) / (w1 / slopes[i - 1] + w2 / slopes[i]);
+      }
+    }
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const cp1x = p1[0] + (p2[0] - p0[0]) * t;
-      const cp1y = p1[1] + (p2[1] - p0[1]) * t;
-      const cp2x = p2[0] - (p3[0] - p1[0]) * t;
-      const cp2y = p2[1] - (p3[1] - p1[1]) * t;
-      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const cp1x = pts[i][0] + dx[i] / 3;
+      const cp1y = pts[i][1] + (tangents[i] * dx[i]) / 3;
+      const cp2x = pts[i + 1][0] - dx[i] / 3;
+      const cp2y = pts[i + 1][1] - (tangents[i + 1] * dx[i]) / 3;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
     }
     return d;
   }
   const mainPath = smoothPath(sliced);
   const benchPath = benchSliced.length > 0 ? smoothPath(benchSliced) : "";
   const areaPath = mainPath + ` L${toX(sliced.length-1).toFixed(1)},${(pad.t+ch).toFixed(1)} L${toX(0).toFixed(1)},${(pad.t+ch).toFixed(1)} Z`;
-  const ySteps = 5;
+  const ySteps = 4;
   const yLines = Array.from({ length: ySteps + 1 }, (_, i) => mn + (rng / ySteps) * i);
+  // Latest data point for the "current value" pulsing dot at the right edge.
+  const lastIdx = sliced.length - 1;
+  const lastVal = sliced[lastIdx];
+  const lastIsOutlier = needsClipping && typeof lastVal === "number" && lastVal > cap;
   const handleMouse = (e) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -257,9 +279,30 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
           ))}
         </div>
       </div>
-      <svg ref={svgRef} width={width} height={height} style={{ display: "block", cursor: "crosshair" }} onMouseMove={handleMouse} onMouseLeave={() => setHover(null)}>
+      <svg ref={svgRef} width={width} height={height} style={{ display: "block", cursor: "crosshair", fontVariantNumeric: "tabular-nums" }} onMouseMove={handleMouse} onMouseLeave={() => setHover(null)}>
+        <defs>
+          <linearGradient id="apyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={C.purple} stopOpacity=".22" />
+            <stop offset="60%" stopColor={C.purple} stopOpacity=".07" />
+            <stop offset="100%" stopColor={C.purple} stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="apyLineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#9E3BFF" />
+            <stop offset="100%" stopColor="#4B0CA6" />
+          </linearGradient>
+          <filter id="apyLineShadow" x="-5%" y="-30%" width="110%" height="160%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+            <feOffset dx="0" dy="2" result="offsetBlur" />
+            <feComponentTransfer><feFuncA type="linear" slope="0.18" /></feComponentTransfer>
+            <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <style>{`@keyframes yiPulse { 0%,100% { transform: scale(1); opacity: .55 } 50% { transform: scale(2.2); opacity: 0 } }`}</style>
+        </defs>
         {yLines.map((v, i) => (
-          <g key={i}><line x1={pad.l} y1={toY(v)} x2={width - pad.r} y2={toY(v)} stroke="rgba(0,0,0,.04)" strokeWidth="1" /><text x={pad.l - 6} y={toY(v) + 3} textAnchor="end" fontSize="9" fill={C.text4} fontFamily="'Inter',sans-serif">{v.toFixed(1)}%</text></g>
+          <g key={i}>
+            <line x1={pad.l} y1={toY(v)} x2={width - pad.r} y2={toY(v)} stroke="rgba(0,0,0,.045)" strokeWidth="1" strokeDasharray={i === 0 || i === yLines.length - 1 ? "none" : "2 3"} />
+            <text x={pad.l - 8} y={toY(v) + 3} textAnchor="end" fontSize="9.5" fill={C.text4} fontFamily="'Inter',sans-serif" fontWeight="500">{v.toFixed(1)}%</text>
+          </g>
         ))}
         {slicedDates.length > 0 && (() => {
           const labelCount = Math.min(6, slicedDates.length);
@@ -270,13 +313,19 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
             if (!d) return null;
             const parts = d.split("-");
             const label = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : d;
-            return <text key={idx} x={toX(idx)} y={pad.t + ch + 16} textAnchor="middle" fontSize="9" fill={C.text4} fontFamily="'Inter',sans-serif">{label}</text>;
+            return <text key={idx} x={toX(idx)} y={pad.t + ch + 18} textAnchor="middle" fontSize="9.5" fill={C.text4} fontFamily="'Inter',sans-serif" fontWeight="500">{label}</text>;
           });
         })()}
         <path d={areaPath} fill="url(#apyGrad)" />
-        <defs><linearGradient id="apyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.purple} stopOpacity=".12" /><stop offset="100%" stopColor={C.purple} stopOpacity=".01" /></linearGradient></defs>
-        {benchPath && <path d={benchPath} fill="none" stroke={C.text4} strokeWidth="1" strokeDasharray="4 3" opacity=".4" />}
-        <path d={mainPath} fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {benchPath && <path d={benchPath} fill="none" stroke={C.text4} strokeWidth="1.25" strokeDasharray="4 3" opacity=".45" strokeLinecap="round" />}
+        <path d={mainPath} fill="none" stroke="url(#apyLineGrad)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" filter="url(#apyLineShadow)" />
+        {/* Current-value pulsing dot at the right edge — draws attention to "now" */}
+        {typeof lastVal === "number" && !lastIsOutlier && (
+          <g style={{ transformOrigin: `${toX(lastIdx)}px ${toY(lastVal)}px` }}>
+            <circle cx={toX(lastIdx)} cy={toY(lastVal)} r="5" fill={C.purple} opacity=".55" style={{ transformOrigin: `${toX(lastIdx)}px ${toY(lastVal)}px`, animation: "yiPulse 2.2s ease-out infinite" }} />
+            <circle cx={toX(lastIdx)} cy={toY(lastVal)} r="3.5" fill={C.purple} stroke="#fff" strokeWidth="1.5" />
+          </g>
+        )}
         {/* Outlier markers — pinned to top of chart with value labels */}
         {outliers.map(({ i, v }) => {
           const x = toX(i);
@@ -308,7 +357,6 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
         {hover !== null && hover < sliced.length && (() => {
           const hv = sliced[hover];
           const isOutlier = needsClipping && hv > cap;
-          // Format outlier values with abbreviation, normal values with 2 decimals
           const fmtHover = (val) => {
             const abs = Math.abs(val);
             if (abs >= 1e12) return `${(val / 1e12).toFixed(1)}T%`;
@@ -317,18 +365,46 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
             if (abs >= 1e3) return `${(val / 1e3).toFixed(1)}K%`;
             return `${val.toFixed(2)}%`;
           };
+          const benchHv = benchSliced.length > 0 ? benchSliced[hover] : null;
           const valueLabel = fmtHover(hv);
-          const dateLabel = slicedDates[hover] ? slicedDates[hover].slice(5) + " · " : "";
-          const fullLabel = `${dateLabel}${valueLabel}`;
-          const tipW = Math.max(96, fullLabel.length * 6 + 16);
-          // Pin tooltip to chart top if value is an outlier (clamped)
+          const benchLabel = typeof benchHv === "number" ? fmtHover(benchHv) : null;
+          const dateLabel = slicedDates[hover] ? (() => {
+            const parts = slicedDates[hover].split("-");
+            return parts.length >= 3 ? `${parts[1]}/${parts[2]}` : slicedDates[hover];
+          })() : "";
           const cy = isOutlier ? pad.t : toY(hv);
+          const cx = toX(hover);
+          // Two-line tooltip: date + vault value (+ benchmark if present)
+          const lines = [];
+          if (dateLabel) lines.push({ text: dateLabel, color: C.text3, weight: 500 });
+          lines.push({ text: `Vault  ${valueLabel}`, color: isOutlier ? C.amber : C.purple, weight: 700 });
+          if (benchLabel) lines.push({ text: `Bench  ${benchLabel}`, color: C.text3, weight: 600 });
+          const tipW = Math.max(110, Math.max(...lines.map(l => l.text.length * 6.2)) + 20);
+          const tipH = 14 + lines.length * 13;
+          // Position tooltip above the line; flip below if too close to top
+          const tipY = cy - tipH - 10 < pad.t + 4 ? cy + 14 : cy - tipH - 10;
+          const tipX = Math.max(2, Math.min(width - tipW - 2, cx - tipW / 2));
           return (
             <g>
-              <line x1={toX(hover)} y1={pad.t} x2={toX(hover)} y2={pad.t + ch} stroke={C.purple} strokeWidth="1" opacity=".3" strokeDasharray="3 2" />
-              <circle cx={toX(hover)} cy={cy} r="4" fill={isOutlier ? C.amber : C.purple} stroke="#fff" strokeWidth="2" />
-              <rect x={Math.max(2, Math.min(width - tipW - 2, toX(hover) - tipW / 2))} y={pad.t - 18} width={tipW} height="16" rx="4" fill={C.white} stroke={C.border2} />
-              <text x={Math.max(tipW / 2 + 2, Math.min(width - tipW / 2 - 2, toX(hover)))} y={pad.t - 7} textAnchor="middle" fontSize="10" fontWeight="600" fill={isOutlier ? C.amber : C.purple} fontFamily="'Inter',sans-serif">{fullLabel}</text>
+              {/* Vertical crosshair */}
+              <line x1={cx} y1={pad.t} x2={cx} y2={pad.t + ch} stroke={C.purple} strokeWidth="1" opacity=".35" strokeDasharray="3 2" />
+              {/* Horizontal crosshair + Y-axis value pill */}
+              {!isOutlier && (
+                <>
+                  <line x1={pad.l} y1={cy} x2={width - pad.r} y2={cy} stroke={C.purple} strokeWidth="1" opacity=".18" strokeDasharray="3 2" />
+                  <rect x={pad.l - 42} y={cy - 8} width="38" height="16" rx="3" fill={C.purple} />
+                  <text x={pad.l - 23} y={cy + 3.5} textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#fff" fontFamily="'Inter',sans-serif">{fmtHover(hv).replace("%", "")}%</text>
+                </>
+              )}
+              {/* Hover dot — bigger, brighter */}
+              <circle cx={cx} cy={cy} r="5.5" fill={isOutlier ? C.amber : C.purple} opacity=".18" />
+              <circle cx={cx} cy={cy} r="4" fill={isOutlier ? C.amber : C.purple} stroke="#fff" strokeWidth="2" />
+              {/* Tooltip card */}
+              <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="6" fill={C.white} stroke={C.border2} filter="url(#apyLineShadow)" />
+              {lines.map((l, i) => (
+                <text key={i} x={tipX + tipW / 2} y={tipY + 14 + i * 13} textAnchor="middle"
+                  fontSize="10.5" fontWeight={l.weight} fill={l.color} fontFamily="'Inter',sans-serif">{l.text}</text>
+              ))}
             </g>
           );
         })()}
