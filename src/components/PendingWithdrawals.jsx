@@ -56,7 +56,8 @@ export default function PendingWithdrawals() {
   if (!isConnected || pending.length === 0) return null;
 
   return (
-    <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "20px 24px", marginTop: 16 }}>
+    <div className="yi-pending-card" style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", marginTop: 16 }}>
+      <style>{`@media (min-width: 768px) { .yi-pending-card { padding: 20px 24px !important; } }`}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 15, fontWeight: 700 }}>Pending Withdrawals</span>
         <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>
