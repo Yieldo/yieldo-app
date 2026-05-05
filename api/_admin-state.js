@@ -4,8 +4,9 @@
 // for 30s in module scope.
 //
 // Env var precedence:
-//   MONGO_WALLETS_URI  → use this when wallets DB is on a different cluster
-//   MONGO_URI          → fallback (works when both DBs share a cluster)
+//   MONGO_URI_WALLETS  → primary name (matches Vercel env)
+//   MONGO_WALLETS_URI  → alias accepted for back-compat
+//   MONGO_URI          → fallback when both DBs share a cluster
 
 import { MongoClient } from "mongodb";
 
@@ -16,7 +17,10 @@ const CACHE_MS = 30_000;
 
 async function getWalletsDb() {
   if (cachedClient) return cachedClient.db("yieldo_wallets");
-  const uri = process.env.MONGO_WALLETS_URI || process.env.MONGO_URI;
+  const uri =
+    process.env.MONGO_URI_WALLETS ||
+    process.env.MONGO_WALLETS_URI ||
+    process.env.MONGO_URI;
   if (!uri) return null;
   try {
     const client = new MongoClient(uri);
