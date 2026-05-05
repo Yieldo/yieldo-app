@@ -10,6 +10,7 @@ export const YIELDO_ROUTERS = {
   42161: "0xC5700f4D8054BA982C39838D7C33442f54688bd2",   // Arbitrum
   747474: "0xa682CD1c2Fd7c8545b401824096A600C2bD98F69", // Katana
   999: "0xa682CD1c2Fd7c8545b401824096A600C2bD98F69",    // HyperEVM (V3.2.0, big-blocks enabled)
+  100: "0xa682CD1c2Fd7c8545b401824096A600C2bD98F69",    // Gnosis (V3.3.0, deployed 2026-05-05)
 };
 
 // Chains where a user can open the Yieldo Deposit modal. Derived from
