@@ -172,8 +172,6 @@ function mapVault(raw) {
   const apyVsBench1d = typeof p03 === "object" && typeof p03["1d"] === "number" ? p03["1d"] : null;
   const apyVsBench7d = typeof p03 === "object" && typeof p03["7d"] === "number" ? p03["7d"] : null;
   const apyVsBench30d = typeof p03 === "object" && typeof p03["30d"] === "number" ? p03["30d"] : null;
-  const apyVsBenchmark = typeof raw.P03 === "number" ? raw.P03
-    : (apyVsBench7d !== null ? apyVsBench7d : null);
 
   const benchAave = raw.benchmark_aave_apy
     ? raw.benchmark_aave_apy * 100
@@ -181,6 +179,14 @@ function mapVault(raw) {
   const benchLido = raw.benchmark_lido_apy
     ? raw.benchmark_lido_apy * 100
     : null;
+  // Default "vs. Benchmark" ratio: current APY ÷ current benchmark APY.
+  // Same benchmark selection as the UI (Lido for ETH, else Aave). Falls back
+  // to the 7d P03 ratio only when we have no live benchmark APY to divide by.
+  const currentBench = benchLido || benchAave;
+  const apyVsBenchmark = typeof raw.P03 === "number" ? raw.P03
+    : (currentBench && currentBench > 0 && typeof apy === "number" && apy > 0
+        ? apy / currentBench
+        : (apyVsBench7d !== null ? apyVsBench7d : null));
 
   const retentionObj = raw.T01 || {};
   const retention30d =

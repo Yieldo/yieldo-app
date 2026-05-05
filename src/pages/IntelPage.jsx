@@ -417,6 +417,10 @@ export default function IntelPage() {
           {TIME_FILTERS.map((f) => (
             <FilterPill key={f} label={f} active={activeTime === f} onClick={() => setActiveTime(f)} />
           ))}
+          <a href="https://docs.yieldo.xyz/Scoring/four-dimensions" target="_blank" rel="noopener noreferrer"
+             style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: C.purpleDeep, textDecoration: 'none', padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,.7)' }}>
+            Score breakdown ↗
+          </a>
         </div>
       </div>
 
