@@ -262,7 +262,12 @@ export default function VaultPage() {
   const getDepositState = useCallback((v) => {
     const vType = vaultTypes[v.id];
     if (vType === "unsupported") return { ok: false, label: "Deposit", tip: "Vault not supported" };
-    if (!DEPOSITABLE_CHAINS.includes(v.chain_id)) return { ok: false, label: "Deposit", tip: "Depositable soon" };
+    // external_router vaults (e.g. Spark Savings xDAI on Gnosis) deposit via
+    // LiFi composer + direct vault.deposit() call — they're depositable even
+    // though Yieldo has no router on that chain.
+    if (!DEPOSITABLE_CHAINS.includes(v.chain_id) && !v.external_router) {
+      return { ok: false, label: "Deposit", tip: "Depositable soon" };
+    }
     return { ok: true, label: "Deposit", tip: null };
   }, [vaultTypes]);
 

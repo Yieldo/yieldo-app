@@ -26,6 +26,7 @@ export const CHAIN_NAMES = {
   143: "Monad",
   999: "HyperEVM",
   747474: "Katana",
+  100: "Gnosis",
 };
 
 export const CHAIN_EXPLORERS = {
@@ -38,6 +39,7 @@ export const CHAIN_EXPLORERS = {
   143: "https://monadscan.com",
   999: "https://hyperevmscan.io",
   747474: "https://katanascan.com",
+  100: "https://gnosisscan.io",
 };
 
 // Display labels that match each explorer's brand.
@@ -51,4 +53,5 @@ export const EXPLORER_NAMES = {
   143: "Monadscan",
   999: "HyperEVM Scan",
   747474: "Katanascan",
+  100: "Gnosisscan",
 };
