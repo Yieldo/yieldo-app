@@ -133,6 +133,58 @@ function AffectedVaultsModal({ signal, onClose, onVaultClick }) {
   );
 }
 
+// Compact "How this incident evolved" timeline. Renders a per-metric trail
+// (e.g. "Score 80 → 50 → 0") so users see the trajectory at a glance instead
+// of getting one card per cycle. Collapsed by default; expanded on click.
+function EvolutionTimeline({ evolution, firstSeenAgo }) {
+  const [open, setOpen] = useState(false);
+  if (!evolution || evolution.length < 2) return null;
+  // Build per-metric trail: { label: [first, ..., last] }
+  // We collect ALL distinct values for each label across the timeline so the
+  // user sees the full trajectory, not just first → last.
+  const trails = {};
+  for (const e of evolution) {
+    for (const m of e.metrics || []) {
+      if (!m.label || m.isText) continue;
+      if (!trails[m.label]) trails[m.label] = [];
+      const last = trails[m.label][trails[m.label].length - 1];
+      if (last !== m.value) trails[m.label].push(m.value);
+    }
+  }
+  const interesting = Object.entries(trails).filter(([, vals]) => vals.length > 1);
+  if (interesting.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 18, padding: '10px 14px', background: C.bgSoft, border: `1px solid ${C.borderLight}`, borderRadius: 8 }} onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setOpen(!open)}
+        style={{ all: 'unset', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', fontSize: 11.5, fontWeight: 600, color: C.body }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10, color: C.hint, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700 }}>Evolution</span>
+          <span style={{ color: C.muted, fontWeight: 500, fontFamily: FONT_MONO, fontSize: 10.5 }}>since {firstSeenAgo}</span>
+        </span>
+        <span style={{ fontSize: 14, color: C.hint, transform: open ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform .15s' }}>›</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {interesting.map(([label, vals]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+              <span style={{ color: C.muted, minWidth: 80, fontWeight: 500 }}>{label}</span>
+              <span style={{ fontFamily: FONT_MONO, color: C.ink, fontWeight: 600 }}>
+                {vals.map((v, i) => (
+                  <span key={i}>
+                    {i > 0 && <span style={{ color: C.hint, margin: '0 6px', fontWeight: 400 }}>→</span>}
+                    <span style={{ color: i === vals.length - 1 ? C.highInk : (i === 0 ? C.muted : C.body) }}>{v}</span>
+                  </span>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCardClick }) {
   const [hover, setHover] = useState(false);
   // Card is clickable when there's somewhere to go (single vault OR affected list).
@@ -167,7 +219,15 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
           {signal.label || signal.tag}
         </span>
         <RuleIdBadge id={signal.id} />
-        <span style={{ fontSize: 11, color: C.hint, marginLeft: 'auto', fontFamily: FONT_MONO }}>{signal.timeAgo}</span>
+        {signal.updateCount > 0 && (
+          <span title={`First seen ${signal.firstSeenAgo}`}
+                style={{ fontSize: 10, fontWeight: 700, color: C.medInk, background: C.medBg, border: `1px solid ${C.medBorder}`, padding: '3px 8px', borderRadius: 4, letterSpacing: '.04em' }}>
+            ↻ {signal.updateCount} update{signal.updateCount === 1 ? '' : 's'}
+          </span>
+        )}
+        <span style={{ fontSize: 11, color: C.hint, marginLeft: 'auto', fontFamily: FONT_MONO }}>
+          {signal.updateCount > 0 ? `Updated ${signal.timeAgo}` : signal.timeAgo}
+        </span>
       </div>
       <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 10px', color: C.ink, letterSpacing: '-.015em', lineHeight: 1.32 }}>
         {signal.headline}
@@ -178,6 +238,10 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(signal.metrics.length, 4)}, 1fr)`, gap: 10, marginBottom: 18 }}>
           {signal.metrics.map((m, i) => <MetricCell key={i} {...m} />)}
         </div>
+      )}
+
+      {signal.evolution && signal.evolution.length > 1 && (
+        <EvolutionTimeline evolution={signal.evolution} firstSeenAgo={signal.firstSeenAgo} />
       )}
 
       {signal.affected && signal.affected.length > 0 && (
@@ -255,10 +319,17 @@ function NotableSignalRow({ signal, isLast, onClick }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, letterSpacing: '-.005em' }}>{signal.title}</span>
           <RuleIdBadge id={signal.id} />
+          {signal.updateCount > 0 && (
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: C.medInk, background: C.medBg, border: `1px solid ${C.medBorder}`, padding: '2px 6px', borderRadius: 3, letterSpacing: '.04em' }}>
+              ↻ {signal.updateCount}
+            </span>
+          )}
         </div>
         <div style={{ fontSize: 12.5, color: C.body, lineHeight: 1.5 }}>{signal.desc}</div>
       </div>
-      <span style={{ fontSize: 11, color: C.hint, flexShrink: 0, fontFamily: FONT_MONO }}>{signal.timeAgo}</span>
+      <span style={{ fontSize: 11, color: C.hint, flexShrink: 0, fontFamily: FONT_MONO }}>
+        {signal.updateCount > 0 ? `Updated ${signal.timeAgo}` : signal.timeAgo}
+      </span>
     </div>
   );
 }
