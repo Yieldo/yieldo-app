@@ -165,16 +165,20 @@ export default function AdminPage() {
   // ────────────── ADMIN VIEW ──────────────
 
   const chains = Array.from(new Set(vaults.map(v => v.chain_id))).sort((a, b) => a - b);
+  // Effective live state is what users actually see — that's what we count.
+  // Falls back to admin override only when the new fields aren't present
+  // (older API build), so the page still shows sane numbers during deploys.
+  const isLive = (v) => v.effective_listed ?? v.enabled;
   const counts = {
     total: vaults.length,
-    enabled: vaults.filter(v => v.enabled).length,
-    disabled: vaults.filter(v => !v.enabled).length,
+    enabled: vaults.filter(isLive).length,
+    disabled: vaults.filter(v => !isLive(v)).length,
   };
   const q = search.trim().toLowerCase();
   const filtered = vaults.filter(v => {
     if (chainFilter !== "all" && v.chain_id !== Number(chainFilter)) return false;
-    if (stateFilter === "enabled" && !v.enabled) return false;
-    if (stateFilter === "disabled" && v.enabled) return false;
+    if (stateFilter === "enabled" && !isLive(v)) return false;
+    if (stateFilter === "disabled" && isLive(v)) return false;
     if (q) {
       return (
         (v.name || "").toLowerCase().includes(q) ||
@@ -312,15 +316,54 @@ function Stat({ label, value, color }) {
   );
 }
 
+// Pretty labels for the reason codes the API returns. The badges below each
+// toggle make it obvious whether a vault is off because of an admin choice or
+// because of registry config (paused / unsupported type).
+const REASON_LABELS = {
+  "admin":           { label: "Admin",          color: C.red,   bg: "rgba(217,54,54,.10)" },
+  "type-locked":     { label: "Type locked",    color: C.text3, bg: "rgba(0,0,0,.05)" },
+  "registry-paused": { label: "Registry paused", color: C.amber, bg: C.amberDim },
+  "listing-off":     { label: "Listing off",    color: C.text3, bg: "rgba(0,0,0,.05)" },
+};
+
+function ReasonBadges({ reasons }) {
+  if (!reasons || reasons.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+      {reasons.map((r, i) => {
+        const m = REASON_LABELS[r] || { label: r, color: C.text3, bg: "rgba(0,0,0,.05)" };
+        return (
+          <span key={i} style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3,
+                                 background: m.bg, color: m.color, letterSpacing: ".03em",
+                                 textTransform: "uppercase", whiteSpace: "nowrap" }}>
+            {m.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function VaultRow({ v, busy, onToggle, isMobile }) {
   const open = (id) => window.open(`/vault/${encodeURIComponent(id)}`, "_blank", "noopener");
-  const colorBar = v.enabled ? C.green : C.red;
+
+  // Prefer the new effective fields; fall back to admin-only when not present
+  // (during a partial deploy). This keeps the toggle reflecting what users
+  // actually see, not just the admin override.
+  const effListed = v.effective_listed ?? v.enabled;
+  const effDeposits = v.effective_deposits ?? (v.enabled && v.deposits_enabled);
+  const effWithdrawals = v.effective_withdrawals ?? (v.enabled && v.withdrawals_enabled);
+
+  const colorBar = effListed ? (effDeposits || effWithdrawals ? C.green : C.amber) : C.red;
+  const depositsLocked = !!v.deposits_locked;
+  const withdrawalsLocked = !!v.withdrawals_locked;
+
   return (
     <div style={{
       background: C.white, border: `1px solid ${C.border}`,
       borderLeft: `3px solid ${colorBar}`,
       borderRadius: 10, padding: isMobile ? "12px 14px" : "14px 18px",
-      opacity: v.enabled ? 1 : 0.85, transition: "opacity .15s, border-color .15s",
+      opacity: effListed ? 1 : 0.78, transition: "opacity .15s, border-color .15s",
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: "2 1 240px", minWidth: 0 }}>
@@ -333,13 +376,18 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
                            background: C.purpleDim, color: C.purple }}>
               {CHAIN_NAMES[v.chain_id] || `Chain ${v.chain_id}`}
             </span>
-            {v.paused && (
+            {/* Live state pill — single source of truth */}
+            {effListed ? (
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                             background: C.amberDim, color: C.amber }}>Protocol paused</span>
+                             background: C.greenDim, color: C.green }}>● Live</span>
+            ) : (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                             background: "rgba(217,54,54,.10)", color: C.red }}>● Hidden</span>
             )}
-            {!v.enabled && (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                             background: "rgba(217,54,54,.10)", color: C.red }}>Hidden</span>
+            {v.paused && (
+              <span title={v.paused_reason || ""}
+                style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                         background: C.amberDim, color: C.amber }}>Registry paused</span>
             )}
           </div>
           <div style={{ fontSize: 11, color: C.text3, marginBottom: 2 }}>
@@ -350,13 +398,29 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
             {v.address}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 14 : 22, flexWrap: "wrap",
+        <div style={{ display: "flex", alignItems: "flex-start", gap: isMobile ? 14 : 22, flexWrap: "wrap",
                       flex: "1 1 320px", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-          <ToggleCol label="Listed" hint="Shown on /vault" checked={v.enabled} disabled={busy}
+          <ToggleCol
+            label="Listed" hint="Shown on /vault"
+            checked={effListed}
+            reasons={v.listed_reasons}
+            disabled={busy}
             onChange={(b) => onToggle({ enabled: b })} />
-          <ToggleCol label="Deposits" hint="Allow new deposits" checked={v.deposits_enabled} disabled={busy || !v.enabled}
+          <ToggleCol
+            label="Deposits"
+            hint={depositsLocked ? "Locked by vault type" : "Allow new deposits"}
+            checked={effDeposits}
+            reasons={v.deposits_reasons}
+            disabled={busy || depositsLocked}
+            locked={depositsLocked}
             onChange={(b) => onToggle({ deposits_enabled: b })} />
-          <ToggleCol label="Withdrawals" hint="Allow redeems" checked={v.withdrawals_enabled} disabled={busy || !v.enabled}
+          <ToggleCol
+            label="Withdrawals"
+            hint={withdrawalsLocked ? "Locked by vault type" : "Allow redeems"}
+            checked={effWithdrawals}
+            reasons={v.withdrawals_reasons}
+            disabled={busy || withdrawalsLocked}
+            locked={withdrawalsLocked}
             onChange={(b) => onToggle({ withdrawals_enabled: b })} />
           <button onClick={() => open(v.vault_id)}
             style={{ padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600,
@@ -368,21 +432,24 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
       </div>
       {v.updated_at && (
         <div style={{ marginTop: 8, fontSize: 10.5, color: C.text4 }}>
-          Last change {new Date(v.updated_at).toLocaleString()} by {v.updated_by ? `${v.updated_by.slice(0, 6)}…${v.updated_by.slice(-4)}` : "—"}
+          Last admin change {new Date(v.updated_at).toLocaleString()} by {v.updated_by ? `${v.updated_by.slice(0, 6)}…${v.updated_by.slice(-4)}` : "—"}
         </div>
       )}
     </div>
   );
 }
 
-function ToggleCol({ label, hint, checked, onChange, disabled }) {
+function ToggleCol({ label, hint, checked, onChange, disabled, locked, reasons }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 96 }}>
-      <div style={{ fontSize: 10, color: C.text4, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
+      <div style={{ fontSize: 10, color: C.text4, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em",
+                    display: "flex", alignItems: "center", gap: 4 }}>
         {label}
+        {locked && <span title="Hard-locked by vault type — admin cannot override" style={{ fontSize: 10, color: C.text3 }}>🔒</span>}
       </div>
       <Toggle checked={checked} onChange={onChange} disabled={disabled} />
       <div style={{ fontSize: 9.5, color: C.text4 }}>{hint}</div>
+      <ReasonBadges reasons={reasons} />
     </div>
   );
 }
@@ -492,17 +559,28 @@ function LoginCard({ address, isConnected, openConnectModal, disconnect, signMes
                      background: C.white, color: C.text }} />
         </Step>
 
-        {/* Step 3 — submit */}
-        <button onClick={submit} disabled={busy || !isConnected || !password}
-          style={{ width: "100%", padding: "12px 16px", borderRadius: 9, border: "none",
-                   cursor: (busy || !isConnected || !password) ? "not-allowed" : "pointer",
-                   backgroundImage: (busy || !isConnected || !password) ? "none" : C.purpleGrad,
-                   background: (busy || !isConnected || !password) ? C.border : undefined,
-                   color: (busy || !isConnected || !password) ? C.text4 : "#fff",
-                   fontSize: 14, fontWeight: 600, boxShadow: (busy || !isConnected || !password) ? "none" : C.purpleShadow,
-                   fontFamily: "'Inter',sans-serif", marginTop: 8 }}>
-          {busy ? "Signing in…" : "Sign & enter"}
-        </button>
+        {/* Step 3 — submit. Always uses the gradient background so the white
+             label stays high-contrast; we just dim the whole thing when
+             disabled. Avoids the unreadable grey-text-on-grey-button look. */}
+        {(() => {
+          const inactive = busy || !isConnected || !password;
+          return (
+            <button onClick={submit} disabled={inactive}
+              style={{
+                width: "100%", padding: "13px 16px", borderRadius: 9, border: "none",
+                cursor: inactive ? "not-allowed" : "pointer",
+                backgroundImage: C.purpleGrad,
+                color: "#fff",
+                fontSize: 14, fontWeight: 700,
+                boxShadow: inactive ? "none" : C.purpleShadow,
+                opacity: inactive ? 0.55 : 1,
+                fontFamily: "'Inter',sans-serif", marginTop: 8,
+                transition: "opacity .15s",
+              }}>
+              {busy ? "Signing in…" : "Sign & enter"}
+            </button>
+          );
+        })()}
 
         {error && (
           <div style={{ marginTop: 14, padding: "10px 12px", background: C.redBg, color: "#9c2727",
