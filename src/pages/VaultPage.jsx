@@ -278,7 +278,10 @@ export default function VaultPage() {
     setDepositVault(vault);
   }, [isConnected, openConnectModal]);
 
-  const [view, setView] = useState("table"), [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
+  // Default to cards on phones — table view forces horizontal scroll on
+  // small screens, which is a poor first impression. User can still toggle.
+  const [view, setView] = useState(() => (typeof window !== "undefined" && window.innerWidth < 768 ? "grid" : "table"));
+  const [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
@@ -449,7 +452,12 @@ export default function VaultPage() {
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
               <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.text4 }}>🔍</span>
-              <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…" style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`, fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: winW >= 768 ? 220 : 150, color: C.text, background: C.white, transition: "border-color .15s" }} />
+              <input value={search} onChange={e=>{setSearch(e.target.value);setActivePreset(null)}} placeholder="Search vaults, assets, curators…"
+                style={{ paddingLeft: 32, paddingRight: 12, paddingTop: winW < 480 ? 9 : 7, paddingBottom: winW < 480 ? 9 : 7,
+                         borderRadius: 8, border: `1.5px solid ${search ? C.purple : C.border2}`,
+                         fontSize: winW < 480 ? 13 : 12, fontFamily: "'Inter',sans-serif", outline: "none",
+                         width: winW < 480 ? "100%" : (winW >= 768 ? 220 : 180),
+                         color: C.text, background: C.white, transition: "border-color .15s" }} />
             </div>
             <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>

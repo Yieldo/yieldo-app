@@ -6,6 +6,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useDepositMeta } from "../hooks/useDepositMeta.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -1027,10 +1028,36 @@ function DepositModal({ vault, onClose }) {
 
 /* =========== Sub-components =========== */
 
-function Overlay({ children }) {
+function Overlay({ children, onClose }) {
+  const { isMobile } = useResponsive();
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-      <div style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)", fontFamily: "'Inter',sans-serif" }}>
+    <div onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center",
+        zIndex: 9999, padding: isMobile ? 0 : 16,
+      }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: C.white,
+        borderRadius: isMobile ? "16px 16px 0 0" : 16,
+        width: "100%",
+        maxWidth: isMobile ? "none" : 440,
+        // Mobile: near-full-height sheet with safe-area for home indicator
+        height: isMobile ? "92vh" : "auto",
+        maxHeight: isMobile ? "92vh" : "90vh",
+        overflow: "auto",
+        boxShadow: "0 -10px 40px rgba(0,0,0,.18)",
+        fontFamily: "'Inter',sans-serif",
+        paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
+        animation: isMobile ? "yiSheetUp .22s cubic-bezier(.2,.8,.2,1)" : undefined,
+      }}>
+        {/* Drag handle indicator on mobile sheets */}
+        {isMobile && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 0" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(0,0,0,.18)" }} />
+          </div>
+        )}
+        <style>{`@keyframes yiSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
         {children}
       </div>
     </div>

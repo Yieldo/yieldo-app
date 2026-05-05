@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
 import TxFlowDiagram from "../components/TxFlowDiagram.jsx";
 import { CHAIN_NAMES, CHAIN_EXPLORERS, EXPLORER_NAMES } from "../chains.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -148,6 +149,7 @@ const PAGE_SIZE = 10;
 export default function HistoryPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const { isMobile } = useResponsive();
   const [deposits, setDeposits] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [tab, setTab] = useState("deposits");  // deposits | withdrawals
@@ -246,8 +248,8 @@ export default function HistoryPage() {
 
   return (
     <InvestorShell>
-      <h1 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700 }}>Transaction History</h1>
-      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.text3 }}>
+      <h1 style={{ margin: "0 0 6px", fontSize: isMobile ? 20 : 22, fontWeight: 700 }}>Transaction History</h1>
+      <p style={{ margin: "0 0 20px", fontSize: isMobile ? 12.5 : 13, color: C.text3, lineHeight: 1.5 }}>
         Every deposit and withdraw you've made through Yieldo, with on-chain + bridge receipts.
       </p>
 

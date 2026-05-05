@@ -3,6 +3,7 @@ import { useAccount, useWriteContract, useSendTransaction, useWaitForTransaction
 import { readContract } from "wagmi/actions";
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import { CHAIN_NAMES as CHAINS, CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -47,6 +48,7 @@ export default function WithdrawModal({ position, onClose }) {
   const currentChain = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const needsSwitch = currentChain !== position.chain_id;
+  const { isMobile } = useResponsive();
 
   const [view, setView] = useState("input");  // input | preview | approving | signing | submitting | success | error
   const [amountInput, setAmountInput] = useState("");
@@ -206,8 +208,31 @@ export default function WithdrawModal({ position, onClose }) {
   const externalSite = EXTERNAL_WITHDRAW_SITES[position.vault_type];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, fontFamily: "'Inter',sans-serif" }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: C.white, borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,.15)" }}>
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(3px)",
+      zIndex: 1000, display: "flex",
+      alignItems: isMobile ? "flex-end" : "center",
+      justifyContent: "center",
+      padding: isMobile ? 0 : 16,
+      fontFamily: "'Inter',sans-serif",
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: C.white,
+        borderRadius: isMobile ? "16px 16px 0 0" : 16,
+        width: "100%",
+        maxWidth: isMobile ? "none" : 460,
+        maxHeight: isMobile ? "92vh" : "auto",
+        overflowY: "auto",
+        paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
+        boxShadow: "0 -10px 40px rgba(0,0,0,.18)",
+        animation: isMobile ? "yiSheetUp .22s cubic-bezier(.2,.8,.2,1)" : undefined,
+      }}>
+        {isMobile && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 0" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(0,0,0,.18)" }} />
+          </div>
+        )}
+        <style>{`@keyframes yiSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
         <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Withdraw</span>

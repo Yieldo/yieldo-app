@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import InvestorShell from '../components/InvestorShell.jsx';
+import { useResponsive } from '../lib/responsive.js';
 
 const API_BASE = import.meta.env.VITE_PARTNER_API || 'https://api.yieldo.xyz';
 
@@ -187,6 +188,7 @@ function EvolutionTimeline({ evolution, firstSeenAgo }) {
 
 function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCardClick }) {
   const [hover, setHover] = useState(false);
+  const { isMobile } = useResponsive();
   // Card is clickable when there's somewhere to go (single vault OR affected list).
   const cardClickable = !!(signal.vaultId || signal.affected?.length);
 
@@ -207,7 +209,7 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
         border: `1px solid ${hover ? 'rgba(214,59,44,.25)' : C.border}`,
         borderLeft: `3px solid ${C.highAccent}`,
         borderRadius: 12,
-        padding: '22px 24px',
+        padding: isMobile ? '16px 16px' : '22px 24px',
         marginBottom: 14,
         boxShadow: hover ? C.shadowHover : C.shadow,
         transition: 'all .18s ease',
@@ -235,7 +237,13 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
       <p style={{ fontSize: 13.5, color: C.body, margin: '0 0 18px', lineHeight: 1.55 }}>{signal.summary}</p>
 
       {signal.metrics && signal.metrics.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(signal.metrics.length, 4)}, 1fr)`, gap: 10, marginBottom: 18 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile
+            ? `repeat(${Math.min(signal.metrics.length, 2)}, 1fr)`
+            : `repeat(${Math.min(signal.metrics.length, 4)}, 1fr)`,
+          gap: isMobile ? 8 : 10, marginBottom: 18,
+        }}>
           {signal.metrics.map((m, i) => <MetricCell key={i} {...m} />)}
         </div>
       )}
@@ -282,12 +290,12 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={stop(onPrimary)} style={{ padding: '9px 18px', fontSize: 13, backgroundImage: C.purpleGrad, color: 'white', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(122,28,203,.25)' }}>
+      <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>
+        <button onClick={stop(onPrimary)} style={{ padding: isMobile ? '11px 16px' : '9px 18px', fontSize: 13, backgroundImage: C.purpleGrad, color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(122,28,203,.25)', width: isMobile ? '100%' : 'auto' }}>
           {signal.primaryCta || 'View vault'} →
         </button>
         {signal.secondaryCta && (
-          <button onClick={stop(onSecondary)} style={{ padding: '9px 18px', fontSize: 13, background: 'transparent', color: C.ink, border: `1px solid ${C.border}`, borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={stop(onSecondary)} style={{ padding: isMobile ? '11px 16px' : '9px 18px', fontSize: 13, background: 'transparent', color: C.ink, border: `1px solid ${C.border}`, borderRadius: 8, fontWeight: 600, cursor: 'pointer', width: isMobile ? '100%' : 'auto' }}>
             {signal.secondaryCta}
           </button>
         )}
@@ -384,10 +392,11 @@ function FilterPill({ label, active, onClick }) {
 
 function StatCard({ label, value, hint }) {
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 18px', flex: 1, minWidth: 140 }}>
-      <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, letterSpacing: '-.02em' }}>{value}</div>
-      {hint && <div style={{ fontSize: 11, color: C.hint, marginTop: 3, fontFamily: FONT_MONO }}>{hint}</div>}
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px',
+                  flex: '1 1 calc(50% - 6px)', minWidth: 130 }}>
+      <div style={{ fontSize: 10.5, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: '-.02em' }}>{value}</div>
+      {hint && <div style={{ fontSize: 10.5, color: C.hint, marginTop: 3, fontFamily: FONT_MONO }}>{hint}</div>}
     </div>
   );
 }
@@ -396,6 +405,7 @@ function StatCard({ label, value, hint }) {
 
 export default function IntelPage() {
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const [activeDimension, setActiveDimension] = useState('All signals');
   const [activeTime, setActiveTime] = useState('24h');
   const [showAllNotable, setShowAllNotable] = useState(false);
@@ -454,42 +464,42 @@ export default function IntelPage() {
         background: `linear-gradient(135deg, ${C.purpleBg} 0%, #ffffff 60%)`,
         border: `1px solid ${C.border}`,
         borderRadius: 14,
-        padding: '28px 28px 24px',
-        marginBottom: 20,
+        padding: isMobile ? '20px 16px 18px' : '28px 28px 24px',
+        marginBottom: isMobile ? 14 : 20,
         position: 'relative',
         overflow: 'hidden',
       }}>
         {/* decorative gradient orb */}
         <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(122,28,203,.10), transparent 70%)', pointerEvents: 'none' }} />
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, position: 'relative' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 11px', background: 'rgba(255,255,255,.7)', border: `1px solid ${C.border}`, borderRadius: 999, fontSize: 11, fontWeight: 600, color: C.purpleDeep, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, position: 'relative', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 11px', background: 'rgba(255,255,255,.7)', border: `1px solid ${C.border}`, borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: C.purpleDeep, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: isMobile ? 10 : 14 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.teal, boxShadow: `0 0 0 3px ${C.tealBg}` }} />
-              Live · Engine scanning {engine.vaults ?? '…'} vaults
+              Live · {engine.vaults ?? '…'} vaults
             </div>
-            <h1 style={{ fontSize: 32, fontWeight: 700, margin: '0 0 6px', color: C.ink, letterSpacing: '-.025em', lineHeight: 1.1 }}>Intel</h1>
-            <p style={{ fontSize: 14.5, color: C.body, margin: 0, maxWidth: 620, lineHeight: 1.5 }}>
+            <h1 style={{ fontSize: isMobile ? 26 : 32, fontWeight: 700, margin: '0 0 6px', color: C.ink, letterSpacing: '-.025em', lineHeight: 1.1 }}>Intel</h1>
+            <p style={{ fontSize: isMobile ? 13 : 14.5, color: C.body, margin: 0, maxWidth: 620, lineHeight: 1.5 }}>
               Live signals from the Yieldo scoring engine. Score moves, risk events, curator activity — surfaced the moment they happen.
             </p>
           </div>
-          <div style={{ textAlign: 'right', fontSize: 11, color: C.hint, fontFamily: FONT_MONO, flexShrink: 0 }}>
+          <div style={{ textAlign: isMobile ? 'left' : 'right', fontSize: 10.5, color: C.hint, fontFamily: FONT_MONO, flexShrink: 0 }}>
             <div>{todayLabel}</div>
             <div>Refreshed {engine.lastCycleAgo || '…'}</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 22 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: isMobile ? 16 : 22 }}>
           {DIMENSION_FILTERS.map((f) => (
             <FilterPill key={f} label={f} active={activeDimension === f} onClick={() => setActiveDimension(f)} />
           ))}
-          <span style={{ width: 1, height: 22, background: C.border, margin: '0 8px' }} />
+          {!isMobile && <span style={{ width: 1, height: 22, background: C.border, margin: '0 8px' }} />}
           {TIME_FILTERS.map((f) => (
             <FilterPill key={f} label={f} active={activeTime === f} onClick={() => setActiveTime(f)} />
           ))}
           <a href="https://docs.yieldo.xyz/Scoring/four-dimensions" target="_blank" rel="noopener noreferrer"
-             style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: C.purpleDeep, textDecoration: 'none', padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,.7)' }}>
+             style={{ marginLeft: isMobile ? 0 : 'auto', fontSize: 11.5, fontWeight: 600, color: C.purpleDeep, textDecoration: 'none', padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap' }}>
             Score breakdown ↗
           </a>
         </div>

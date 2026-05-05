@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { DEPOSITABLE_CHAINS, CHAIN_NAMES as CHAINS } from "../chains.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const WithdrawModal = lazy(() => import("./WithdrawModal.jsx"));
 const DepositModal = lazy(() => import("./DepositModal.jsx"));
@@ -28,6 +29,7 @@ function fmtShares(raw, decimals = 18, maxDp = 4) {
 
 export default function UserPositions() {
   const { address, isConnected } = useAccount();
+  const { isMobile } = useResponsive();
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [withdrawFor, setWithdrawFor] = useState(null);
@@ -82,39 +84,65 @@ export default function UserPositions() {
             };
             return (
               <div key={p.vault_id}
-                style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`, padding: "14px 18px", transition: "border-color .15s" }}
+                style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`,
+                         padding: isMobile ? "12px 14px" : "14px 18px", transition: "border-color .15s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.purple; e.currentTarget.style.boxShadow = "0 2px 10px rgba(122,28,203,.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: C.purpleDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {/* Top row: icon + name + balance — always horizontal */}
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14 }}>
+                  <div style={{ width: isMobile ? 36 : 40, height: isMobile ? 36 : 40, borderRadius: 10, background: C.purpleDim,
+                                display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 16 : 18, flexShrink: 0 }}>
                     {p.asset_symbol === "USDC" || p.asset_symbol === "USDT" ? "💵" : p.asset_symbol === "WETH" || p.asset_symbol === "wstETH" || p.asset_symbol === "stETH" ? "⟠" : p.asset_symbol === "WBTC" ? "₿" : "🏦"}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>{p.vault_name}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: isMobile ? 13.5 : 14, fontWeight: 700,
+                                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 200 : 320 }}>{p.vault_name}</span>
                       <span style={{ fontSize: 11, color: C.text3 }}>{CHAINS[p.chain_id]}</span>
                     </div>
-                    <div style={{ display: "flex", gap: 10, fontSize: 11, color: C.text3 }}>
-                      <span>{p.asset_symbol} · {p.vault_type}</span>
+                    <div style={{ fontSize: 11, color: C.text3 }}>
+                      {p.asset_symbol} · {p.vault_type}
                     </div>
                   </div>
-                  <div style={{ textAlign: "right", marginRight: 8 }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>
+                  <div style={{ textAlign: "right", marginRight: isMobile ? 0 : 8, flexShrink: 0 }}>
+                    <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: C.text }}>
                       {fmtShares(p.share_balance, p.share_decimals)}
                     </div>
                     <div style={{ fontSize: 10, color: C.text4 }}>shares</div>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {/* Inline buttons on desktop only */}
+                  {!isMobile && (
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => { if (canDeposit) setDepositFor(vaultForDeposit); }} disabled={!canDeposit}
+                        style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none", backgroundImage: canDeposit ? C.purpleGrad : "none", background: canDeposit ? undefined : C.border, color: canDeposit ? "#fff" : C.text4, cursor: canDeposit ? "pointer" : "not-allowed", fontFamily: "'Inter',sans-serif", boxShadow: canDeposit ? C.purpleShadow : "none" }}>
+                        Deposit
+                      </button>
+                      <button onClick={() => setWithdrawFor(p)}
+                        style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.purple}40`, background: C.white, color: C.purple, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                        Withdraw
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* Mobile: full-width button row underneath */}
+                {isMobile && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button onClick={() => { if (canDeposit) setDepositFor(vaultForDeposit); }} disabled={!canDeposit}
-                      style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none", backgroundImage: canDeposit ? C.purpleGrad : "none", background: canDeposit ? undefined : C.border, color: canDeposit ? "#fff" : C.text4, cursor: canDeposit ? "pointer" : "not-allowed", fontFamily: "'Inter',sans-serif", boxShadow: canDeposit ? C.purpleShadow : "none" }}>
+                      style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "10px 0", borderRadius: 9,
+                               border: "none", backgroundImage: canDeposit ? C.purpleGrad : "none",
+                               background: canDeposit ? undefined : C.border, color: canDeposit ? "#fff" : C.text4,
+                               cursor: canDeposit ? "pointer" : "not-allowed", fontFamily: "'Inter',sans-serif",
+                               boxShadow: canDeposit ? C.purpleShadow : "none" }}>
                       Deposit
                     </button>
                     <button onClick={() => setWithdrawFor(p)}
-                      style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.purple}40`, background: C.white, color: C.purple, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                      style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "10px 0", borderRadius: 9,
+                               border: `1px solid ${C.purple}40`, background: C.white, color: C.purple, cursor: "pointer",
+                               fontFamily: "'Inter',sans-serif" }}>
                       Withdraw
                     </button>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
