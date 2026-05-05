@@ -28,6 +28,7 @@ const STATUS_STYLES = {
   failed:    { color: C.red,   bg: C.redDim,   label: "Failed" },
   partial:   { color: C.amber, bg: C.amberDim, label: "Partial — refunded" },
   abandoned: { color: C.text4, bg: C.text4dim, label: "Abandoned" },
+  claimed:   { color: C.green, bg: C.greenDim, label: "Fulfilled" },
 };
 
 const TOKEN_META = {
@@ -148,6 +149,8 @@ export default function HistoryPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const [deposits, setDeposits] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [tab, setTab] = useState("deposits");  // deposits | withdrawals
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -156,10 +159,17 @@ export default function HistoryPage() {
   const refresh = useCallback(async () => {
     if (!address) return;
     try {
-      const r = await fetch(`${API}/v1/deposits?user_address=${address}&limit=100`);
-      if (r.ok) {
-        const d = await r.json();
+      const [depRes, wRes] = await Promise.all([
+        fetch(`${API}/v1/deposits?user_address=${address}&limit=100`),
+        fetch(`${API}/v1/withdraw/list?user_address=${address}&limit=100`),
+      ]);
+      if (depRes.ok) {
+        const d = await depRes.json();
         setDeposits(Array.isArray(d) ? d : []);
+      }
+      if (wRes.ok) {
+        const w = await wRes.json();
+        setWithdrawals(Array.isArray(w) ? w : []);
       }
     } catch {}
   }, [address]);
@@ -169,6 +179,10 @@ export default function HistoryPage() {
     setLoading(true);
     refresh().finally(() => setLoading(false));
   }, [address, refresh]);
+
+  // Reset filter+page when switching tabs so a "Failed" filter from one tab
+  // doesn't carry over and silently hide everything in the other.
+  useEffect(() => { setFilter("all"); setPage(1); }, [tab]);
 
   // Live status polling. We resolve every pending tx aggressively so the user
   // doesn't see "Pending" for hours when on-chain confirmation already happened:
@@ -201,6 +215,17 @@ export default function HistoryPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [deposits, address, refresh]);
 
+  // Withdrawals don't go through LiFi, so there's no per-tx /v1/status endpoint
+  // to poke. The backend withdraw_resolver loop converges them on its own
+  // (~60s). Just refresh the list every 8s while any are pending.
+  useEffect(() => {
+    if (!address) return;
+    const wPending = withdrawals.some(w => w.status === "pending" || w.status === "submitted");
+    if (!wPending) return;
+    const id = setInterval(refresh, 8_000);
+    return () => clearInterval(id);
+  }, [withdrawals, address, refresh]);
+
   if (!isConnected) {
     return (
       <InvestorShell>
@@ -226,18 +251,49 @@ export default function HistoryPage() {
         Every deposit and withdraw you've made through Yieldo, with on-chain + bridge receipts.
       </p>
 
+      {/* Deposits / Withdrawals tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+        {[
+          { id: "deposits",    label: "Deposits",    count: deposits.length },
+          { id: "withdrawals", label: "Withdrawals", count: withdrawals.length },
+        ].map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{
+                padding: "10px 16px", fontSize: 13, fontWeight: active ? 700 : 500,
+                color: active ? C.purple : C.text2, background: "none",
+                border: "none", borderBottom: `2px solid ${active ? C.purple : "transparent"}`,
+                cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                display: "inline-flex", alignItems: "center", gap: 8,
+              }}>
+              {t.label}
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 10,
+                background: active ? C.purpleDim : C.text4dim, color: active ? C.purple : C.text3,
+              }}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {loading && (
         <Card style={{ padding: 40, textAlign: "center", color: C.text3 }}>Loading...</Card>
       )}
 
-      {!loading && deposits.length === 0 && (
+      {tab === "withdrawals" && !loading && (
+        <WithdrawalsList withdrawals={withdrawals} filter={filter} setFilter={setFilter}
+                          page={page} setPage={setPage} />
+      )}
+
+      {tab === "deposits" && !loading && deposits.length === 0 && (
         <Card style={{ padding: 40, textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 14, color: C.text3 }}>No transactions yet.</div>
+          <div style={{ fontSize: 14, color: C.text3 }}>No deposits yet.</div>
         </Card>
       )}
 
-      {deposits.length > 0 && (() => {
+      {tab === "deposits" && deposits.length > 0 && (() => {
         // Group two-step deposits: any record with parent_tracking_id is the
         // step-2 leg of its parent's bridge. We render one card per parent and
         // hide step-2 records from the top-level list (their data goes into
@@ -533,5 +589,207 @@ export default function HistoryPage() {
         );
       })()}
     </InvestorShell>
+  );
+}
+
+// Withdrawals are simpler than deposits: same-chain only, no bridge,
+// no parent/child two-step. One record = one redeem call.
+const W_FILTERS = [
+  { id: "all",       label: "All",       match: () => true },
+  { id: "completed", label: "Completed", match: (s) => s === "completed" || s === "claimed" },
+  { id: "pending",   label: "Pending",   match: (s) => s === "pending" || s === "submitted" },
+  { id: "failed",    label: "Failed",    match: (s) => s === "failed" },
+  { id: "abandoned", label: "Abandoned", match: (s) => s === "abandoned" },
+];
+
+function WithdrawalsList({ withdrawals, filter, setFilter, page, setPage }) {
+  if (!withdrawals.length) {
+    return (
+      <Card style={{ padding: 40, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>↩</div>
+        <div style={{ fontSize: 14, color: C.text3 }}>No withdrawals yet.</div>
+      </Card>
+    );
+  }
+
+  const counts = withdrawals.reduce((acc, w) => {
+    const s = w.status === "submitted" ? "pending" : w.status;
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  const matcher = (W_FILTERS.find(f => f.id === filter) || W_FILTERS[0]).match;
+  const filtered = withdrawals.filter(w => matcher(w.status));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+
+  const switchFilter = (id) => { setFilter(id); setPage(1); };
+
+  return (
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        {W_FILTERS.map(f => {
+          const n = f.id === "all" ? withdrawals.length : (counts[f.id] || 0);
+          const active = filter === f.id;
+          return (
+            <button key={f.id} onClick={() => switchFilter(f.id)}
+              style={{
+                padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: active ? 600 : 500,
+                border: `1px solid ${active ? C.purple + "55" : C.border2}`,
+                background: active ? C.purpleDim : C.white,
+                color: active ? C.purple : C.text2,
+                cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}>
+              {f.label}
+              <span style={{
+                fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10,
+                background: active ? C.white : C.text4dim, color: active ? C.purple : C.text3,
+              }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <Card style={{ padding: 40, textAlign: "center", color: C.text3, fontSize: 13 }}>
+          No withdrawals match this filter.
+        </Card>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {slice.map((w, i) => {
+          const st = STATUS_STYLES[w.status] || STATUS_STYLES.submitted;
+          const isPending = w.status === "pending" || w.status === "submitted";
+          const isFailed  = w.status === "failed";
+          const isAsync   = w.mode === "async";
+
+          const explorer = CHAIN_EXPLORERS[w.chain_id] || null;
+          const explorerName = EXPLORER_NAMES[w.chain_id] || "Explorer";
+          const txUrl = w.tx_hash && explorer ? `${explorer}/tx/${w.tx_hash}` : null;
+          const chainName = w.chain_name || CHAIN_NAMES[w.chain_id] || `Chain ${w.chain_id}`;
+
+          // Withdraw shares unit: vault share token. We don't know decimals
+          // server-side without an extra RPC, so format with 18 (most ERC-4626).
+          // The asset_out is in the deposit asset's units — same caveat.
+          const assetMeta = resolveToken(w.chain_id, w.asset);
+          const minOut = w.assets_out ? fmtAmount(w.assets_out, assetMeta.decimals) : null;
+
+          return (
+            <Card key={w.tracking_id || w.tx_hash || i} style={{ padding: "16px 18px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
+                                   background: st.bg, color: st.color, whiteSpace: "nowrap", textTransform: "uppercase",
+                                   display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      Withdraw · {st.label}
+                      {isPending && <Spinner color={st.color} />}
+                    </span>
+                    {isAsync && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
+                                     background: "rgba(46,154,184,0.10)", color: C.teal, whiteSpace: "nowrap" }}>
+                        Async · request
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
+                    {w.vault_name || w.vault_id || "Unknown vault"}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                    {chainName} · {fmtDate(w.created_at)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {minOut && (
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>
+                      {minOut} <span style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>{assetMeta.symbol}</span>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: C.text4 }}>
+                    {minOut ? "min received" : "redeeming shares"}
+                  </div>
+                </div>
+              </div>
+
+              {isFailed && (
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: C.redDim,
+                              marginBottom: 10, fontSize: 12, color: C.red, lineHeight: 1.5 }}>
+                  Withdrawal reverted. Check the explorer for the revert reason.
+                </div>
+              )}
+              {w.status === "abandoned" && (
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: C.text4dim,
+                              marginBottom: 10, fontSize: 12, color: C.text3, lineHeight: 1.5 }}>
+                  Quote built but never broadcast.
+                </div>
+              )}
+              {isAsync && w.status === "submitted" && (
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: C.amberDim,
+                              marginBottom: 10, fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+                  Redemption request accepted on-chain. Funds arrive directly in your wallet when the protocol fulfills it.
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                {txUrl && (
+                  <a href={txUrl} target="_blank" rel="noopener noreferrer"
+                     style={{ fontSize: 12, color: C.teal, textDecoration: "none", fontWeight: 500 }}>
+                    {explorerName} (withdraw) ↗
+                  </a>
+                )}
+                {w.tracking_id && (
+                  <span title="Yieldo tracking ID — quote this when reporting an issue"
+                        onClick={() => { try { navigator.clipboard.writeText(w.tracking_id); } catch {} }}
+                        style={{ fontSize: 11, color: C.purple, fontFamily: "monospace",
+                                 background: C.purpleDim, padding: "2px 7px", borderRadius: 4,
+                                 cursor: "pointer", userSelect: "all" }}>
+                    yld:{w.tracking_id.slice(-10)}
+                  </span>
+                )}
+                {w.tx_hash && (
+                  <span style={{ fontSize: 11, color: C.text4, fontFamily: "monospace" }}>
+                    {w.tx_hash.slice(0, 10)}…{w.tx_hash.slice(-8)}
+                  </span>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {filtered.length > PAGE_SIZE && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      marginTop: 14, gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12, color: C.text3 }}>
+            Showing <strong style={{ color: C.text2 }}>{start + 1}</strong>–
+            <strong style={{ color: C.text2 }}>{Math.min(start + PAGE_SIZE, filtered.length)}</strong>{" "}
+            of <strong style={{ color: C.text2 }}>{filtered.length}</strong>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+              style={{
+                padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`,
+                background: safePage <= 1 ? C.text4dim : C.white,
+                color: safePage <= 1 ? C.text4 : C.text2,
+                cursor: safePage <= 1 ? "not-allowed" : "pointer",
+                fontSize: 12, fontFamily: "'Inter',sans-serif",
+              }}>← Prev</button>
+            <span style={{ fontSize: 12, color: C.text3, padding: "0 8px" }}>
+              Page <strong style={{ color: C.text2 }}>{safePage}</strong> / {totalPages}
+            </span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+              style={{
+                padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`,
+                background: safePage >= totalPages ? C.text4dim : C.white,
+                color: safePage >= totalPages ? C.text4 : C.text2,
+                cursor: safePage >= totalPages ? "not-allowed" : "pointer",
+                fontSize: 12, fontFamily: "'Inter',sans-serif",
+              }}>Next →</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

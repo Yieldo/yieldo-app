@@ -54,6 +54,7 @@ export default function WithdrawModal({ position, onClose }) {
   const [error, setError] = useState("");
   const [txHash, setTxHash] = useState("");
   const [approvalTxHash, setApprovalTxHash] = useState("");
+  const [trackingId, setTrackingId] = useState("");
 
   const shareDecimals = position.share_decimals || 18;
   const balance = BigInt(position.share_balance || "0");
@@ -154,15 +155,37 @@ export default function WithdrawModal({ position, onClose }) {
         throw new Error(body.detail || `Build failed (${buildRes.status})`);
       }
       const build = await buildRes.json();
+      const tid = build.tracking_id || "";
+      setTrackingId(tid);
 
       setView("submitting");
-      const hash = await sendTransactionAsync({
-        to: build.transaction_request.to,
-        data: build.transaction_request.data,
-        value: BigInt(build.transaction_request.value || "0"),
-        gas: BigInt(build.transaction_request.gas_limit || "500000"),
-      });
+      let hash;
+      try {
+        hash = await sendTransactionAsync({
+          to: build.transaction_request.to,
+          data: build.transaction_request.data,
+          value: BigInt(build.transaction_request.value || "0"),
+          gas: BigInt(build.transaction_request.gas_limit || "500000"),
+        });
+      } catch (sendErr) {
+        // User rejected the wallet prompt or the broadcast failed before any
+        // tx existed. Mark abandoned so HistoryPage doesn't sit on "Pending"
+        // until the 4h timeout.
+        if (tid) {
+          fetch(`${API}/v1/withdraw/${tid}/abandon`, { method: "PATCH" }).catch(() => {});
+        }
+        throw sendErr;
+      }
       setTxHash(hash);
+      // Tell the backend the broadcast tx hash so the resolver can converge
+      // it to completed/failed within ~60s. Mirrors the deposit flow.
+      if (tid) {
+        fetch(`${API}/v1/withdraw/${tid}/tx`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tx_hash: hash }),
+        }).catch(() => {});
+      }
     } catch (e) {
       setError(e.shortMessage || e.message || "Transaction failed");
       setView("error");
