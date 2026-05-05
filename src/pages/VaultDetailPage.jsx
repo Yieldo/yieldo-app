@@ -207,8 +207,32 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
   const outliers = needsClipping
     ? sliced.map((v, i) => (typeof v === "number" && v > cap ? { i, v } : null)).filter(Boolean)
     : [];
-  const mainPath = sliced.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
-  const benchPath = benchSliced.length > 0 ? benchSliced.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ") : "";
+  // Catmull-Rom → cubic Bezier smoothing. Produces a curve that passes
+  // through every data point (no value distortion) but eliminates the
+  // jagged-polyline look of straight `M`/`L` segments. Tension 0.2 is a
+  // mild smoothing — high enough to round corners, low enough that we
+  // don't overshoot near outliers.
+  function smoothPath(values) {
+    const pts = values.map((v, i) => [toX(i), toY(v)]);
+    if (pts.length < 2) return "";
+    if (pts.length === 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
+    const t = 0.2;
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1[0] + (p2[0] - p0[0]) * t;
+      const cp1y = p1[1] + (p2[1] - p0[1]) * t;
+      const cp2x = p2[0] - (p3[0] - p1[0]) * t;
+      const cp2y = p2[1] - (p3[1] - p1[1]) * t;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
+    return d;
+  }
+  const mainPath = smoothPath(sliced);
+  const benchPath = benchSliced.length > 0 ? smoothPath(benchSliced) : "";
   const areaPath = mainPath + ` L${toX(sliced.length-1).toFixed(1)},${(pad.t+ch).toFixed(1)} L${toX(0).toFixed(1)},${(pad.t+ch).toFixed(1)} Z`;
   const ySteps = 5;
   const yLines = Array.from({ length: ySteps + 1 }, (_, i) => mn + (rng / ySteps) * i);
