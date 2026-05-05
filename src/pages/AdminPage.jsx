@@ -211,16 +211,19 @@ export default function AdminPage() {
   // Falls back to admin override only when the new fields aren't present
   // (older API build), so the page still shows sane numbers during deploys.
   const isLive = (v) => v.effective_listed ?? v.enabled;
+  const isIndexerOnly = (v) => v.registry_missing === true;
   const counts = {
     total: vaults.length,
     enabled: vaults.filter(isLive).length,
     disabled: vaults.filter(v => !isLive(v)).length,
+    needsRegistry: vaults.filter(isIndexerOnly).length,
   };
   const q = search.trim().toLowerCase();
   const filtered = vaults.filter(v => {
     if (chainFilter !== "all" && v.chain_id !== Number(chainFilter)) return false;
     if (stateFilter === "enabled" && !isLive(v)) return false;
     if (stateFilter === "disabled" && isLive(v)) return false;
+    if (stateFilter === "needs-registry" && !isIndexerOnly(v)) return false;
     if (q) {
       return (
         (v.name || "").toLowerCase().includes(q) ||
@@ -272,8 +275,10 @@ export default function AdminPage() {
         {/* Stat strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
           <Stat label="Total" value={counts.total} color={C.purple} />
-          <Stat label="Enabled" value={counts.enabled} color={C.green} />
-          <Stat label="Disabled" value={counts.disabled} color={C.red} />
+          <Stat label="Live" value={counts.enabled} color={C.green} />
+          <Stat label="Hidden" value={counts.disabled} color={C.red} />
+          <Stat label="Needs registry" value={counts.needsRegistry} color={C.amber}
+                hint={counts.needsRegistry > 0 ? "Indexer-only — add to vaults.json to enable deposits" : null} />
         </div>
 
         {/* Filters */}
@@ -293,8 +298,13 @@ export default function AdminPage() {
             <option value="all">All chains</option>
             {chains.map(cid => <option key={cid} value={cid}>{CHAIN_NAMES[cid] || `Chain ${cid}`}</option>)}
           </select>
-          <div style={{ display: "flex", gap: 4, background: C.surfaceAlt, borderRadius: 8, padding: 3, border: `1px solid ${C.border}` }}>
-            {[["all", "All"], ["enabled", "Enabled"], ["disabled", "Disabled"]].map(([id, label]) => (
+          <div style={{ display: "flex", gap: 4, background: C.surfaceAlt, borderRadius: 8, padding: 3, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+            {[
+              ["all",            "All"],
+              ["enabled",        "Live"],
+              ["disabled",       "Hidden"],
+              ["needs-registry", "Needs registry"],
+            ].map(([id, label]) => (
               <button key={id} onClick={() => setStateFilter(id)}
                 style={{ padding: "6px 12px", fontSize: 12, fontWeight: stateFilter === id ? 700 : 500,
                          border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "'Inter',sans-serif",
@@ -350,11 +360,12 @@ function Card({ children, padding = 16, center, muted, style: sx = {} }) {
   );
 }
 
-function Stat({ label, value, color }) {
+function Stat({ label, value, color, hint }) {
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
       <div style={{ fontSize: 10.5, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
+      {hint && <div style={{ fontSize: 10, color: C.text4, marginTop: 4, lineHeight: 1.4 }}>{hint}</div>}
     </div>
   );
 }
@@ -363,10 +374,11 @@ function Stat({ label, value, color }) {
 // toggle make it obvious whether a vault is off because of an admin choice or
 // because of registry config (paused / unsupported type).
 const REASON_LABELS = {
-  "admin":           { label: "Admin",          color: C.red,   bg: "rgba(217,54,54,.10)" },
-  "type-locked":     { label: "Type locked",    color: C.text3, bg: "rgba(0,0,0,.05)" },
-  "registry-paused": { label: "Registry paused", color: C.amber, bg: C.amberDim },
-  "listing-off":     { label: "Listing off",    color: C.text3, bg: "rgba(0,0,0,.05)" },
+  "admin":             { label: "Admin",            color: C.red,   bg: "rgba(217,54,54,.10)" },
+  "type-locked":       { label: "Type locked",      color: C.text3, bg: "rgba(0,0,0,.05)" },
+  "registry-paused":   { label: "Registry paused",  color: C.amber, bg: C.amberDim },
+  "listing-off":       { label: "Listing off",      color: C.text3, bg: "rgba(0,0,0,.05)" },
+  "registry-missing":  { label: "Needs registry",   color: C.amber, bg: C.amberDim },
 };
 
 function ReasonBadges({ reasons }) {
@@ -439,6 +451,11 @@ function VaultRow({ v, busy, onToggle, isMobile, onOpenDetail }) {
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                              background: "rgba(217,54,54,.10)", color: C.red }}>● Hidden</span>
             )}
+            {v.registry_missing && (
+              <span title="In indexer DB but not in vaults.json — admin can hide it but deposits/withdrawals can't be enabled until a registry entry is added"
+                style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                         background: C.amberDim, color: C.amber }}>Indexer-only</span>
+            )}
             {v.paused && (
               <span title={v.paused_reason || ""}
                 style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
@@ -446,7 +463,7 @@ function VaultRow({ v, busy, onToggle, isMobile, onOpenDetail }) {
             )}
           </div>
           <div style={{ fontSize: 11, color: C.text3, marginBottom: 2 }}>
-            {v.asset_symbol} · {v.type || "morpho"}{v.curator ? ` · ${v.curator}` : ""}{m?.risk ? ` · Risk: ${m.risk}` : ""}
+            {v.asset_symbol || "—"}{v.type ? ` · ${v.type}` : ""}{v.curator ? ` · ${v.curator}` : ""}{m?.risk ? ` · Risk: ${m.risk}` : ""}
           </div>
           <div style={{ fontSize: 10, color: C.text4, fontFamily: "monospace",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
