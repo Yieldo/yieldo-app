@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import InvestorShell from "../components/InvestorShell.jsx";
+import { useResponsive } from "../lib/responsive.js";
 
 const BecomeCreatorModal = lazy(() => import("../components/BecomeCreatorModal.jsx"));
 
@@ -29,6 +30,7 @@ function Card({ children, style = {} }) {
 export default function ReferralsPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const { isMobile } = useResponsive();
   const [stats, setStats] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showBecome, setShowBecome] = useState(false);
@@ -111,23 +113,27 @@ export default function ReferralsPage() {
         </p>
 
         {/* Referral link + stats */}
-        <Card style={{ padding: 20, marginBottom: 14 }}>
+        <Card style={{ padding: isMobile ? 16 : 20, marginBottom: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Your referral link</div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch", marginBottom: 16,
+                        flexDirection: isMobile ? "column" : "row" }}>
             <div style={{ flex: 1, padding: "10px 14px", background: C.surfaceAlt, borderRadius: 8,
-                          border: `1px solid ${C.border2}`, fontSize: 13, fontFamily: "monospace",
+                          border: `1px solid ${C.border2}`, fontSize: isMobile ? 11 : 13, fontFamily: "monospace",
                           color: refCode ? C.purple : C.text4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {refCode || "Loading your referral link…"}
             </div>
             <button onClick={copy} disabled={!refCode}
-              style={{ padding: "10px 18px", borderRadius: 8, border: `1px solid ${C.border2}`,
-                       background: C.white, color: refCode ? C.text2 : C.text4, fontSize: 13, fontWeight: 500,
+              style={{ padding: isMobile ? "12px 18px" : "10px 18px", borderRadius: 8,
+                       border: `1px solid ${C.border2}`,
+                       background: C.white, color: refCode ? C.text2 : C.text4, fontSize: 13, fontWeight: 600,
                        cursor: refCode ? "pointer" : "default",
                        fontFamily: "'Inter',sans-serif" }}>
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+          <div style={{ display: "grid",
+                        gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
+                        gap: 10 }}>
             <div style={{ textAlign: "center", padding: "12px 8px", background: C.surfaceAlt, borderRadius: 8 }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: C.purple }}>{clicks}</div>
               <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>Clicks</div>

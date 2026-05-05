@@ -7,6 +7,7 @@ import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import { useVaults } from "../hooks/useVaultData.js";
 import { AssetIcon } from "../components/VaultExplorer.jsx";
 import { DEPOSITABLE_CHAINS } from "../chains.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const WithdrawModal = lazy(() => import("../components/WithdrawModal.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
@@ -98,6 +99,7 @@ export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { vaults } = useVaults();
+  const { isMobile, isPhone } = useResponsive();
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [withdrawFor, setWithdrawFor] = useState(null);
@@ -164,16 +166,18 @@ export default function PortfolioPage() {
 
   return (
     <InvestorShell>
-      <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>My Portfolio</h1>
+      <h1 style={{ margin: "0 0 20px", fontSize: isMobile ? 20 : 22, fontWeight: 700 }}>My Portfolio</h1>
 
-      {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
-        <Card style={{ padding: "18px 20px" }}>
+      {/* Summary cards: 3-up on desktop, 2-up on phone (count card spans), stacked on tiny */}
+      <div style={{ display: "grid",
+                    gridTemplateColumns: isPhone ? "1fr 1fr" : isMobile ? "repeat(3,1fr)" : "repeat(3,1fr)",
+                    gap: isMobile ? 8 : 12, marginBottom: isMobile ? 18 : 24 }}>
+        <Card style={{ padding: isMobile ? "14px 14px" : "18px 20px", gridColumn: isPhone ? "1 / -1" : "auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 14 }}>💼</span>
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Total Value</span>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: C.purple }}>
+          <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: C.purple }}>
             {loading ? "—" : allHaveUsd
               ? `$${totalValueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
               : totalValueAsset.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -185,12 +189,12 @@ export default function PortfolioPage() {
               : `${count} vault${count !== 1 ? "s" : ""} · mixed assets`}
           </div>
         </Card>
-        <Card style={{ padding: "18px 20px" }}>
+        <Card style={{ padding: isMobile ? "14px 14px" : "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 14 }}>📈</span>
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Total Yield</span>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: hasAnyYield ? (totalYield >= 0 ? C.green : C.red) : C.text4 }}>
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, color: hasAnyYield ? (totalYield >= 0 ? C.green : C.red) : C.text4 }}>
             {!hasAnyYield ? "—" : `${totalYield >= 0 ? "+" : ""}${totalYield.toLocaleString(undefined, { maximumFractionDigits: 4 })}`}
             {hasAnyYield && singleAsset && <span style={{ fontSize: 14, color: C.text3, marginLeft: 6 }}>{singleAsset}</span>}
           </div>
@@ -198,12 +202,12 @@ export default function PortfolioPage() {
             {hasAnyYield ? "current value − deposited" : "computing..."}
           </div>
         </Card>
-        <Card style={{ padding: "18px 20px" }}>
+        <Card style={{ padding: isMobile ? "14px 14px" : "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 14 }}>🏦</span>
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Active Positions</span>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: C.teal }}>{count}</div>
+          <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: C.teal }}>{count}</div>
         </Card>
       </div>
 
@@ -228,17 +232,20 @@ export default function PortfolioPage() {
 
       {positions.length > 0 && (
         <Card>
-          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
-                        display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 44px 180px", gap: 8,
-                        fontSize: 11, fontWeight: 600, color: C.text4, textTransform: "uppercase",
-                        letterSpacing: ".04em", alignItems: "center" }}>
-            <div>Vault</div>
-            <div style={{ textAlign: "right" }}>Value</div>
-            <div style={{ textAlign: "right" }}>Yield</div>
-            <div style={{ textAlign: "right" }}>APY</div>
-            <div style={{ textAlign: "center" }}>Score</div>
-            <div></div>
-          </div>
+          {/* Header row only on desktop — mobile shows headerless cards */}
+          {!isMobile && (
+            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
+                          display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 44px 180px", gap: 8,
+                          fontSize: 11, fontWeight: 600, color: C.text4, textTransform: "uppercase",
+                          letterSpacing: ".04em", alignItems: "center" }}>
+              <div>Vault</div>
+              <div style={{ textAlign: "right" }}>Value</div>
+              <div style={{ textAlign: "right" }}>Yield</div>
+              <div style={{ textAlign: "right" }}>APY</div>
+              <div style={{ textAlign: "center" }}>Score</div>
+              <div></div>
+            </div>
+          )}
           {enrichedPositions.map(p => {
             const canDeposit = DEPOSITABLE_CHAINS.includes(p.chain_id);
             const vaultForDeposit = {
@@ -276,6 +283,77 @@ export default function PortfolioPage() {
             };
             const vaultUrl = `/vault/${encodeURIComponent(p.vault_id)}`;
             const openVault = () => window.open(vaultUrl, "_blank", "noopener");
+            const valueText = p.value_usd != null
+              ? `$${p.value_usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : valueDisplay;
+            const yieldText = yieldUsd != null
+              ? fmtUsdSigned(yieldUsd)
+              : yieldVal != null ? fmtAmountSigned(yieldRaw, assetDecimals) : "+$0.00";
+            const yieldColor = yieldVal != null && yieldVal < 0 ? C.red : C.green;
+
+            // Mobile: stacked card layout — vault header row, then 2x2 metric grid, then full-width buttons.
+            if (isMobile) {
+              return (
+                <div key={p.vault_id} onClick={openVault}
+                     style={{ padding: "14px 14px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0, marginBottom: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: C.purpleDim,
+                                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <AssetIcon asset={p.asset_symbol} size={18} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.vault_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.text3 }}>{p.asset_symbol} · {CHAINS[p.chain_id] || `Chain ${p.chain_id}`}</div>
+                    </div>
+                    {p.score ? <ScoreRing score={p.score} size={32} /> : null}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+                                padding: "10px 12px", background: C.bg, borderRadius: 8, marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 9.5, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Value</div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{valueText}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9.5, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Yield</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: yieldColor }}>{yieldText}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9.5, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>APY</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: p.displayApy != null ? C.green : C.text4 }}>
+                        {p.displayApy != null ? `${p.displayApy.toFixed(2)}%` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9.5, color: C.text4, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Deposited</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text2 }}>
+                        {depositedDisplay ? `${depositedDisplay} ${p.asset_symbol}` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => { if (canDeposit) setDepositFor(vaultForDeposit); }}
+                            disabled={!canDeposit}
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none",
+                                     cursor: canDeposit ? "pointer" : "not-allowed",
+                                     backgroundImage: canDeposit ? C.purpleGrad : "none",
+                                     background: canDeposit ? undefined : C.border,
+                                     color: canDeposit ? "#fff" : C.text4, fontSize: 13, fontWeight: 600,
+                                     fontFamily: "'Inter',sans-serif" }}>
+                      + Add
+                    </button>
+                    <button onClick={() => setWithdrawFor(p)}
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", cursor: "pointer",
+                                     background: C.redDim, color: C.red, fontSize: 13, fontWeight: 600,
+                                     fontFamily: "'Inter',sans-serif" }}>
+                      Withdraw
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={p.vault_id} onClick={openVault}
                    style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`,
@@ -294,24 +372,15 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>
-                    {p.value_usd != null
-                      ? `$${p.value_usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                      : valueDisplay}
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{valueText}</div>
                   <div style={{ fontSize: 11, color: C.text3 }}>
                     {p.value_usd != null ? `${valueDisplay} ${p.asset_symbol}`
                       : depositedDisplay ? `dep. ${depositedDisplay}`
                       : p.asset_symbol}
                   </div>
                 </div>
-                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600,
-                              color: yieldVal != null && yieldVal < 0 ? C.red : C.green }}>
-                  {yieldUsd != null
-                    ? fmtUsdSigned(yieldUsd)
-                    : yieldVal != null
-                      ? fmtAmountSigned(yieldRaw, assetDecimals)
-                      : "+$0.00"}
+                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: yieldColor }}>
+                  {yieldText}
                   <div style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>
                     {yieldUsd != null && yieldVal != null
                       ? `${fmtAmountSigned(yieldRaw, assetDecimals)} ${p.asset_symbol}`

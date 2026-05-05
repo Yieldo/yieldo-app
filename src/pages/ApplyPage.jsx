@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PartnerApplyForm from "../components/PartnerApplyForm.jsx";
+import { useResponsive } from "../lib/responsive.js";
 
 const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212",
@@ -35,49 +36,62 @@ const Btn = ({ children, primary, small, onClick, style = {} }) => (
 export default function ApplyPage() {
   const navigate = useNavigate();
   const [audience, setAudience] = useState(null);
+  const { isMobile, isPhone } = useResponsive();
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.black, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 30, height: 30, borderRadius: 7 }} />
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`,
+                    padding: isMobile ? "12px 16px" : "14px 32px",
+                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 7 }} />
+          {!isPhone && <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
           <span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Apply</span>
+          <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: C.text2 }}>Apply</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Btn small onClick={() => navigate("/vault")}>Explore Vaults</Btn>
+          <Btn small onClick={() => navigate("/vault")}>Explore</Btn>
         </div>
       </div>
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px 100px", flex: 1, width: "100%" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto",
+                    padding: isMobile ? "24px 16px 60px" : "40px 24px 100px",
+                    flex: 1, width: "100%" }}>
         {!audience && (
           <div>
-            <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ textAlign: "center", marginBottom: isMobile ? 28 : 48 }}>
               <Tag>Get Started</Tag>
-              <h1 style={{ fontSize: 48, fontWeight: 400, textTransform: "uppercase", margin: "16px 0 0", letterSpacing: "-.02em", lineHeight: 1.15 }}>
-                Join the <GradientText style={{ fontSize: 48 }}>Yieldo Ecosystem</GradientText>
+              <h1 style={{ fontSize: isPhone ? 28 : isMobile ? 36 : 48, fontWeight: 400, textTransform: "uppercase",
+                           margin: "16px 0 0", letterSpacing: "-.02em", lineHeight: 1.15 }}>
+                Join the <GradientText style={{ fontSize: "inherit" }}>Yieldo Ecosystem</GradientText>
               </h1>
-              <p style={{ fontSize: 18, color: "rgba(0,0,0,0.5)", maxWidth: 520, margin: "16px auto 0", lineHeight: 1.6 }}>
+              <p style={{ fontSize: isMobile ? 14 : 18, color: "rgba(0,0,0,0.5)",
+                          maxWidth: 520, margin: "12px auto 0", lineHeight: 1.6 }}>
                 Invite-only programs for wallets and creators. Connect your wallet, fill the form, and we'll review within 48 hours.
               </p>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {AUDIENCES.map(a => (
                 <button key={a.id} onClick={() => setAudience(a.id)} style={{
-                  display: "flex", alignItems: "center", gap: 18, padding: "24px 28px", borderRadius: 14, cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                  display: "flex", alignItems: "center",
+                  gap: isMobile ? 14 : 18,
+                  padding: isMobile ? "18px 18px" : "24px 28px",
+                  borderRadius: 14, cursor: "pointer", fontFamily: "'Inter',sans-serif",
                   border: `1px solid ${C.border}`, background: C.white, boxShadow: "0 1px 4px rgba(0,0,0,0.02)",
                   textAlign: "left", transition: "all .2s", width: "100%",
                 }} onMouseEnter={e => { e.currentTarget.style.border = "1.5px solid rgba(122,28,203,0.2)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(122,28,203,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.border = `1px solid ${C.border}`; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.02)"; }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, backgroundImage: C.purpleGradBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{a.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontSize: 18, fontWeight: 600 }}>{a.title}</span>
-                      <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, backgroundImage: C.purpleGradLight, color: "#7A1CCB" }}>{a.tag}</span>
+                  <div style={{ width: isMobile ? 46 : 56, height: isMobile ? 46 : 56, borderRadius: 14,
+                                backgroundImage: C.purpleGradBg, display: "flex", alignItems: "center",
+                                justifyContent: "center", fontSize: isMobile ? 22 : 26, flexShrink: 0 }}>{a.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{a.title}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 500, padding: "2px 8px", borderRadius: 4,
+                                     backgroundImage: C.purpleGradLight, color: "#7A1CCB" }}>{a.tag}</span>
                     </div>
-                    <div style={{ fontSize: 14, color: "rgba(0,0,0,0.45)" }}>{a.desc}</div>
+                    <div style={{ fontSize: isMobile ? 12.5 : 14, color: "rgba(0,0,0,0.45)", lineHeight: 1.5 }}>{a.desc}</div>
                   </div>
-                  <span style={{ fontSize: 18, color: "rgba(0,0,0,0.15)" }}>&rarr;</span>
+                  <span style={{ fontSize: 18, color: "rgba(0,0,0,0.15)", flexShrink: 0 }}>&rarr;</span>
                 </button>
               ))}
             </div>

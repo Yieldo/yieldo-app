@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { useNavigate } from "react-router-dom";
+import { useResponsive } from "../lib/responsive.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
@@ -47,6 +48,7 @@ export default function BecomeCreatorModal({ onClose, unlockedByTier = false }) 
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
 
   const [step, setStep] = useState(1);
   const [showApply, setShowApply] = useState(false);
@@ -158,13 +160,28 @@ export default function BecomeCreatorModal({ onClose, unlockedByTier = false }) 
   const effectiveStep = skipCodeGate && step === 1 ? 2 : step;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex",
-                  alignItems: "center", justifyContent: "center", zIndex: 10000,
-                  fontFamily: "'Inter',sans-serif" }} onClick={onClose}>
-      <div style={{ width: 480, maxWidth: "calc(100vw - 32px)", background: "#fff", borderRadius: 20,
-                    boxShadow: "0 24px 80px rgba(0,0,0,0.18)", padding: 32,
-                    maxHeight: "92vh", overflowY: "auto" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)", display: "flex",
+                  alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", zIndex: 10000,
+                  fontFamily: "'Inter',sans-serif", padding: isMobile ? 0 : 16 }} onClick={onClose}>
+      <div style={{
+            width: isMobile ? "100%" : 480,
+            maxWidth: isMobile ? "none" : "calc(100vw - 32px)",
+            background: "#fff",
+            borderRadius: isMobile ? "16px 16px 0 0" : 20,
+            boxShadow: "0 -10px 40px rgba(0,0,0,0.18)",
+            padding: isMobile ? "20px 18px" : 32,
+            maxHeight: isMobile ? "92vh" : "92vh",
+            overflowY: "auto",
+            paddingBottom: isMobile ? "calc(20px + env(safe-area-inset-bottom))" : 32,
+            animation: isMobile ? "yiSheetUp .22s cubic-bezier(.2,.8,.2,1)" : undefined,
+          }}
            onClick={e => e.stopPropagation()}>
+        {isMobile && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 8, marginTop: -6 }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(0,0,0,.18)" }} />
+          </div>
+        )}
+        <style>{`@keyframes yiSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
 
         {/* STEP 1: code gate */}
         {effectiveStep === 1 && !showApply && (

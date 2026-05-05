@@ -623,7 +623,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
             <ScoreBar subScores={v.subScores} weights={weights} finalScore={v.yieldoScore} conf={v.conf} />
           </Card>
           <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
-            <Card style={{ padding: "16px 20px" }}>
+            <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>Current APY</div>
@@ -652,7 +652,7 @@ export default function VaultDetailPage({ vault: listVault, onBack }) {
                 </div>
               </div>
             </Card>
-            <Card style={{ padding: "16px 20px" }}>
+            <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>TVL</div>
