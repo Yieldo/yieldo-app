@@ -12,7 +12,7 @@ const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana", 100: "Gnosis" };
 
 const C = {
   white: "#fff", bg: "#f8f7fc", border: "rgba(0,0,0,.06)", border2: "rgba(0,0,0,.1)",

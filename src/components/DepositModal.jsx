@@ -9,7 +9,7 @@ import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 143: "Monad", 999: "HyperEVM", 747474: "Katana", 100: "Gnosis" };
 const CHAIN_ICONS = { 1: "\u039E", 8453: "\ud83d\udd35", 42161: "\ud83d\udfe0", 10: "\ud83d\udd34" };
 import { CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
 

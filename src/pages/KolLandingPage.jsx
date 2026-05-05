@@ -23,7 +23,7 @@ const C = {
   orange: "#d97706", orangeDim: "rgba(217,119,6,0.07)",
 };
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad", 100: "Gnosis" };
 
 function fmtApy(n) {
   if (!n && n !== 0) return "\u2014";

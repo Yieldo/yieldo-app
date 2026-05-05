@@ -17,7 +17,7 @@ const C = {
   gold: "#b8960a", goldDim: "rgba(184,150,10,0.07)",
 };
 
-const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad" };
+const CHAINS = { 1: "Ethereum", 8453: "Base", 42161: "Arbitrum", 10: "Optimism", 999: "Hyperliquid", 747474: "Katana", 143: "Monad", 100: "Gnosis" };
 const fmtTvl = n => { if (!n) return "$0"; if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`; if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`; if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`; return `$${n.toFixed(0)}`; };
 const fmtApy = n => { if (!n && n !== 0) return "—"; return (n * 100).toFixed(2) + "%"; };
 
