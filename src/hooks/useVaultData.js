@@ -55,6 +55,7 @@ const CHAIN_NAMES = {
   999: "HyperEVM",
   747474: "Katana",
   143: "Monad",
+  100: "Gnosis",
 };
 
 const ASSET_ICONS = {
