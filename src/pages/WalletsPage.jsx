@@ -7,6 +7,7 @@ import { VaultExplorer } from "../components/VaultExplorer.jsx";
 import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import RoleSwitcher from "../components/RoleSwitcher.jsx";
 import PartnerApplyForm from "../components/PartnerApplyForm.jsx";
+import { useResponsive } from "../lib/responsive.js";
 
 const PARTNER_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -349,7 +350,7 @@ function DashboardPage({ partner }) {
   return (
     <>
       {/* 4 Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 24 }}>
         <StatCard icon="💰" label="Revenue (MTD)" value={stats ? revenueMtd : "—"} trend={stats ? "+18%" : null} />
         <StatCard icon="📊" label="AUM Routed" value={stats ? aumRouted : "—"} trend={stats ? "+23%" : null} />
         <StatCard icon="👥" label="Active Users" value={stats ? activeUsers : "—"} trend={stats ? `${stats.users_7d || 0} in 7d` : null} />
@@ -649,6 +650,8 @@ function ComingSoon({ icon, title }) {
 
 // ============ MAIN APP ============
 export default function WalletsPage() {
+  const { isMobile } = useResponsive();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [page, setPage] = useState("catalog");
   // savedEnrolled = the set persisted server-side. enrolledVaults = current local pending state.
   const [savedEnrolled, setSavedEnrolled] = useState(new Set());
@@ -851,51 +854,101 @@ export default function WalletsPage() {
 
   const sidebarWidth = sidebarCollapsed ? 64 : 230;
 
+  // Wrap nav-item click on mobile to also close the drawer.
+  const navClick = (id) => { setPage(id); if (isMobile) setMobileNavOpen(false); };
+
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", display: "flex" }}>
-      {/* SIDEBAR */}
-      <aside style={{ width: sidebarWidth, background: C.white, borderRight: `1px solid ${C.border}`, padding: "20px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxShadow: "1px 0 8px rgba(0,0,0,0.02)", transition: "width .2s ease" }}>
+    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row" }}>
+      {/* Mobile top bar — replaces the desktop sidebar header */}
+      {isMobile && (
+        <header style={{ position: "sticky", top: 0, zIndex: 40, background: C.white, borderBottom: `1px solid ${C.border}`,
+                         padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setMobileNavOpen(true)} aria-label="Menu"
+            style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${C.border2}`, background: C.white,
+                     display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+            <span style={{ display: "block", width: 16, height: 10, position: "relative" }}>
+              <span style={{ position: "absolute", top: 0,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", top: 4,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+            </span>
+          </button>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 7 }} />
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em" }}>YIELDO</span>
+          <Badge color={C.teal}>Wallet</Badge>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.text3, fontWeight: 500 }}>
+            {(navItems.find(i => i.id === page) || {}).label || ""}
+          </span>
+        </header>
+      )}
+
+      {/* Mobile drawer overlay */}
+      {isMobile && mobileNavOpen && (
+        <div onClick={() => setMobileNavOpen(false)}
+             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 70 }} />
+      )}
+
+      {/* SIDEBAR — desktop sticky / mobile slide-in drawer */}
+      <aside style={{
+        width: isMobile ? "min(80vw, 280px)" : sidebarWidth,
+        background: C.white,
+        borderRight: `1px solid ${C.border}`,
+        padding: "20px 0",
+        display: "flex", flexDirection: "column",
+        position: isMobile ? "fixed" : "sticky",
+        top: 0, left: 0,
+        height: "100vh",
+        boxShadow: isMobile ? "0 0 30px rgba(0,0,0,.18)" : "1px 0 8px rgba(0,0,0,0.02)",
+        transition: "transform .25s ease, width .2s ease",
+        transform: isMobile ? (mobileNavOpen ? "translateX(0)" : "translateX(-100%)") : "none",
+        zIndex: 80,
+      }}>
         <div style={{ padding: sidebarCollapsed ? "0 12px 18px" : "0 20px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}`, marginBottom: 8, justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
           <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
           {!sidebarCollapsed && <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
           {!sidebarCollapsed && <Badge color={C.teal}>Wallet</Badge>}
         </div>
-        {/* Collapse toggle */}
-        <button
-          onClick={toggleSidebar}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          style={{
-            position: "absolute", top: 22, right: -12, width: 24, height: 24, borderRadius: 12,
-            background: C.white, border: `1px solid ${C.border2}`, color: C.text3,
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontFamily: "'Inter',sans-serif", boxShadow: "0 1px 4px rgba(0,0,0,.06)",
-            zIndex: 5,
-          }}
-        >
-          {sidebarCollapsed ? "›" : "‹"}
-        </button>
+        {/* Collapse toggle — desktop only */}
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            style={{
+              position: "absolute", top: 22, right: -12, width: 24, height: 24, borderRadius: 12,
+              background: C.white, border: `1px solid ${C.border2}`, color: C.text3,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontFamily: "'Inter',sans-serif", boxShadow: "0 1px 4px rgba(0,0,0,.06)",
+              zIndex: 5,
+            }}
+          >
+            {sidebarCollapsed ? "›" : "‹"}
+          </button>
+        )}
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, padding: "0 8px" }}>
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setPage(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: sidebarCollapsed ? "10px 0" : "9px 14px",
-                justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                background: page === item.id ? C.purpleDim : "transparent",
-                border: "none", borderRadius: 8,
-                color: page === item.id ? C.purple : C.text3,
-                fontSize: 14, fontWeight: page === item.id ? 600 : 400,
-                cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {!sidebarCollapsed && item.label}
-              {!sidebarCollapsed && item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
-            </button>
-          ))}
+          {navItems.map(item => {
+            // On mobile we always render full-width labels (drawer is wide enough).
+            const collapsed = !isMobile && sidebarCollapsed;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navClick(item.id)}
+                title={collapsed ? item.label : undefined}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: collapsed ? "10px 0" : "10px 14px",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  background: page === item.id ? C.purpleDim : "transparent",
+                  border: "none", borderRadius: 8,
+                  color: page === item.id ? C.purple : C.text3,
+                  fontSize: 14, fontWeight: page === item.id ? 600 : 400,
+                  cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s",
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                {!collapsed && item.label}
+                {!collapsed && item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
+              </button>
+            );
+          })}
         </nav>
         <div style={{ padding: sidebarCollapsed ? "14px 8px" : "14px 16px", borderTop: `1px solid ${C.border}`, margin: "0 8px" }}>
           {isConnected && address ? (
@@ -930,7 +983,8 @@ export default function WalletsPage() {
       </aside>
 
       {/* MAIN */}
-      <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", minWidth: 0 }}>
+      <main style={{ flex: 1, padding: isMobile ? "16px 14px 24px" : "24px 32px",
+                     overflow: "auto", minWidth: 0, width: "100%" }}>
         {newKeys && <APIKeysModal keys={newKeys} onClose={() => setNewKeys(null)} />}
 
         {/* Pre-authenticated branch.

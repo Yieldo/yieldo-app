@@ -74,13 +74,13 @@ export default function EmbedBadgePage() {
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: C.text }}>
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "20px 14px" }} className="embed-page-pad">
         <div style={{ marginBottom: 20 }}>
           <Link to="/vault" style={{ fontSize: 13, color: C.purple, textDecoration: "none" }}>← Back to vaults</Link>
         </div>
 
-        <h1 style={{ fontSize: 32, fontWeight: 700, margin: "0 0 6px" }}>Embed your score</h1>
-        <p style={{ color: C.text3, margin: "0 0 28px", maxWidth: 640 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }} className="embed-page-h1">Embed your score</h1>
+        <p style={{ color: C.text3, margin: "0 0 22px", maxWidth: 640, fontSize: 14, lineHeight: 1.55 }}>
           Pick your vault and copy the snippet — the badge auto-updates whenever your score changes (5-min cache at our edge). Public, no auth, works in any HTML/Markdown context.
         </p>
 
@@ -155,7 +155,13 @@ export default function EmbedBadgePage() {
         </div>
 
       </div>
-      <style>{`@media (max-width: 720px) { .embed-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+        @media (min-width: 768px) {
+          .embed-page-pad { padding: 32px 24px !important; }
+          .embed-page-h1 { font-size: 32px !important; }
+        }
+        @media (max-width: 720px) { .embed-grid { grid-template-columns: 1fr !important; } }
+      `}</style>
     </div>
   );
 }

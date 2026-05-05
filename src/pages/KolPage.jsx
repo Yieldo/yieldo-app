@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { VaultExplorer } from "../components/VaultExplorer.jsx";
 import RoleSwitcher from "../components/RoleSwitcher.jsx";
+import { useResponsive } from "../lib/responsive.js";
 
 const BecomeCreatorModal = lazy(() => import("../components/BecomeCreatorModal.jsx"));
 
@@ -641,6 +642,8 @@ function SettingsPage({ kol, onUpdate }) {
 
 // ============ MAIN PAGE ============
 export default function KolPage() {
+  const { isMobile } = useResponsive();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [page, setPage] = useState("overview");
   const [savedEnrolled, setSavedEnrolled] = useState(new Set());
   const [enrolledVaults, setEnrolledVaults] = useState(new Set());
@@ -778,15 +781,49 @@ export default function KolPage() {
   ];
 
   const sidebarWidth = sidebarCollapsed ? 64 : 230;
+  const navClick = (id) => { setPage(id); if (isMobile) setMobileNavOpen(false); };
 
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", display: "flex" }}>
+    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh",
+                  display: "flex", flexDirection: isMobile ? "column" : "row" }}>
+      {/* Mobile top bar */}
+      {isMobile && (
+        <header style={{ position: "sticky", top: 0, zIndex: 40, background: C.white, borderBottom: `1px solid ${C.border}`,
+                         padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setMobileNavOpen(true)} aria-label="Menu"
+            style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${C.border2}`, background: C.white,
+                     display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+            <span style={{ display: "block", width: 16, height: 10, position: "relative" }}>
+              <span style={{ position: "absolute", top: 0,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", top: 4,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+            </span>
+          </button>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 7 }} />
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em" }}>YIELDO</span>
+          <Badge color={C.orange} bg={C.orangeDim}>Creator</Badge>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: C.text3, fontWeight: 500 }}>
+            {(navItems.find(i => i.id === page) || {}).label || ""}
+          </span>
+        </header>
+      )}
+
+      {/* Mobile drawer overlay */}
+      {isMobile && mobileNavOpen && (
+        <div onClick={() => setMobileNavOpen(false)}
+             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 70 }} />
+      )}
+
       {/* SIDEBAR */}
       <aside style={{
-        width: sidebarWidth, background: C.white, borderRight: `1px solid ${C.border}`,
+        width: isMobile ? "min(80vw, 280px)" : sidebarWidth,
+        background: C.white, borderRight: `1px solid ${C.border}`,
         padding: "20px 0", display: "flex", flexDirection: "column",
-        position: "sticky", top: 0, height: "100vh",
-        boxShadow: "1px 0 8px rgba(0,0,0,0.02)", transition: "width .2s ease",
+        position: isMobile ? "fixed" : "sticky", top: 0, left: 0, height: "100vh",
+        boxShadow: isMobile ? "0 0 30px rgba(0,0,0,.18)" : "1px 0 8px rgba(0,0,0,0.02)",
+        transition: "transform .25s ease, width .2s ease",
+        transform: isMobile ? (mobileNavOpen ? "translateX(0)" : "translateX(-100%)") : "none",
+        zIndex: 80,
       }}>
         <div style={{
           padding: sidebarCollapsed ? "0 12px 18px" : "0 20px 18px",
@@ -799,41 +836,46 @@ export default function KolPage() {
           {!sidebarCollapsed && <Badge color={C.orange} bg={C.orangeDim}>Creator</Badge>}
         </div>
 
-        <button
-          onClick={toggleSidebar}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          style={{
-            position: "absolute", top: 22, right: -12, width: 24, height: 24, borderRadius: 12,
-            background: C.white, border: `1px solid ${C.border2}`, color: C.text3,
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontFamily: "'Inter',sans-serif", boxShadow: "0 1px 4px rgba(0,0,0,.06)", zIndex: 5,
-          }}
-        >
-          {sidebarCollapsed ? "›" : "‹"}
-        </button>
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            style={{
+              position: "absolute", top: 22, right: -12, width: 24, height: 24, borderRadius: 12,
+              background: C.white, border: `1px solid ${C.border2}`, color: C.text3,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontFamily: "'Inter',sans-serif", boxShadow: "0 1px 4px rgba(0,0,0,.06)", zIndex: 5,
+            }}
+          >
+            {sidebarCollapsed ? "›" : "‹"}
+          </button>
+        )}
 
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, padding: "0 8px" }}>
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setPage(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: sidebarCollapsed ? "10px 0" : "9px 14px",
-                justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                background: page === item.id ? C.purpleDim : "transparent",
-                border: "none", borderRadius: 8,
-                color: page === item.id ? C.purple : C.text3,
-                fontSize: 14, fontWeight: page === item.id ? 600 : 400,
-                cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {!sidebarCollapsed && item.label}
-              {!sidebarCollapsed && item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
-            </button>
-          ))}
+          {navItems.map(item => {
+            const collapsed = !isMobile && sidebarCollapsed;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navClick(item.id)}
+                title={collapsed ? item.label : undefined}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: collapsed ? "10px 0" : "10px 14px",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  background: page === item.id ? C.purpleDim : "transparent",
+                  border: "none", borderRadius: 8,
+                  color: page === item.id ? C.purple : C.text3,
+                  fontSize: 14, fontWeight: page === item.id ? 600 : 400,
+                  cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s",
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                {!collapsed && item.label}
+                {!collapsed && item.soon && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
+              </button>
+            );
+          })}
         </nav>
 
         <div style={{ padding: sidebarCollapsed ? "14px 8px" : "14px 16px", borderTop: `1px solid ${C.border}`, margin: "0 8px" }}>
@@ -875,7 +917,8 @@ export default function KolPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", minWidth: 0 }}>
+      <main style={{ flex: 1, padding: isMobile ? "16px 14px 24px" : "24px 32px",
+                     overflow: "auto", minWidth: 0, width: "100%" }}>
         {authState === "not_connected" && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>

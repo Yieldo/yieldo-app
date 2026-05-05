@@ -3,6 +3,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import PartnerApplyForm from "../components/PartnerApplyForm.jsx";
 import RoleSwitcher from "../components/RoleSwitcher.jsx";
+import { useResponsive } from "../lib/responsive.js";
 
 // Until we ship real on-chain curator onboarding, /curator is a simple
 // "apply to list your vault" form — the same three-audience form the apply
@@ -23,51 +24,58 @@ export default function CuratorPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  const { isMobile, isPhone } = useResponsive();
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh" }}>
       <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`,
-                       padding: "14px 32px", display: "flex", alignItems: "center",
-                       justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 30, height: 30, borderRadius: 7 }} />
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>
+                       padding: isMobile ? "12px 14px" : "14px 32px",
+                       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 28, height: 28, borderRadius: 7 }} />
+          {!isPhone && <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>}
           <span style={{ color: C.text4, margin: "0 4px" }}>/</span>
-          <span style={{ fontSize: 15, fontWeight: 500, color: C.text2 }}>Vault Curator</span>
+          <span style={{ fontSize: isMobile ? 13 : 15, fontWeight: 500, color: C.text2,
+                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {isPhone ? "Curator" : "Vault Curator"}
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {isConnected && address && <RoleSwitcher address={address} currentRole="curator" />}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {!isMobile && isConnected && address && <RoleSwitcher address={address} currentRole="curator" />}
           {isConnected && address ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px",
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
                           borderRadius: 7, border: `1px solid ${C.border2}`, background: C.white,
-                          fontSize: 12 }}>
+                          fontSize: 11.5 }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.green }} />
               <span style={{ fontFamily: "monospace", color: C.text2 }}>
-                {address.slice(0, 6)}...{address.slice(-4)}
+                {address.slice(0, isMobile ? 4 : 6)}...{address.slice(-4)}
               </span>
-              <button onClick={() => disconnect()}
-                style={{ fontSize: 11, color: C.red, background: "none", border: "none",
-                         cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: 0 }}>
-                Disconnect
-              </button>
+              {!isMobile && (
+                <button onClick={() => disconnect()}
+                  style={{ fontSize: 11, color: C.red, background: "none", border: "none",
+                           cursor: "pointer", fontFamily: "'Inter',sans-serif", padding: 0 }}>
+                  Disconnect
+                </button>
+              )}
             </div>
           ) : (
             <button onClick={openConnectModal}
-              style={{ padding: "8px 18px", borderRadius: 6, border: "none", cursor: "pointer",
-                       backgroundImage: C.purpleGrad, color: "#fff", fontSize: 13, fontWeight: 600,
-                       boxShadow: C.purpleShadow, fontFamily: "'Inter',sans-serif" }}>
-              Connect Wallet
+              style={{ padding: isMobile ? "7px 12px" : "8px 18px", borderRadius: 7, border: "none", cursor: "pointer",
+                       backgroundImage: C.purpleGrad, color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 600,
+                       boxShadow: C.purpleShadow, fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap" }}>
+              {isPhone ? "Connect" : "Connect Wallet"}
             </button>
           )}
         </div>
       </header>
 
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px 100px" }}>
+      <main style={{ maxWidth: 720, margin: "0 auto",
+                     padding: isMobile ? "24px 16px 60px" : "40px 24px 100px" }}>
         <div style={{ marginBottom: 22 }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 700, letterSpacing: "-.01em" }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: "-.01em" }}>
             List your vault on Yieldo
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
+          <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, color: C.text3, lineHeight: 1.6, maxWidth: 540 }}>
             Reach wallets, creators, and aggregators that route deposits through Yieldo.
             Tell us about your protocol and we'll get back to you within 48 hours.
           </p>

@@ -6,6 +6,7 @@ import { useVaults } from "../hooks/useVaultData.js";
 import { CHAIN_NAMES as CHAINS } from "../chains.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { AssetIcon, ScoreRing, fmtTvl } from "../components/VaultExplorer.jsx";
+import { useResponsive } from "../lib/responsive.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 
 const KOL_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -49,6 +50,7 @@ export default function KolLandingPage() {
   const [depositVault, setDepositVault] = useState(null);
   const [page, setPage] = useState(0);
   const VAULTS_PER_PAGE = 5;
+  const { isMobile } = useResponsive();
 
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -131,7 +133,7 @@ export default function KolLandingPage() {
         </Link>
       </div>
 
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px" }}>
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: isMobile ? "20px 14px 60px" : "40px 24px" }}>
         {/* Creator Profile */}
         <Card style={{ padding: 28, marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>

@@ -286,13 +286,13 @@ export default function PartnerApplyForm({ audience = "wallet", onSubmitted, sho
 
         {audience === "wallet" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
               <TextInput label="Company / Wallet Name" placeholder="e.g. Phantom" value={wName} onChange={setWName} required />
               <TextInput label="Your Role" placeholder="e.g. Head of Product" value={wRole} onChange={setWRole} />
             </div>
             <SelectInput label="Monthly Active Users" options={["< 10K", "10K – 100K", "100K – 1M", "1M+"]} value={wMau} onChange={setWMau} required />
             <MultiChip label="Chains Supported" options={["Ethereum", "Base", "Arbitrum", "Polygon", "Solana", "Optimism", "Other"]} selected={wChains} onChange={setWChains} required />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
               <TextInput label="Work Email" placeholder="you@company.com" type="email" value={wEmail} onChange={setWEmail} required />
               <TextInput label="Telegram (optional)" placeholder="@username" value={wTg} onChange={setWTg} />
             </div>
@@ -301,13 +301,13 @@ export default function PartnerApplyForm({ audience = "wallet", onSubmitted, sho
 
         {audience === "kol" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
               <TextInput label="Your Handle" placeholder="@yourname" value={kHandle} onChange={setKHandle} required />
               <SelectInput label="Primary Platform" options={["Twitter / X", "YouTube", "Newsletter", "Discord", "Telegram", "Other"]} value={kPlatform} onChange={setKPlatform} required />
             </div>
             <SelectInput label="Audience Size" options={["< 5K", "5K – 25K", "25K – 100K", "100K+"]} value={kSize} onChange={setKSize} required />
             <MultiChip label="Content Focus" options={["DeFi analysis", "Yield strategies", "General crypto", "Educational", "Trading", "Other"]} selected={kContent} onChange={setKContent} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
               <TextInput label="Email" placeholder="you@email.com" type="email" value={kEmail} onChange={setKEmail} required />
               <TextInput label="Telegram (optional)" placeholder="@username" value={kTg} onChange={setKTg} />
             </div>

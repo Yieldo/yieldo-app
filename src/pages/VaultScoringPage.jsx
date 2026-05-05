@@ -402,7 +402,7 @@ export default function VaultScoringPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Inter',sans-serif", color: C.text }}>
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 14px" }} className="scoring-page-pad"><style>{`@media (min-width: 768px) { .scoring-page-pad { padding: 24px 20px !important; } }`}</style>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>Vault Scoring Debugger</div>

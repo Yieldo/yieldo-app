@@ -3,6 +3,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { CHAIN_NAMES as CHAINS } from "../chains.js";
+import { useResponsive } from "../lib/responsive.js";
 
 const C = {
   bg: "#f8f7fc", white: "#ffffff", black: "#121212", surface: "#ffffff",
@@ -103,7 +104,7 @@ function VaultListingCard({ vault }) {
         </div>
         <Badge color={C.green}>live</Badge>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
         {[
           { l: "TVL", v: fmtTvl(tvl) },
           { l: "APY", v: fmtApy(apy) },
@@ -197,6 +198,8 @@ function RegistrationForm({ address, onRegistered }) {
 
 /* ============ MAIN PAGE ============ */
 export default function VaultProviderPage() {
+  const { isMobile } = useResponsive();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [provider, setProvider] = useState(null);
   const [checkingProvider, setCheckingProvider] = useState(false);
@@ -233,10 +236,42 @@ export default function VaultProviderPage() {
   const totalTvl = vaults.reduce((s, v) => s + (v.C01_USD || 0), 0);
   const avgApy = vaults.length ? vaults.reduce((s, v) => s + (v.P01_APIN_7D || 0), 0) / vaults.length : 0;
 
+  const navClick = (id) => { setPage(id); if (isMobile) setMobileNavOpen(false); };
+
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh", display: "flex" }}>
+    <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, color: C.text, minHeight: "100vh",
+                  display: "flex", flexDirection: isMobile ? "column" : "row" }}>
+      {/* Mobile top bar */}
+      {isMobile && (
+        <header style={{ position: "sticky", top: 0, zIndex: 40, background: C.white, borderBottom: `1px solid ${C.border}`,
+                         padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setMobileNavOpen(true)} aria-label="Menu"
+            style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${C.border2}`, background: C.white,
+                     display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+            <span style={{ display: "block", width: 16, height: 10, position: "relative" }}>
+              <span style={{ position: "absolute", top: 0,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", top: 4,    left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+              <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1.6, background: C.text2, borderRadius: 1 }} />
+            </span>
+          </button>
+          <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 26, height: 26, borderRadius: 7 }} />
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em" }}>YIELDO</span>
+          <Badge color={C.purple}>Vault</Badge>
+        </header>
+      )}
+      {isMobile && mobileNavOpen && (
+        <div onClick={() => setMobileNavOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 70 }} />
+      )}
       {/* SIDEBAR */}
-      <aside style={{ width: 230, background: C.white, borderRight: `1px solid ${C.border}`, padding: "20px 0", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxShadow: "1px 0 8px rgba(0,0,0,0.02)" }}>
+      <aside style={{
+        width: isMobile ? "min(80vw, 280px)" : 230,
+        background: C.white, borderRight: `1px solid ${C.border}`, padding: "20px 0", display: "flex", flexDirection: "column",
+        position: isMobile ? "fixed" : "sticky", top: 0, left: 0, height: "100vh",
+        boxShadow: isMobile ? "0 0 30px rgba(0,0,0,.18)" : "1px 0 8px rgba(0,0,0,0.02)",
+        transition: "transform .25s ease",
+        transform: isMobile ? (mobileNavOpen ? "translateX(0)" : "translateX(-100%)") : "none",
+        zIndex: 80,
+      }}>
         <div style={{ padding: "0 20px 20px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}`, marginBottom: 8, paddingBottom: 18 }}>
           <img src="/yieldo-new.png" alt="Yieldo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain" }} />
           <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: ".05em" }}>YIELDO</span>
@@ -244,7 +279,7 @@ export default function VaultProviderPage() {
         </div>
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, padding: "0 8px" }}>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => setPage(item.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: page === item.id ? C.purpleDim : "transparent", border: "none", borderRadius: 8, color: page === item.id ? C.purple : C.text3, fontSize: 14, fontWeight: page === item.id ? 600 : 400, cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s" }}>
+            <button key={item.id} onClick={() => navClick(item.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: page === item.id ? C.purpleDim : "transparent", border: "none", borderRadius: 8, color: page === item.id ? C.purple : C.text3, fontSize: 14, fontWeight: page === item.id ? 600 : 400, cursor: "pointer", fontFamily: "'Inter',sans-serif", textAlign: "left", transition: "all .15s" }}>
               <span style={{ fontSize: 15 }}>{item.icon}</span>
               {item.label}
               {comingSoonPages.includes(item.id) && <span style={{ fontSize: 9, color: C.text4, marginLeft: "auto" }}>soon</span>}
@@ -272,7 +307,7 @@ export default function VaultProviderPage() {
       </aside>
 
       {/* MAIN */}
-      <main style={{ flex: 1, padding: "24px 32px", overflow: "auto", maxWidth: 1200 }}>
+      <main style={{ flex: 1, padding: isMobile ? "16px 14px 24px" : "24px 32px", overflow: "auto", maxWidth: 1200, width: "100%" }}>
         {!isConnected ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 80px)", gap: 20 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, backgroundImage: C.purpleGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
