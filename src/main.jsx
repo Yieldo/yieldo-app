@@ -21,6 +21,7 @@ import ReferralsPage from './pages/ReferralsPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import EmbedBadgePage from './pages/EmbedBadgePage.jsx'
 import IntelPage from './pages/IntelPage.jsx'
+import AdminPage from './pages/AdminPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
@@ -95,6 +96,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/creator" element={<KolPage />} />
               <Route path="/kol" element={<CreatorDashboardRedirect />} />
               <Route path="/curator" element={<CuratorPage />} />
+              <Route path="/admin" element={<AdminPage />} />
             </Routes>
           </BrowserRouter>
         </RainbowKitProvider>
