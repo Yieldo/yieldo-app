@@ -45,21 +45,13 @@ function RoleRedirect() {
   const location = useLocation();
   const checked = useRef(false);
 
-  useEffect(() => {
-    if (!isConnected || !address || checked.current) return;
-    const onDefault = location.pathname === "/" || location.pathname === "/vault" || location.pathname === "/dashboard";
-    if (!onDefault) return;
-
-    checked.current = true;
-    fetch(`${DEPOSIT_API}/v1/users/role/${address}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (!data) return;
-        if (data.role === "creator" || data.role === "kol") navigate("/creator", { replace: true });
-        else if (data.role === "wallet") navigate("/wallets", { replace: true });
-      })
-      .catch(() => {});
-  }, [isConnected, address, location.pathname, navigate]);
+  // Auto-route on first connect was hijacking the default landing for users
+  // with multiple roles (e.g. an investor who's also a wallet partner). The
+  // RoleSwitcher in the navbar lets them pick — keep the default page as the
+  // public investor view. Disabled intentionally; restore only if there's a
+  // strong reason to bias one role's dashboard.
+  // Original behaviour:
+  //   if connected wallet has role=wallet → /wallets, role=creator/kol → /creator
 
   useEffect(() => {
     if (!isConnected) checked.current = false;
