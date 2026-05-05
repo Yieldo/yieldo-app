@@ -4,6 +4,7 @@ import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { CHAIN_NAMES } from "../chains.js";
 import { useResponsive } from "../lib/responsive.js";
+import { mapVault } from "../hooks/useVaultData.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const STORAGE_KEY = "yieldo_admin_session";
@@ -52,6 +53,47 @@ async function adminFetch(path, { method = "GET", body, session } = {}) {
     throw new Error(detail);
   }
   return res.json();
+}
+
+// Compact score ring — same color logic as the public /vault page.
+function ScoreRing({ score, size = 36, sw = 3 }) {
+  if (score == null || isNaN(score)) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: "50%", border: `${sw}px solid ${C.border2}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: size * 0.3, color: C.text4, fontWeight: 600 }}>—</div>
+    );
+  }
+  const r = (size - sw) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, score)) / 100);
+  const color = score >= 85 ? C.green : score >= 70 ? C.amber : score >= 50 ? "#f59e0b" : C.red;
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,.06)" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
+                strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: size * 0.34, fontWeight: 700, color }}>
+        {Math.round(score)}
+      </div>
+    </div>
+  );
+}
+
+function fmtTvl(n) {
+  if (n == null || isNaN(n)) return "—";
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return "—";
+  return `${n.toFixed(2)}%`;
 }
 
 function Toggle({ checked, onChange, label, disabled }) {
@@ -287,6 +329,7 @@ export default function AdminPage() {
             <VaultRow key={v.vault_id} v={v}
               busy={pendingFlip.has(v.vault_id)}
               onToggle={(patch) => toggle(v.vault_id, patch)}
+              onOpenDetail={(vid) => navigate(`/admin/vault/${encodeURIComponent(vid)}`)}
               isMobile={isMobile} />
           ))}
         </div>
@@ -344,9 +387,7 @@ function ReasonBadges({ reasons }) {
   );
 }
 
-function VaultRow({ v, busy, onToggle, isMobile }) {
-  const open = (id) => window.open(`/vault/${encodeURIComponent(id)}`, "_blank", "noopener");
-
+function VaultRow({ v, busy, onToggle, isMobile, onOpenDetail }) {
   // Prefer the new effective fields; fall back to admin-only when not present
   // (during a partial deploy). This keeps the toggle reflecting what users
   // actually see, not just the admin override.
@@ -358,6 +399,14 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
   const depositsLocked = !!v.deposits_locked;
   const withdrawalsLocked = !!v.withdrawals_locked;
 
+  // Run the indexer payload through mapVault so we get the same Yieldo Score,
+  // APY, TVL, depositors, risk label etc. that /vault and /vault/:id show.
+  // Falls back to undefined for vaults the indexer hasn't scored yet.
+  const m = useMemo(() => {
+    if (!v.metrics || !v.metrics.vault_id) return null;
+    try { return mapVault(v.metrics); } catch { return null; }
+  }, [v.metrics]);
+
   return (
     <div style={{
       background: C.white, border: `1px solid ${C.border}`,
@@ -365,18 +414,24 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
       borderRadius: 10, padding: isMobile ? "12px 14px" : "14px 18px",
       opacity: effListed ? 1 : 0.78, transition: "opacity .15s, border-color .15s",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: "2 1 240px", minWidth: 0 }}>
+      {/* Top section: identity + score ring + key metrics */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: isMobile ? 12 : 16, flexWrap: "wrap" }}>
+        <div style={{ flexShrink: 0 }}>
+          <ScoreRing score={m?.yieldoScore} size={isMobile ? 40 : 48} sw={3.5} />
+        </div>
+        <div style={{ flex: "2 1 220px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-            <span style={{ fontSize: isMobile ? 13.5 : 14.5, fontWeight: 700,
-                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <button onClick={() => onOpenDetail?.(v.vault_id)}
+              style={{ fontSize: isMobile ? 13.5 : 14.5, fontWeight: 700, background: "none", border: "none",
+                       padding: 0, cursor: "pointer", color: C.text, fontFamily: "'Inter',sans-serif",
+                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
+                       textAlign: "left" }}>
               {v.name}
-            </span>
+            </button>
             <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
                            background: C.purpleDim, color: C.purple }}>
               {CHAIN_NAMES[v.chain_id] || `Chain ${v.chain_id}`}
             </span>
-            {/* Live state pill — single source of truth */}
             {effListed ? (
               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                              background: C.greenDim, color: C.green }}>● Live</span>
@@ -391,15 +446,30 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
             )}
           </div>
           <div style={{ fontSize: 11, color: C.text3, marginBottom: 2 }}>
-            {v.asset_symbol} · {v.type || "morpho"}{v.curator ? ` · ${v.curator}` : ""}
+            {v.asset_symbol} · {v.type || "morpho"}{v.curator ? ` · ${v.curator}` : ""}{m?.risk ? ` · Risk: ${m.risk}` : ""}
           </div>
           <div style={{ fontSize: 10, color: C.text4, fontFamily: "monospace",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {v.address}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: isMobile ? 14 : 22, flexWrap: "wrap",
-                      flex: "1 1 320px", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+
+        {/* Metric mini-grid — only shows when we have indexer data */}
+        {m && (
+          <div style={{ display: "flex", gap: isMobile ? 14 : 22, flexShrink: 0,
+                        alignSelf: "stretch", alignItems: "center", flexWrap: "wrap" }}>
+            <MiniStat label="APY"        value={fmtPct(m.apy)} color={(m.apy ?? 0) < 0 ? C.red : C.purple} />
+            <MiniStat label="TVL"        value={fmtTvl(m.tvl)} color={C.text} />
+            <MiniStat label="Depositors" value={m.depositors != null ? m.depositors.toLocaleString() : "—"} color={C.text} />
+          </div>
+        )}
+      </div>
+
+      {/* Toggle row */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: isMobile ? 14 : 22, flexWrap: "wrap",
+                    marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${C.border}`,
+                    justifyContent: isMobile ? "flex-start" : "space-between" }}>
+        <div style={{ display: "flex", gap: isMobile ? 14 : 22, flexWrap: "wrap" }}>
           <ToggleCol
             label="Listed" hint="Shown on /vault"
             checked={effListed}
@@ -422,11 +492,21 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
             disabled={busy || withdrawalsLocked}
             locked={withdrawalsLocked}
             onChange={(b) => onToggle({ withdrawals_enabled: b })} />
-          <button onClick={() => open(v.vault_id)}
-            style={{ padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600,
+        </div>
+        <div style={{ display: "flex", gap: 6, alignSelf: "center" }}>
+          <button onClick={() => onOpenDetail?.(v.vault_id)}
+            style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700,
+                     border: "none", backgroundImage: C.purpleGrad, color: "#fff",
+                     cursor: "pointer", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap",
+                     boxShadow: C.purpleShadow }}>
+            View metrics →
+          </button>
+          <button onClick={() => window.open(`/vault/${encodeURIComponent(v.vault_id)}`, "_blank", "noopener")}
+            title="Open the public-facing detail page in a new tab"
+            style={{ padding: "7px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600,
                      border: `1px solid ${C.border2}`, background: C.white, color: C.text2,
                      cursor: "pointer", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap" }}>
-            View ↗
+            Public ↗
           </button>
         </div>
       </div>
@@ -435,6 +515,19 @@ function VaultRow({ v, busy, onToggle, isMobile }) {
           Last admin change {new Date(v.updated_at).toLocaleString()} by {v.updated_by ? `${v.updated_by.slice(0, 6)}…${v.updated_by.slice(-4)}` : "—"}
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color = C.text }) {
+  return (
+    <div style={{ minWidth: 70, textAlign: "right" }}>
+      <div style={{ fontSize: 9, color: C.text4, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 1 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color }}>
+        {value}
+      </div>
     </div>
   );
 }

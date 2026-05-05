@@ -22,6 +22,7 @@ import HistoryPage from './pages/HistoryPage.jsx'
 import EmbedBadgePage from './pages/EmbedBadgePage.jsx'
 import IntelPage from './pages/IntelPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
+import AdminVaultDetailPage from './pages/AdminVaultDetailPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
@@ -97,6 +98,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/kol" element={<CreatorDashboardRedirect />} />
               <Route path="/curator" element={<CuratorPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/vault/:vaultId" element={<AdminVaultDetailPage />} />
             </Routes>
           </BrowserRouter>
         </RainbowKitProvider>

@@ -463,11 +463,16 @@ const MR = ({ label, value, unit, trend, flag, desc, trigger }) => (
   </div>
 );
 
-export default function VaultDetailPage({ vault: listVault, onBack }) {
+export default function VaultDetailPage({ vault: listVault, onBack, skipFetch }) {
   const params = useParams();
   const navigate = useNavigate();
   const vaultId = listVault?.id || params.vaultId || null;
-  const { vault: detailVault, loading } = useVaultDetail(vaultId);
+  // Admin shell already supplies a fully-mapped vault (with snapshots) and
+  // the public /api/vaults/{id} now hides admin-disabled vaults — passing
+  // skipFetch lets the admin detail page reuse this component without the
+  // internal fetch returning 404 for hidden vaults.
+  const fetchInternally = !skipFetch;
+  const { vault: detailVault, loading } = useVaultDetail(fetchInternally ? vaultId : null);
   const v = detailVault || listVault;
   // Real overall success-rate from /v1/vaults/{id}/stats — shown on the vault card.
   const { stats: vaultStats } = useVaultStats(vaultId, { days: 30 });

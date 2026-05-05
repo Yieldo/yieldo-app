@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb";
 import { applyVaultOverrides as applyCuratorOverride } from "../_vault-overrides.js";
+import { getDisabledVaultIds } from "../_admin-state.js";
 
 let cachedClient = null;
 
@@ -15,8 +16,14 @@ export default async function handler(req, res) {
   try {
     const { vaultId } = req.query;
     const db = await getDb();
-    const entry = await db.collection("vaults").findOne({ _id: vaultId });
+    const [entry, disabled] = await Promise.all([
+      db.collection("vaults").findOne({ _id: vaultId }),
+      getDisabledVaultIds(),
+    ]);
     if (!entry) return res.status(404).json({ error: "Vault not found" });
+    // Admin-disabled — hide from public detail page too. Same 404 we'd return
+    // for a non-existent id so we don't leak that disabled vaults exist.
+    if (disabled.has(vaultId)) return res.status(404).json({ error: "Vault not found" });
 
     const metrics = entry.metrics || {};
     const row = {

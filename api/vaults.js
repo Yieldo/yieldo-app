@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb";
 import { applyVaultOverrides as applyCuratorOverride } from "./_vault-overrides.js";
+import { getDisabledVaultIds } from "./_admin-state.js";
 
 let cachedClient = null;
 
@@ -15,8 +16,10 @@ export default async function handler(req, res) {
   try {
     const db = await getDb();
 
-    // Fetch vaults and sparklines in parallel
-    const [entries, sparkResults] = await Promise.all([
+    // Fetch vaults, sparklines, and admin-disabled set in parallel.
+    // The disabled set lets us hide admin-toggled-off vaults from the public
+    // /vault list. Empty when admin DB is unreachable so we fail open.
+    const [entries, sparkResults, disabled] = await Promise.all([
       db.collection("vaults").find({}).toArray(),
       // Aggregation: get last 14 snapshots per vault (server-side, not 25K docs)
       db.collection("snapshots").aggregate([
@@ -24,6 +27,7 @@ export default async function handler(req, res) {
         { $group: { _id: "$vault_id", snaps: { $push: "$total_assets_usd" } } },
         { $project: { _id: 1, snaps: { $slice: ["$snaps", 14] } } },
       ]).toArray(),
+      getDisabledVaultIds(),
     ]);
 
     // Build sparkline map (reverse since we sorted desc)
@@ -32,7 +36,11 @@ export default async function handler(req, res) {
       sparkMap[s._id] = (s.snaps || []).reverse();
     }
 
-    const data = entries.map((entry) => {
+    const visible = disabled.size > 0
+      ? entries.filter(e => !disabled.has(e._id))
+      : entries;
+
+    const data = visible.map((entry) => {
       const metrics = entry.metrics || {};
       const row = {
         vault_id: entry._id,

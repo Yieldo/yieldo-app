@@ -97,7 +97,10 @@ function normApy(v) {
   return typeof v === "number" ? v : v;
 }
 
-function mapVault(raw) {
+// Exported so the admin console can run the same scoring/metric pipeline on
+// the payload returned by /v1/admin/vaults (which mirrors /api/vaults).
+export function mapVault(raw) { return _mapVault(raw); }
+function _mapVault(raw) {
   const p01raw = raw.P01 || {};
   const p01 = typeof p01raw === "object" ? { "1d": normApy(p01raw["1d"]), "7d": normApy(p01raw["7d"]), "30d": normApy(p01raw["30d"]) } : p01raw;
   const netApy = typeof raw.net_apy === "number" ? normApy(raw.net_apy) : null;
