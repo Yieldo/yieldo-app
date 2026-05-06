@@ -73,6 +73,39 @@ const TOKEN_META = {
   "143:0x754704bc059f8c67012fed69bc8a327a5aafb603": { symbol: "USDC", decimals: 6 },
   "143:0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD", decimals: 6 },
   "143:0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": { symbol: "WETH", decimals: 18 },
+  // Gnosis (chain 100) — wxDAI is the underlying for Spark Savings; previously
+  // missing here so tx history mis-decimaled it as 6 → 978B display for what
+  // was actually 0.978 wxDAI (18 decimals).
+  "100:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "xDAI", decimals: 18 },
+  "100:0xe91d153e0b41518a2ce8dd3d7944fa863463a97d": { symbol: "WXDAI", decimals: 18 },
+  "100:0xddafbb505ad214d7b80b1f830fccc89b60fb7a83": { symbol: "USDC", decimals: 6 },
+  "100:0x2a22f9c3b484c3629090feed35f17ff8f88f76f0": { symbol: "USDC.e", decimals: 6 },
+  "100:0x4ecaba5870353805a9f068101a40e0f32ed605c6": { symbol: "USDT", decimals: 6 },
+  "100:0x6a023ccd1ff6f2045c3309768ead9e68f978f6e1": { symbol: "WETH", decimals: 18 },
+  "100:0x8e5bbbb09ed1ebde8674cda39a0c169401db4252": { symbol: "WBTC", decimals: 8 },
+  "100:0xaf204776c7245bf4147c2612bf6e5972ee483701": { symbol: "sDAI", decimals: 18 },
+  // BNB Smart Chain (56) — note BSC USDC and USDT use 18 decimals (different
+  // from Ethereum where they're 6). DAI/WBNB/ETH/BTCB all 18.
+  "56:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "BNB", decimals: 18 },
+  "56:0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": { symbol: "USDC", decimals: 18 },
+  "56:0x55d398326f99059ff775485246999027b3197955": { symbol: "USDT", decimals: 18 },
+  "56:0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": { symbol: "WBNB", decimals: 18 },
+  "56:0x2170ed0880ac9a755fd29b2688956bd959f933f8": { symbol: "ETH", decimals: 18 },
+  "56:0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c": { symbol: "BTCB", decimals: 18 },
+  "56:0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3": { symbol: "DAI", decimals: 18 },
+  // Avalanche (43114) — extending the existing AVAX/USDC entry.
+  "43114:0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7": { symbol: "USDT", decimals: 6 },
+  "43114:0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7": { symbol: "WAVAX", decimals: 18 },
+  "43114:0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab": { symbol: "WETH.e", decimals: 18 },
+  "43114:0x152b9d0fdc40c096757f570a51e494bd4b943e50": { symbol: "BTC.b", decimals: 8 },
+  "43114:0xd586e7f844cea2f87f50152665bcbc2c279d8d70": { symbol: "DAI.e", decimals: 18 },
+  // Katana (747474) — verified on chain.
+  "747474:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { symbol: "ETH", decimals: 18 },
+  "747474:0x8ff7af1de8dc20ca3eae3cf0bf4a93894706b7f4": { symbol: "USDC", decimals: 6 },
+  "747474:0x2dca96907fde857dd3d816880a0df407eeb2d2f2": { symbol: "USDT", decimals: 6 },
+  "747474:0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": { symbol: "WETH", decimals: 18 },
+  "747474:0x0913da6da4b42f538b445599b46bb4622342cf52": { symbol: "WBTC", decimals: 8 },
+  "747474:0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD", decimals: 6 },
 };
 
 function resolveToken(chainId, address) {
@@ -80,11 +113,15 @@ function resolveToken(chainId, address) {
   const key = `${chainId}:${String(address).toLowerCase()}`;
   const meta = TOKEN_META[key];
   if (meta) return meta;
-  // Unknown token: fall back to truncated addr label, but guess decimals
-  // conservatively — 18 is the wrong default for stablecoins (USDC/USDT/AUSD
-  // are all 6) and would format any deposit as "0". Use 6 since the most
-  // common case for "unknown token" is a stablecoin we haven't catalogued.
-  return { symbol: `${address.slice(0, 6)}…${address.slice(-4)}`, decimals: 6 };
+  // Unknown token: fall back to truncated addr label. We default to 18
+  // decimals because:
+  //   - Most ERC-20s use 18 (ETH, all wrapped natives, most DeFi tokens)
+  //   - Stablecoins (USDC/USDT/AUSD) are explicitly catalogued above
+  //   - Defaulting to 6 made wxDAI/sDAI/WETH on un-catalogued chains
+  //     render as billions instead of single-digit balances
+  // If the result is way off, add the address to TOKEN_META above instead of
+  // tweaking this default.
+  return { symbol: `${address.slice(0, 6)}…${address.slice(-4)}`, decimals: 18 };
 }
 
 // Compact amount formatter — 2 dp for big numbers, 4 dp max for small.

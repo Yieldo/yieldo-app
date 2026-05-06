@@ -144,31 +144,69 @@ export default function TxFlowDiagram({ legs, vault }) {
 // avoids importing the giant TOKEN_META map from HistoryPage; we keep a small
 // internal map for the most common deposits and fall back to a short hex.
 const KNOWN = {
+  // Ethereum
   "1:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
   "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "USDC",
   "1:0xdac17f958d2ee523a2206206994597c13d831ec7": "USDT",
   "1:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": "WETH",
   "1:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": "WBTC",
   "1:0x1abaea1f7c830bd89acc67ec4af516284b1bc33c": "EURC",
+  // Base
   "8453:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
   "8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "USDC",
   "8453:0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca": "USDbC",
   "8453:0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42": "EURC",
+  "8453:0x4200000000000000000000000000000000000006": "WETH",
+  "8453:0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": "cbBTC",
+  // Arbitrum
   "42161:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
   "42161:0xaf88d065e77c8cc2239327c5edb3a432268e5831": "USDC",
   "42161:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9": "USDT",
+  // Optimism
   "10:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
   "10:0x0b2c639c533813f4aa9d7837caf62653d097ff85": "USDC",
+  // Avalanche
   "43114:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "AVAX",
   "43114:0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e": "USDC",
+  "43114:0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7": "USDT",
+  "43114:0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7": "WAVAX",
+  "43114:0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab": "WETH.e",
+  "43114:0x152b9d0fdc40c096757f570a51e494bd4b943e50": "BTC.b",
+  "43114:0xd586e7f844cea2f87f50152665bcbc2c279d8d70": "DAI.e",
+  // BNB Smart Chain
+  "56:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "BNB",
+  "56:0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": "USDC",
+  "56:0x55d398326f99059ff775485246999027b3197955": "USDT",
+  "56:0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "WBNB",
+  "56:0x2170ed0880ac9a755fd29b2688956bd959f933f8": "ETH",
+  "56:0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c": "BTCB",
+  "56:0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3": "DAI",
+  // Gnosis
+  "100:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "xDAI",
+  "100:0xe91d153e0b41518a2ce8dd3d7944fa863463a97d": "WXDAI",
+  "100:0xddafbb505ad214d7b80b1f830fccc89b60fb7a83": "USDC",
+  "100:0x2a22f9c3b484c3629090feed35f17ff8f88f76f0": "USDC.e",
+  "100:0x4ecaba5870353805a9f068101a40e0f32ed605c6": "USDT",
+  "100:0x6a023ccd1ff6f2045c3309768ead9e68f978f6e1": "WETH",
+  "100:0x8e5bbbb09ed1ebde8674cda39a0c169401db4252": "WBTC",
+  "100:0xaf204776c7245bf4147c2612bf6e5972ee483701": "sDAI",
+  // HyperEVM
   "999:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "HYPE",
   "999:0x5555555555555555555555555555555555555555": "WHYPE",
   "999:0xb88339cb7199b77e23db6e890353e22632ba630f": "USDC",
   "999:0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb": "USDT0",
+  // Monad
   "143:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "MON",
-  "143:0xf817257fed379853cde0fa4f97ab987181b1e5ea": "USDC",
-  "8453:0x4200000000000000000000000000000000000006": "WETH",
-  "8453:0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": "cbBTC",
+  "143:0x754704bc059f8c67012fed69bc8a327a5aafb603": "USDC",
+  "143:0x00000000efe302beaa2b3e6e1b18d08d69a9012a": "AUSD",
+  "143:0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": "WETH",
+  // Katana
+  "747474:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "ETH",
+  "747474:0x8ff7af1de8dc20ca3eae3cf0bf4a93894706b7f4": "USDC",
+  "747474:0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "USDT",
+  "747474:0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "WETH",
+  "747474:0x0913da6da4b42f538b445599b46bb4622342cf52": "WBTC",
+  "747474:0x00000000efe302beaa2b3e6e1b18d08d69a9012a": "AUSD",
 };
 function guessTokenSymbol(chain, addr) {
   if (!addr) return null;
