@@ -4,7 +4,7 @@ import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaultDetail } from "../hooks/useVaultData.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
-import { useDepositMeta } from "../hooks/useDepositMeta.js";
+import { useDepositMeta, useDepositMetaMap } from "../hooks/useDepositMeta.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
@@ -512,6 +512,13 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   // Shared single-fetch hook — one /v1/vaults network call per page load,
   // shared across every component on the page (deposit modal, this header, etc.)
   const depositMeta = useDepositMeta(vaultId);
+  // Use the raw map so we can distinguish "registry loaded but vault absent"
+  // from "still loading" — the public list comes from /api/vaults (indexer
+  // DB) and includes vaults the registry hasn't been told about yet. We must
+  // disable Deposit for those, otherwise the modal opens then the API 404s.
+  const depositMap = useDepositMetaMap();
+  const registryLoaded = !!depositMap;
+  const inRegistry = registryLoaded && depositMap.has(vaultId);
   const vaultType = depositMeta?.type || null;
   const vaultMin = {
     raw: depositMeta?.min_deposit ?? null,
@@ -523,8 +530,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   // Guard against `v` being undefined during initial load — VaultDetailPage
   // renders before useVaultDetail resolves, and dereferencing v.paused without
   // optional-chaining throws and white-screens the page.
-  const depositDisabled = vaultType === "unsupported" || !!v?.paused;
-  const pauseReason = v?.paused_reason || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null);
+  const notIntegrated = registryLoaded && !inRegistry;
+  const depositDisabled = vaultType === "unsupported" || !!v?.paused || notIntegrated;
+  const pauseReason = v?.paused_reason
+    || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null)
+    || (notIntegrated ? "Vault is in our index but not yet integrated for deposits." : null);
 
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
@@ -581,7 +591,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           {!isMobile && <Btn small onClick={() => navigate(`/embed?v=${encodeURIComponent(vaultId)}`)} title="Get embeddable badge for this vault">Embed Badge</Btn>}
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
-          <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>{depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}</Btn>
+          <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>
+            {notIntegrated ? "Coming soon" : depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}
+          </Btn>
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}

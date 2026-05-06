@@ -261,6 +261,15 @@ export default function VaultPage() {
 
   const getDepositState = useCallback((v) => {
     const vType = vaultTypes[v.id];
+    // Vaults the indexer tracks but that aren't in the API registry can't be
+    // deposited to (no deposit_router / no calldata builder). The admin page
+    // surfaces these as "Indexer-only" so they get added to vaults.json
+    // before going live. We only enforce this once vaultTypes has loaded —
+    // otherwise every button would flash disabled on first paint.
+    const registryLoaded = Object.keys(vaultTypes).length > 0;
+    if (registryLoaded && !vType) {
+      return { ok: false, label: "Coming soon", tip: "Vault is in our index but not yet integrated for deposits." };
+    }
     if (vType === "unsupported") return { ok: false, label: "Deposit", tip: "Vault not supported" };
     // external_router vaults (e.g. Spark Savings xDAI on Gnosis) deposit via
     // LiFi composer + direct vault.deposit() call — they're depositable even
