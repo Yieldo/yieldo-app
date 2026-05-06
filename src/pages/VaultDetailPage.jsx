@@ -531,10 +531,13 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   // renders before useVaultDetail resolves, and dereferencing v.paused without
   // optional-chaining throws and white-screens the page.
   const notIntegrated = registryLoaded && !inRegistry;
-  const depositDisabled = vaultType === "unsupported" || !!v?.paused || notIntegrated;
+  // Admin-toggle sync — same flag the public list uses to grey buttons.
+  const adminDisabledDeposits = v?.deposits_enabled === false;
+  const depositDisabled = vaultType === "unsupported" || !!v?.paused || notIntegrated || adminDisabledDeposits;
   const pauseReason = v?.paused_reason
     || (vaultType === "unsupported" ? "Deposits paused on protocol — not supported" : null)
-    || (notIntegrated ? "Vault is in our index but not yet integrated for deposits." : null);
+    || (notIntegrated ? "Vault is in our index but not yet integrated for deposits." : null)
+    || (adminDisabledDeposits ? "Deposits are temporarily disabled by Yieldo admin." : null);
 
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
@@ -592,7 +595,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           {!isMobile && <Btn small onClick={() => navigate(`/embed?v=${encodeURIComponent(vaultId)}`)} title="Get embeddable badge for this vault">Embed Badge</Btn>}
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
           <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>
-            {notIntegrated ? "Coming soon" : depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}
+            {notIntegrated ? "Coming soon" : adminDisabledDeposits ? "Disabled" : depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}
           </Btn>
         </div>
       </div>

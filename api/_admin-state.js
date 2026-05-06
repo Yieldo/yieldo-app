@@ -12,6 +12,7 @@ import { MongoClient } from "mongodb";
 
 let cachedClient = null;
 let cachedSet = null;
+let cachedFlags = null;  // Map<vault_id, {enabled, deposits_enabled, withdrawals_enabled}>
 let cachedAt = 0;
 const CACHE_MS = 30_000;
 
@@ -33,26 +34,45 @@ async function getWalletsDb() {
   }
 }
 
-export async function getDisabledVaultIds() {
-  const now = Date.now();
-  if (cachedSet && now - cachedAt < CACHE_MS) return cachedSet;
+// Internal: refresh both caches in one DB roundtrip. Cheaper than two queries.
+async function refreshCaches() {
   const db = await getWalletsDb();
-  if (!db) {
-    cachedSet = new Set();
-    cachedAt = now;
-    return cachedSet;
-  }
+  cachedSet = new Set();
+  cachedFlags = new Map();
+  cachedAt = Date.now();
+  if (!db) return;
   try {
-    const docs = await db.collection("vault_admin_state")
-      .find({ enabled: false }, { projection: { vault_id: 1 } })
-      .toArray();
-    cachedSet = new Set(docs.map(d => d.vault_id).filter(Boolean));
-    cachedAt = now;
-    return cachedSet;
+    const docs = await db.collection("vault_admin_state").find({}).toArray();
+    for (const doc of docs) {
+      const id = doc.vault_id;
+      if (!id) continue;
+      const enabled = doc.enabled !== false; // default true
+      if (!enabled) cachedSet.add(id);
+      cachedFlags.set(id, {
+        enabled,
+        deposits_enabled:    doc.deposits_enabled !== false,
+        withdrawals_enabled: doc.withdrawals_enabled !== false,
+      });
+    }
   } catch (err) {
     console.error("admin-state: query failed:", err);
-    cachedSet = new Set();
-    cachedAt = now;
-    return cachedSet;
   }
+}
+
+async function ensureFresh() {
+  if (cachedSet && cachedFlags && Date.now() - cachedAt < CACHE_MS) return;
+  await refreshCaches();
+}
+
+export async function getDisabledVaultIds() {
+  await ensureFresh();
+  return cachedSet || new Set();
+}
+
+// Returns the per-vault flag map. Vaults that don't appear in
+// `vault_admin_state` are NOT in this map — caller should treat absence as
+// "fully enabled" (the system default).
+export async function getVaultAdminFlags() {
+  await ensureFresh();
+  return cachedFlags || new Map();
 }

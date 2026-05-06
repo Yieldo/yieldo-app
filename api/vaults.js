@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 import { applyVaultOverrides as applyCuratorOverride } from "./_vault-overrides.js";
-import { getDisabledVaultIds } from "./_admin-state.js";
+import { getDisabledVaultIds, getVaultAdminFlags } from "./_admin-state.js";
 
 let cachedClient = null;
 
@@ -16,18 +16,19 @@ export default async function handler(req, res) {
   try {
     const db = await getDb();
 
-    // Fetch vaults, sparklines, and admin-disabled set in parallel.
-    // The disabled set lets us hide admin-toggled-off vaults from the public
-    // /vault list. Empty when admin DB is unreachable so we fail open.
-    const [entries, sparkResults, disabled] = await Promise.all([
+    // Fetch vaults, sparklines, and admin state (disabled set + per-vault
+    // flags) in parallel. Disabled set hides Listed=off vaults entirely.
+    // Per-vault flags surface deposits/withdrawals toggles to the FE so it
+    // can grey out the right buttons when admin disabled them.
+    const [entries, sparkResults, disabled, adminFlags] = await Promise.all([
       db.collection("vaults").find({}).toArray(),
-      // Aggregation: get last 14 snapshots per vault (server-side, not 25K docs)
       db.collection("snapshots").aggregate([
         { $sort: { vault_id: 1, date: -1 } },
         { $group: { _id: "$vault_id", snaps: { $push: "$total_assets_usd" } } },
         { $project: { _id: 1, snaps: { $slice: ["$snaps", 14] } } },
       ]).toArray(),
       getDisabledVaultIds(),
+      getVaultAdminFlags(),
     ]);
 
     // Build sparkline map (reverse since we sorted desc)
@@ -65,6 +66,12 @@ export default async function handler(req, res) {
           row[key] = metric_data;
         }
       }
+      // Inline admin-toggle flags so the FE can grey out Deposit/Withdraw
+      // buttons consistently with the admin console. Vaults without an
+      // admin_state row default to fully enabled (no entry → no override).
+      const flags = adminFlags.get(entry._id) || null;
+      row.deposits_enabled    = flags ? flags.deposits_enabled : true;
+      row.withdrawals_enabled = flags ? flags.withdrawals_enabled : true;
       return applyCuratorOverride(row);
     });
 

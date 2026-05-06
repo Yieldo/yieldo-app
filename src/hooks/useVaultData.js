@@ -18,8 +18,8 @@ import {
   getConfidence, calcExternalRatingBonus, deriveFlags,
 } from "../lib/scoring.js";
 
-const CACHE_KEY = "yieldo_vaults_cache_v4";  // bumped 2026-05-05 — Gnosis chain support
-const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v2_";
+const CACHE_KEY = "yieldo_vaults_cache_v5";  // bumped — admin per-action flags inlined
+const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v3_";
 const CACHE_TTL = 5 * 60 * 1000;
 
 function getCache(key) {
@@ -292,6 +292,12 @@ function _mapVault(raw) {
     paused_reason: raw.paused_reason || null,
     unsupported: !!raw.unsupported,
     unsupported_reason: raw.unsupported_reason || null,
+    // Admin-toggle flags forwarded from /api/vaults — true when no admin row
+    // exists. Used by VaultPage / VaultDetailPage to grey out the right CTAs
+    // when admin flips a vault's deposits or withdrawals off, even while
+    // the vault stays Listed.
+    deposits_enabled:    raw.deposits_enabled !== false,
+    withdrawals_enabled: raw.withdrawals_enabled !== false,
     apy1d,
     apy7d,
     apy30d,

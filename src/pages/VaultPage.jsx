@@ -261,6 +261,10 @@ export default function VaultPage() {
 
   const getDepositState = useCallback((v) => {
     const vType = vaultTypes[v.id];
+    // Admin disabled deposits — sync with the admin console toggle.
+    if (v.deposits_enabled === false) {
+      return { ok: false, label: "Disabled", tip: "Deposits are temporarily disabled by Yieldo admin." };
+    }
     // Vaults the indexer tracks but that aren't in the API registry can't be
     // deposited to (no deposit_router / no calldata builder). The admin page
     // surfaces these as "Indexer-only" so they get added to vaults.json
@@ -279,6 +283,17 @@ export default function VaultPage() {
     }
     return { ok: true, label: "Deposit", tip: null };
   }, [vaultTypes]);
+
+  // Same admin sync for withdrawals — the per-row Withdraw button only enables
+  // when the user has a position AND admin hasn't disabled withdrawals.
+  const getWithdrawState = useCallback((v) => {
+    const hasPos = !!userPositions[v.id];
+    if (v.withdrawals_enabled === false) {
+      return { ok: false, label: "Disabled", tip: "Withdrawals are temporarily disabled by Yieldo admin." };
+    }
+    if (!hasPos) return { ok: false, label: "Withdraw", tip: null };
+    return { ok: true, label: "Withdraw", tip: null };
+  }, [userPositions]);
 
   const handleDeposit = useCallback(async (e, vault) => {
     e.preventDefault();
@@ -573,9 +588,9 @@ export default function VaultPage() {
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
                 <div style={{ display: "flex", gap: 4 }} title={ds.tip || ""}>
                   <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: ds.ok ? C.purpleDim : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", opacity: ds.ok ? 1 : 0.6 }}>{ds.label}</button>
-                  {(() => { const hasPos = !!userPositions[v.id]; return (
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (hasPos) setWithdrawPosition(userPositions[v.id]); }} disabled={!hasPos}
-                      style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${hasPos ? C.purple + "40" : C.border}`, background: hasPos ? C.purpleDim : C.surfaceAlt, color: hasPos ? C.purple : C.text4, cursor: hasPos ? "pointer" : "not-allowed", opacity: hasPos ? 1 : 0.4 }}>Withdraw</button>
+                  {(() => { const ws = getWithdrawState(v); return (
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ws.ok) setWithdrawPosition(userPositions[v.id]); }} disabled={!ws.ok} title={ws.tip || ""}
+                      style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${ws.ok ? C.purple + "40" : C.border}`, background: ws.ok ? C.purpleDim : C.surfaceAlt, color: ws.ok ? C.purple : C.text4, cursor: ws.ok ? "pointer" : "not-allowed", opacity: ws.ok ? 1 : 0.4 }}>{ws.label}</button>
                   ); })()}
                 </div>
               </Link>
@@ -621,10 +636,10 @@ export default function VaultPage() {
                         {ds.label}
                       </button>
                     ); })()}
-                    {(() => { const hasPos = !!userPositions[v.id]; return (
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (hasPos) setWithdrawPosition(userPositions[v.id]); }} disabled={!hasPos}
-                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${hasPos ? C.purple + "40" : C.border}`, background: hasPos ? C.white : C.surfaceAlt, color: hasPos ? C.purple : C.text4, cursor: hasPos ? "pointer" : "not-allowed", boxShadow: hasPos ? "0 1px 4px rgba(0,0,0,.08)" : "none", opacity: hasPos ? 1 : 0.4 }}>
-                        Withdraw
+                    {(() => { const ws = getWithdrawState(v); return (
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ws.ok) setWithdrawPosition(userPositions[v.id]); }} disabled={!ws.ok} title={ws.tip || ""}
+                        style={{ padding: "9px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: `1px solid ${ws.ok ? C.purple + "40" : C.border}`, background: ws.ok ? C.white : C.surfaceAlt, color: ws.ok ? C.purple : C.text4, cursor: ws.ok ? "pointer" : "not-allowed", boxShadow: ws.ok ? "0 1px 4px rgba(0,0,0,.08)" : "none", opacity: ws.ok ? 1 : 0.4 }}>
+                        {ws.label}
                       </button>
                     ); })()}
                   </div>
