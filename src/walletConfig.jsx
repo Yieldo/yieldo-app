@@ -1,5 +1,5 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
+import { mainnet, base, arbitrum, optimism, avalanche, bsc, gnosis } from "wagmi/chains";
 import { http, fallback } from "wagmi";
 import { defineChain } from "viem";
 
@@ -30,7 +30,10 @@ const katana = defineChain({
 export const config = getDefaultConfig({
   appName: "Yieldo",
   projectId: "0dd252f3816efa3917348bf2b60af0aa",
-  chains: [mainnet, base, arbitrum, optimism, monad, hyperevm, katana],
+  // Added avalanche/bsc/gnosis so the deposit modal's chain chips for
+  // those networks actually trigger a wallet switch instead of silently
+  // failing. LiFi can route from any of these to our destination chains.
+  chains: [mainnet, base, arbitrum, optimism, avalanche, bsc, gnosis, monad, hyperevm, katana],
   transports: {
     [mainnet.id]: fallback([
       http("https://ethereum-rpc.publicnode.com"),
@@ -51,6 +54,21 @@ export const config = getDefaultConfig({
       http("https://optimism-rpc.publicnode.com"),
       http("https://mainnet.optimism.io"),
       http("https://1rpc.io/op"),
+    ]),
+    [avalanche.id]: fallback([
+      http("https://avalanche-c-chain-rpc.publicnode.com"),
+      http("https://api.avax.network/ext/bc/C/rpc"),
+      http("https://1rpc.io/avax/c"),
+    ]),
+    [bsc.id]: fallback([
+      http("https://bsc-rpc.publicnode.com"),
+      http("https://bsc-dataseed.binance.org"),
+      http("https://1rpc.io/bnb"),
+    ]),
+    [gnosis.id]: fallback([
+      http("https://rpc.gnosischain.com"),
+      http("https://gnosis-rpc.publicnode.com"),
+      http("https://1rpc.io/gnosis"),
     ]),
     [monad.id]: fallback([
       http("https://rpc.monad.xyz"),

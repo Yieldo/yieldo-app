@@ -10,7 +10,18 @@ import { useResponsive } from "../lib/responsive.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
-const CHAIN_ICONS = { 1: "\u039E", 8453: "\ud83d\udd35", 42161: "\ud83d\udfe0", 10: "\ud83d\udd34" };
+const CHAIN_ICONS = {
+  1: "\u039E",        // Ethereum
+  8453: "\ud83d\udd35", // Base \u2014 blue circle
+  42161: "\ud83d\udfe0", // Arbitrum \u2014 orange circle
+  10: "\ud83d\udd34",   // Optimism \u2014 red circle
+  43114: "\ud83d\udd3a", // Avalanche \u2014 red triangle
+  56: "\ud83d\udfe1",   // BNB \u2014 yellow circle
+  100: "\ud83d\udfe2",  // Gnosis \u2014 green circle
+  143: "\ud83d\udfe3",  // Monad \u2014 purple circle
+  999: "\ud83d\udc8e", // HyperEVM \u2014 gem
+  747474: "\u2694",   // Katana \u2014 crossed swords
+};
 import { CHAIN_NAMES as CHAINS, CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
 
 // Popular tokens shown as chips, rest go in dropdown
@@ -19,6 +30,9 @@ const POPULAR_TOKENS = {
   8453: ["ETH", "USDC", "WETH", "cbBTC", "wstETH"],
   42161: ["ETH", "USDC", "USDT", "WETH", "WBTC"],
   10: ["ETH", "USDC", "USDT", "WETH"],
+  43114: ["AVAX", "USDC", "USDT", "WAVAX", "BTC.b", "WETH.e"],
+  56: ["BNB", "USDC", "USDT", "WBNB", "ETH", "BTCB"],
+  100: ["xDAI", "USDC", "USDT", "WXDAI", "WETH", "sDAI"],
   999: ["HYPE", "USDC", "USDT0", "WHYPE", "UBTC"],
   143: ["MON", "USDC", "AUSD", "WETH"],
   747474: ["ETH", "USDC", "WETH", "WBTC", "AUSD"],
@@ -128,6 +142,37 @@ const ALL_TOKENS = {
     { symbol: "vbWBTC", address: "0x0913dA6Da4b42f538B445599b46Bb4622342Cf52", decimals: 8 },
     { symbol: "vbETH", address: "0xee7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62", decimals: 18 },
   ],
+  // Avalanche C-Chain
+  43114: [
+    { symbol: "AVAX",  address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "USDC",  address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", decimals: 6 },
+    { symbol: "USDT",  address: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", decimals: 6 },
+    { symbol: "WAVAX", address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", decimals: 18 },
+    { symbol: "WETH.e", address: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", decimals: 18 },
+    { symbol: "BTC.b", address: "0x152b9d0FdC40C096757F570A51E494bd4b943E50", decimals: 8 },
+    { symbol: "DAI.e", address: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", decimals: 18 },
+  ],
+  // BNB Smart Chain
+  56: [
+    { symbol: "BNB",   address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "USDC",  address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals: 18 },
+    { symbol: "USDT",  address: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+    { symbol: "WBNB",  address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", decimals: 18 },
+    { symbol: "ETH",   address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", decimals: 18 },
+    { symbol: "BTCB",  address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", decimals: 18 },
+    { symbol: "DAI",   address: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", decimals: 18 },
+  ],
+  // Gnosis Chain — note native gas is xDAI; WXDAI is 1:1 wrapped DAI.
+  100: [
+    { symbol: "xDAI",   address: NATIVE_ETH, decimals: 18, native: true },
+    { symbol: "WXDAI",  address: "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d", decimals: 18 },
+    { symbol: "USDC",   address: "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83", decimals: 6 },
+    { symbol: "USDC.e", address: "0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0", decimals: 6 },
+    { symbol: "USDT",   address: "0x4ECaBa5870353805a9F068101A40E0f32ed605C6", decimals: 6 },
+    { symbol: "WETH",   address: "0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1", decimals: 18 },
+    { symbol: "WBTC",   address: "0x8e5bBbb09Ed1ebdE8674Cda39A0c169401db4252", decimals: 8 },
+    { symbol: "sDAI",   address: "0xaf204776c7245bF4147c2612BF6e5972Ee483701", decimals: 18 },
+  ],
 };
 
 import { DEPOSITABLE_CHAINS, YIELDO_ROUTERS } from "../chains.js";
@@ -138,6 +183,9 @@ const PUBLIC_RPC = {
   8453: "https://base.publicnode.com",
   42161: "https://arbitrum-one.publicnode.com",
   10: "https://optimism.publicnode.com",
+  43114: "https://avalanche-c-chain-rpc.publicnode.com",
+  56: "https://bsc-rpc.publicnode.com",
+  100: "https://rpc.gnosischain.com",
   143: "https://rpc.monad.xyz",
   999: "https://rpc.hyperliquid.xyz/evm",
   747474: "https://rpc.katanarpc.com",
