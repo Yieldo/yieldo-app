@@ -474,6 +474,24 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
   const prior = history.length > 30 ? history[history.length - 31] : (history[0] ?? last);
   const delta = (last != null && prior != null) ? Math.round(last - prior) : null;
   const col = scoreColor(value);
+  // Container-measured sparkline so it auto-fills available width — fixes the
+  // "tiny sparkline floating to the right" look when cards are full-width on
+  // mobile (single-column grid). On desktop the right slot is narrower so it
+  // tops out at 140; on phones it grows up to ~200 of the card's right area.
+  const sparkRef = useRef(null);
+  const [sparkW, setSparkW] = useState(isMobile ? 180 : 132);
+  useEffect(() => {
+    if (!sparkRef.current) return;
+    const ro = new ResizeObserver(es => {
+      for (const e of es) {
+        const w = Math.max(80, Math.min(isMobile ? 220 : 160, Math.round(e.contentRect.width)));
+        setSparkW(w);
+      }
+    });
+    ro.observe(sparkRef.current);
+    return () => ro.disconnect();
+  }, [isMobile]);
+
   return (
     <div onClick={onClick}
       style={{
@@ -491,9 +509,9 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
         </span>
         <span style={{ fontSize: 10.5, color: C.text4, fontWeight: 500 }}>{Math.round(weight * 100)}% weight</span>
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 700, color: col,
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: isMobile ? 14 : 12 }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: isMobile ? 28 : 30, fontWeight: 700, color: col,
                         lineHeight: 1, letterSpacing: "-.025em" }}>
             {value != null ? Math.round(value) : "—"}
             <span style={{ fontSize: 12, color: C.text4, fontWeight: 500, marginLeft: 2 }}>/100</span>
@@ -507,8 +525,8 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
             </div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <MiniSparkline data={history} color={accent} width={isMobile ? 96 : 132} height={32} />
+        <div ref={sparkRef} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, minWidth: 80 }}>
+          <MiniSparkline data={history} color={accent} width={sparkW} height={isMobile ? 36 : 32} />
           <span style={{ fontSize: 9.5, color: isActiveOverlay ? accent : C.text4, fontWeight: 600 }}>
             {isActiveOverlay ? "✓ on chart" : "Tap to overlay"}
           </span>
@@ -533,12 +551,15 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
     return () => ro.disconnect();
   }, []);
 
-  const W = Math.max(360, containerW);
-  const H = isMobile ? 200 : 240;
-  const padL = 44;
-  const padR = activeOverlays.length > 0 ? 40 : 14;
+  const W = Math.max(320, containerW);
+  const H = isMobile ? 180 : 240;
+  // Tighter horizontal padding on phones so the chart area itself stays
+  // readable on iPhone SE-class widths (320–360px). The right axis pad only
+  // appears when score overlays are active and need their own labels.
+  const padL = isMobile ? 36 : 44;
+  const padR = activeOverlays.length > 0 ? (isMobile ? 32 : 40) : (isMobile ? 8 : 14);
   const padT = 14;
-  const padB = 28;
+  const padB = isMobile ? 24 : 28;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
@@ -610,18 +631,24 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
 
   return (
     <div ref={containerRef}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700 }}>APY &amp; Score history</div>
-          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>
-            Layer score dimensions onto APY to spot leading indicators.
-          </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    marginBottom: isMobile ? 10 : 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+          <div style={{ fontSize: isMobile ? 13.5 : 15, fontWeight: 700 }}>APY &amp; Score history</div>
+          {/* Subtitle hidden on phones — saves a row of vertical space and the
+              overlay-pill row is self-explanatory next to it. */}
+          {!isMobile && (
+            <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>
+              Tap a dimension below to overlay it on the APY line.
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 4, background: C.bg, padding: 3, borderRadius: 8, border: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", gap: 3, background: C.bg, padding: 3, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }}>
           {["30d", "60d", "90d"].map(r => (
             <button key={r} onClick={() => setRange(r)}
-              style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", border: "none", borderRadius: 6,
-                       cursor: "pointer", background: range === r ? C.white : "transparent",
+              style={{ fontSize: 11.5, fontWeight: 600, padding: isMobile ? "5px 10px" : "5px 12px",
+                       border: "none", borderRadius: 6, cursor: "pointer",
+                       background: range === r ? C.white : "transparent",
                        color: range === r ? C.text : C.text3, fontFamily: "'Inter',sans-serif",
                        boxShadow: range === r ? "0 1px 2px rgba(0,0,0,.08)" : "none" }}>
               {r}
@@ -630,21 +657,38 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, letterSpacing: ".06em",
-                       textTransform: "uppercase", marginRight: 4 }}>
-          Overlay
-        </span>
+      {/* Overlay pills — wrap on desktop, horizontal-scroll on phone (5 pills
+          would otherwise wrap to 3 lines on iPhone SE). The label is hidden
+          on phone since the pills are next to the chart and obviously overlay it. */}
+      <div style={{
+        display: "flex", gap: 6, marginBottom: 12, alignItems: "center",
+        flexWrap: isMobile ? "nowrap" : "wrap",
+        overflowX: isMobile ? "auto" : "visible",
+        overflowY: "hidden",
+        WebkitOverflowScrolling: "touch",
+        // Hide scrollbar visually — the pills' edges still hint at scroll.
+        msOverflowStyle: "none", scrollbarWidth: "none",
+        paddingBottom: isMobile ? 2 : 0,
+      }}>
+        {!isMobile && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, letterSpacing: ".06em",
+                         textTransform: "uppercase", marginRight: 4, flexShrink: 0 }}>
+            Overlay
+          </span>
+        )}
         {OVERLAYS.map(o => {
           const active = activeOverlays.includes(o.key);
           return (
             <button key={o.key} onClick={() => toggleOverlay(o.key)}
-              style={{ fontSize: 11.5, fontWeight: 600, padding: "5px 11px", borderRadius: 14,
+              style={{ fontSize: 11.5, fontWeight: 600,
+                       padding: isMobile ? "6px 12px" : "5px 11px",
+                       borderRadius: 14,
                        border: `1px solid ${active ? o.color : C.border}`,
                        background: active ? `${o.color}14` : C.white,
                        color: active ? o.color : C.text2,
                        cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
-                       fontFamily: "'Inter',sans-serif", transition: "all 120ms ease" }}>
+                       fontFamily: "'Inter',sans-serif", transition: "all 120ms ease",
+                       flexShrink: 0, whiteSpace: "nowrap" }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: o.color, opacity: active ? 1 : 0.45 }} />
               {o.label}
             </button>
@@ -740,15 +784,21 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
         )}
       </svg>
 
-      <div style={{ marginTop: 10, fontSize: 11, color: C.text4, display: "flex", alignItems: "center", gap: 6,
+      <div style={{ marginTop: 10, fontSize: 11, color: C.text4,
+                    display: "flex",
+                    flexDirection: isMobile ? "column" : "row",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: isMobile ? 4 : 6,
                     paddingTop: 10, borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <span style={{ width: 14, height: 2, background: C.purple, borderRadius: 1 }} />
-        <span>Solid: APY (left axis, %)</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 14, height: 2, background: C.purple, borderRadius: 1 }} />
+          <span>Solid: APY (left axis, %)</span>
+        </div>
         {activeOverlays.length > 0 && (
-          <>
-            <span style={{ marginLeft: 10, width: 14, borderTop: `1.5px dashed ${C.text3}` }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 14, borderTop: `1.5px dashed ${C.text3}` }} />
             <span>Dashed: Score (right axis, 0–100)</span>
-          </>
+          </div>
         )}
       </div>
     </div>
