@@ -991,6 +991,58 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
                 </div>
               </div>
             </div>
+
+            {/* Inline status / risk-flags block — fills the space the old
+                ScoreBar used to occupy. When flags exist they're shown here
+                near the score (they need to be visible immediately, not
+                buried below the chart). When clean, an "All clear" affirm
+                avoids dead whitespace and gives the user a positive signal. */}
+            {v.flags && v.flags.length > 0 ? (
+              <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 10,
+                            border: v.critFlags > 0 ? `1px solid ${C.red}30` : v.warnFlags > 0 ? `1px solid ${C.amber}40` : `1px solid ${C.border}`,
+                            background: v.critFlags > 0 ? `${C.redBg}` : v.warnFlags > 0 ? `${C.amberDim}66` : C.surfaceAlt }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: ".05em", textTransform: "uppercase" }}>
+                      Active flags
+                    </span>
+                    <span style={{ fontSize: 10.5, color: C.text4, fontWeight: 500 }}>{v.flags.length} raised</span>
+                  </div>
+                  <FlagBadge flags={v.flags} compact />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {v.flags.map((f, i) => {
+                    const s = SEV[f.severity];
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                                            borderRadius: 6, background: s.bg, border: `1px solid ${s.bd}` }}>
+                        <span style={{ fontSize: 12 }}>{s.icon}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: s.color, flex: 1 }}>{f.label}</span>
+                        <span style={{ fontSize: 10, color: C.text4 }}>{f.id}</span>
+                        <Badge color={s.color} bg={s.bg}>{f.severity.toUpperCase()}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10,
+                            background: `linear-gradient(100deg,${C.greenDim},rgba(255,255,255,0))`,
+                            border: `1px solid ${C.green}22`,
+                            display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${C.green}18`,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 16, color: C.green, flexShrink: 0 }}>✓</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.green, marginBottom: 1 }}>
+                    No active risk flags
+                  </div>
+                  <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.4 }}>
+                    Vault hasn't tripped any flag rules in the latest indexer cycle. Score components (Capital / Performance / Risk / Trust) below show full breakdown.
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
           <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
             <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
@@ -1141,29 +1193,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
         )}
 
         {/* Flags */}
-        {v.flags && v.flags.length > 0 && (
-          <Card style={{ padding: "16px 20px", marginBottom: 16, border: v.critFlags > 0 ? `1.5px solid ${C.red}30` : v.warnFlags > 0 ? `1.5px solid ${C.amber}30` : `1px solid ${C.border}`, background: v.critFlags > 0 ? `${C.redBg}cc` : C.white }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>Active Flags ({v.flags.length})</span>
-              <FlagBadge flags={v.flags} compact />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {v.flags.map((f, i) => {
-                const s = SEV[f.severity];
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: s.bg, border: `1px solid ${s.bd}` }}>
-                    <span style={{ fontSize: 14 }}>{s.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: s.color }}>{f.label}</span>
-                      <span style={{ fontSize: 11, color: C.text3, marginLeft: 8 }}>{f.id}</span>
-                    </div>
-                    <Badge color={s.color} bg={s.bg}>{f.severity.toUpperCase()}</Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
+        {/* Active Flags moved into the left summary card (near the score) so
+            users see risk warnings immediately. The duplicate card here was
+            causing both visual noise and inconsistent positioning. */}
 
         {/* Metric Sections */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 16 }}>
