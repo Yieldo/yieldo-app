@@ -655,6 +655,44 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
                   {(v.benchAave || v.benchLido) ? <div style={{ fontSize: 10, color: C.text4 }}>{v.benchLido ? "Lido" : "Aave"}: {(v.benchAave || v.benchLido).toFixed(2)}% <a href={getBenchmarkUrl(v.asset, v.chain_id)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
                 </div>
               </div>
+
+              {/* APY breakdown — only shown when underlying token is yield-bearing
+                  (wstETH/weETH/sDAI/etc). For most stablecoin vaults this is hidden. */}
+              {v.underlyingYieldApy > 0 && v.lendingApy?.["1d"] !== null && v.lendingApy?.["1d"] !== undefined && (
+                <div style={{ marginTop: 8, padding: "8px 10px", background: "linear-gradient(100deg,rgba(46,154,184,0.06),rgba(122,28,203,0.04))",
+                              border: `1px solid ${C.teal}22`, borderRadius: 8 }}>
+                  <div style={{ fontSize: 9, color: C.text4, fontWeight: 700, letterSpacing: ".06em",
+                                textTransform: "uppercase", marginBottom: 6 }}>
+                    APY breakdown
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                      <span style={{ color: C.text3 }}>
+                        Lending <span style={{ color: C.text4 }}>(market rate)</span>
+                      </span>
+                      <span style={{ fontWeight: 600, color: C.text2 }}>
+                        {v.lendingApy["1d"].toFixed(2)}%
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                      <span style={{ color: C.text3 }}>
+                        + Staking <span style={{ color: C.text4 }}>({(v.asset || "").toUpperCase()} yield)</span>
+                      </span>
+                      <span style={{ fontWeight: 600, color: C.green }}>
+                        +{v.underlyingYieldApy.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12,
+                                  paddingTop: 4, borderTop: `1px dashed ${C.border}`, marginTop: 2 }}>
+                      <span style={{ color: C.text2, fontWeight: 600 }}>Total</span>
+                      <span style={{ fontWeight: 700, color: C.purple }}>
+                        {v.apy.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
                 <div style={{ textAlign: "center" }}><div style={{ fontSize: 9, color: C.text4, fontWeight: 600 }}>WEEKLY</div><div style={{ fontSize: 12, fontWeight: 600, color: C.text2 }}>{v.weeklyApy.toFixed(2)}%</div></div>
                 <div style={{ textAlign: "center" }}><div style={{ fontSize: 9, color: C.text4, fontWeight: 600 }}>MONTHLY</div><div style={{ fontSize: 12, fontWeight: 600, color: C.text2 }}>{v.monthlyApy.toFixed(2)}%</div></div>

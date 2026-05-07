@@ -18,8 +18,8 @@ import {
   getConfidence, calcExternalRatingBonus, deriveFlags,
 } from "../lib/scoring.js";
 
-const CACHE_KEY = "yieldo_vaults_cache_v5";  // bumped — admin per-action flags inlined
-const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v3_";
+const CACHE_KEY = "yieldo_vaults_cache_v6";  // bumped — underlying yield boost surfaced
+const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v4_";
 const CACHE_TTL = 5 * 60 * 1000;
 
 function getCache(key) {
@@ -298,6 +298,24 @@ function _mapVault(raw) {
     // the vault stays Listed.
     deposits_enabled:    raw.deposits_enabled !== false,
     withdrawals_enabled: raw.withdrawals_enabled !== false,
+    // APY breakdown for yield-bearing collateral (wstETH/weETH/sDAI/etc.).
+    // For most vaults underlyingYieldApy is 0 and apy === lendingApy.
+    // For Aave/Morpho lending vaults that hold a yield-bearing token:
+    //   apy            = lending portion + token's intrinsic yield (what user actually earns)
+    //   lendingApy.X   = lending portion only (what Morpho/Aave reports)
+    //   underlyingYieldApy = the token's intrinsic yield (Lido staking rate, DSR, etc.)
+    // The detail page renders these three so users see exactly where the
+    // yield comes from instead of a misleadingly small "lending only" number.
+    underlyingYieldApy: typeof raw.underlying_yield_apy === "number" ? raw.underlying_yield_apy * 100 : 0,
+    lendingApy: (() => {
+      const la = raw.lending_apy;
+      if (!la || typeof la !== "object") return null;
+      return {
+        "1d":  typeof la["1d"]  === "number" ? la["1d"]  * 100 : null,
+        "7d":  typeof la["7d"]  === "number" ? la["7d"]  * 100 : null,
+        "30d": typeof la["30d"] === "number" ? la["30d"] * 100 : null,
+      };
+    })(),
     apy1d,
     apy7d,
     apy30d,
