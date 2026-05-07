@@ -519,3 +519,37 @@ export function useVaultDetail(vaultId) {
 
   return { vault, loading, error };
 }
+
+// Score-history hook — pulls daily snapshots of all four sub-scores plus the
+// composite. Used by the detail page to render sparklines + the multi-overlay
+// chart. Endpoint returns rows with yieldo_score / capital_score /
+// performance_score / risk_score / trust_score, timestamped.
+const PARTNER_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
+export function useScoreHistory(vaultId, days = 90) {
+  const [data, setData] = useState({ composite: [], capital: [], performance: [], risk: [], trust: [], dates: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!vaultId) return;
+    let cancelled = false;
+    setLoading(true);
+    fetch(`${PARTNER_API}/v1/scores/history/${encodeURIComponent(vaultId)}?days=${days}&interval=day`)
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled || !j?.history) return;
+        const rows = j.history;
+        const composite = rows.map(r => Math.round(r.yieldo_score ?? 0));
+        const capital   = rows.map(r => Math.round(r.capital_score ?? 0));
+        const performance = rows.map(r => Math.round(r.performance_score ?? 0));
+        const risk      = rows.map(r => Math.round(r.risk_score ?? 0));
+        const trust     = rows.map(r => Math.round(r.trust_score ?? 0));
+        const dates     = rows.map(r => (r.ts || "").slice(0, 10));
+        setData({ composite, capital, performance, risk, trust, dates });
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [vaultId, days]);
+
+  return { ...data, loading };
+}

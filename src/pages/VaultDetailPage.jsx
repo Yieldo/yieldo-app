@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } fro
 import { useParams, useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { useVaultDetail } from "../hooks/useVaultData.js";
+import { useVaultDetail, useScoreHistory } from "../hooks/useVaultData.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { useDepositMeta, useDepositMetaMap } from "../hooks/useDepositMeta.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
@@ -413,6 +413,348 @@ function APYChart({ data, dates = [], benchmarkData, width: propWidth = 560, hei
   );
 }
 
+// Dimension accent colors — used by sparklines + chart overlays so the user
+// associates a color with a score dimension consistently across the page.
+const DIM = {
+  capital:     "#7B6BE8",
+  performance: "#3FB8C9",
+  risk:        "#E89D3C",
+  trust:       "#B8954A",
+  composite:   C.purple,
+};
+
+function scoreColor(s) {
+  if (s == null || isNaN(s)) return C.text4;
+  return s >= 80 ? C.green : s >= 65 ? C.amber : C.red;
+}
+
+// Tiny SVG sparkline for sub-score history. Pure visual — no axes, no tooltip.
+function MiniSparkline({ data, color, width = 132, height = 32 }) {
+  if (!data || data.length < 2) {
+    return (
+      <div style={{ width, height, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 9, color: C.text4 }}>
+        no history
+      </div>
+    );
+  }
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const lastY = height - ((data[data.length - 1] - min) / range) * (height - 4) - 2;
+  const areaPath = `M 0,${height} L ${pts.replaceAll(" ", " L ")} L ${width},${height} Z`;
+  const gradId = `spark-${color.replace("#", "")}`;
+  return (
+    <svg width={width} height={height} style={{ overflow: "visible" }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.6}
+                strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={width} cy={lastY} r={2.5} fill={color} />
+      <circle cx={width} cy={lastY} r={5} fill={color} fillOpacity={0.18} />
+    </svg>
+  );
+}
+
+// One of the four sub-score boxes shown above the chart. Shows the current
+// score, weight, sparkline, and 30-day delta. Click toggles the overlay on
+// the main chart below.
+function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, onClick, isMobile }) {
+  const last = history.length ? history[history.length - 1] : null;
+  const prior = history.length > 30 ? history[history.length - 31] : (history[0] ?? last);
+  const delta = (last != null && prior != null) ? Math.round(last - prior) : null;
+  const col = scoreColor(value);
+  return (
+    <div onClick={onClick}
+      style={{
+        background: C.white, border: `1px solid ${C.border}`, borderRadius: 12,
+        padding: isMobile ? "12px 14px 12px 18px" : "16px 18px 16px 22px",
+        position: "relative", cursor: "pointer",
+        boxShadow: isActiveOverlay ? `inset 0 0 0 1.5px ${accent}` : "none",
+        transition: "box-shadow 160ms ease",
+      }}>
+      <div style={{ position: "absolute", left: 0, top: 16, bottom: 16, width: 3,
+                    background: accent, borderRadius: 2 }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.text2, letterSpacing: ".05em", textTransform: "uppercase" }}>
+          {label}
+        </span>
+        <span style={{ fontSize: 10.5, color: C.text4, fontWeight: 500 }}>{Math.round(weight * 100)}% weight</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 700, color: col,
+                        lineHeight: 1, letterSpacing: "-.025em" }}>
+            {value != null ? Math.round(value) : "—"}
+            <span style={{ fontSize: 12, color: C.text4, fontWeight: 500, marginLeft: 2 }}>/100</span>
+          </div>
+          {delta != null && (
+            <div style={{ fontSize: 11, fontWeight: 600,
+                          color: delta > 0 ? C.green : delta < 0 ? C.red : C.text4,
+                          marginTop: 4, display: "flex", alignItems: "center", gap: 3 }}>
+              <span>{delta > 0 ? "▲" : delta < 0 ? "▼" : "—"}</span>
+              <span>{delta > 0 ? "+" : ""}{delta} <span style={{ color: C.text4, fontWeight: 500 }}>30d</span></span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <MiniSparkline data={history} color={accent} width={isMobile ? 96 : 132} height={32} />
+          <span style={{ fontSize: 9.5, color: isActiveOverlay ? accent : C.text4, fontWeight: 600 }}>
+            {isActiveOverlay ? "✓ on chart" : "Tap to overlay"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Multi-overlay APY+score chart. APY on left axis (%), score dimensions on
+// right axis (0–100), dashed lines per active overlay so the user can spot
+// when score changes lead APY changes.
+function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activeOverlays, setActiveOverlays }) {
+  const [range, setRange] = useState("90d");
+  const [hover, setHover] = useState(null);
+  const containerRef = useRef(null);
+  const [containerW, setContainerW] = useState(720);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(es => { for (const e of es) setContainerW(e.contentRect.width); });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const W = Math.max(360, containerW);
+  const H = isMobile ? 200 : 240;
+  const padL = 44;
+  const padR = activeOverlays.length > 0 ? 40 : 14;
+  const padT = 14;
+  const padB = 28;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const days = range === "30d" ? 30 : range === "60d" ? 60 : 90;
+  const sliceTail = arr => (Array.isArray(arr) && arr.length ? arr.slice(-days) : []);
+
+  const apy = sliceTail(apyHistory);
+  const dates = sliceTail(apyDates);
+  if (apy.length < 2) {
+    return <div style={{ fontSize: 12, color: C.text4, padding: 24, textAlign: "center" }}>Insufficient APY history</div>;
+  }
+  const apyMin = Math.min(...apy) - 0.1;
+  const apyMax = Math.max(...apy) + 0.1;
+  const apyRange = (apyMax - apyMin) || 1;
+
+  const scoreMin = 0;
+  const scoreMax = 100;
+
+  const xFor = i => padL + (i / (apy.length - 1)) * chartW;
+  const yForApy = v => padT + chartH - ((v - apyMin) / apyRange) * chartH;
+  const yForScore = v => padT + chartH - ((v - scoreMin) / (scoreMax - scoreMin)) * chartH;
+
+  // Smooth path (Catmull-Rom → cubic Bezier) — same look as the APY history chart
+  const smooth = (pts) => {
+    if (pts.length < 2) return "";
+    if (pts.length === 2) return `M${pts[0][0]},${pts[0][1]} L${pts[1][0]},${pts[1][1]}`;
+    const t = 0.2;
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1[0] + (p2[0] - p0[0]) * t;
+      const cp1y = p1[1] + (p2[1] - p0[1]) * t;
+      const cp2x = p2[0] - (p3[0] - p1[0]) * t;
+      const cp2y = p2[1] - (p3[1] - p1[1]) * t;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+
+  const apyPts = apy.map((v, i) => [xFor(i), yForApy(v)]);
+  const apyPath = smooth(apyPts);
+  const apyArea = apyPath + ` L${(padL + chartW).toFixed(1)},${(padT + chartH).toFixed(1)} L${padL.toFixed(1)},${(padT + chartH).toFixed(1)} Z`;
+
+  const apyTicks = [apyMin, apyMin + apyRange / 2, apyMax];
+  const scoreTicks = [0, 50, 100];
+
+  const xLabelCount = isMobile ? 3 : 5;
+  const xLabelIdx = Array.from({ length: xLabelCount }, (_, i) => Math.floor(i * (apy.length - 1) / (xLabelCount - 1)));
+
+  const OVERLAYS = [
+    { key: "composite",   label: "Composite",   color: DIM.composite },
+    { key: "capital",     label: "Capital",     color: DIM.capital },
+    { key: "performance", label: "Performance", color: DIM.performance },
+    { key: "risk",        label: "Risk",        color: DIM.risk },
+    { key: "trust",       label: "Trust",       color: DIM.trust },
+  ];
+
+  const toggleOverlay = (key) =>
+    setActiveOverlays(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+
+  const overlaySeries = activeOverlays.map(key => ({
+    key,
+    color: OVERLAYS.find(o => o.key === key).color,
+    data: sliceTail(scoreHistory[key] || []),
+  }));
+
+  return (
+    <div ref={containerRef}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700 }}>APY &amp; Score history</div>
+          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>
+            Layer score dimensions onto APY to spot leading indicators.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4, background: C.bg, padding: 3, borderRadius: 8, border: `1px solid ${C.border}` }}>
+          {["30d", "60d", "90d"].map(r => (
+            <button key={r} onClick={() => setRange(r)}
+              style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", border: "none", borderRadius: 6,
+                       cursor: "pointer", background: range === r ? C.white : "transparent",
+                       color: range === r ? C.text : C.text3, fontFamily: "'Inter',sans-serif",
+                       boxShadow: range === r ? "0 1px 2px rgba(0,0,0,.08)" : "none" }}>
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, letterSpacing: ".06em",
+                       textTransform: "uppercase", marginRight: 4 }}>
+          Overlay
+        </span>
+        {OVERLAYS.map(o => {
+          const active = activeOverlays.includes(o.key);
+          return (
+            <button key={o.key} onClick={() => toggleOverlay(o.key)}
+              style={{ fontSize: 11.5, fontWeight: 600, padding: "5px 11px", borderRadius: 14,
+                       border: `1px solid ${active ? o.color : C.border}`,
+                       background: active ? `${o.color}14` : C.white,
+                       color: active ? o.color : C.text2,
+                       cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                       fontFamily: "'Inter',sans-serif", transition: "all 120ms ease" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: o.color, opacity: active ? 1 : 0.45 }} />
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}
+           onMouseMove={e => {
+             const rect = e.currentTarget.getBoundingClientRect();
+             const x = (e.clientX - rect.left) * (W / rect.width);
+             const idx = Math.round(((x - padL) / chartW) * (apy.length - 1));
+             if (idx >= 0 && idx < apy.length) setHover(idx);
+           }}
+           onMouseLeave={() => setHover(null)}>
+        {apyTicks.map((t, i) => (
+          <g key={`apyt-${i}`}>
+            <line x1={padL} x2={padL + chartW} y1={yForApy(t)} y2={yForApy(t)}
+                  stroke={C.border} strokeDasharray="2,3" />
+            <text x={padL - 8} y={yForApy(t) + 4} textAnchor="end"
+                  style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+              {t.toFixed(2)}%
+            </text>
+          </g>
+        ))}
+        {activeOverlays.length > 0 && scoreTicks.map((t, i) => (
+          <text key={`st-${i}`} x={padL + chartW + 6} y={yForScore(t) + 4} textAnchor="start"
+                style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+            {t}
+          </text>
+        ))}
+        {xLabelIdx.map(i => {
+          const d = dates[i];
+          if (!d) return null;
+          const parts = d.split("-");
+          const label = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : d;
+          return (
+            <text key={`xl-${i}`} x={xFor(i)} y={H - 8} textAnchor="middle"
+                  style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+              {label}
+            </text>
+          );
+        })}
+
+        <defs>
+          <linearGradient id="apyOverlayGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={C.purple} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={C.purple} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={apyArea} fill="url(#apyOverlayGrad)" />
+        <path d={apyPath} fill="none" stroke={C.purple} strokeWidth={2.25}
+              strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={xFor(apy.length - 1)} cy={yForApy(apy[apy.length - 1])} r={3.5}
+                fill={C.purple} stroke="#fff" strokeWidth={2} />
+
+        {overlaySeries.map(({ key, color, data }) => {
+          if (!data || data.length < 2) return null;
+          // Score series may have fewer points than APY — pad with last value at the start
+          const padCount = apy.length - data.length;
+          const padded = padCount > 0
+            ? [...Array(padCount).fill(data[0]), ...data]
+            : data.slice(-apy.length);
+          const pts = padded.map((v, i) => [xFor(i), yForScore(v)]);
+          const path = smooth(pts);
+          return (
+            <g key={key}>
+              <path d={path} fill="none" stroke={color} strokeWidth={1.8}
+                    strokeDasharray="4,3" strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+              <circle cx={xFor(apy.length - 1)} cy={yForScore(padded[padded.length - 1])} r={3}
+                      fill={color} stroke="#fff" strokeWidth={2} />
+            </g>
+          );
+        })}
+
+        {hover !== null && (
+          <g>
+            <line x1={xFor(hover)} y1={padT} x2={xFor(hover)} y2={padT + chartH}
+                  stroke={C.purple} strokeWidth={1} opacity={0.35} strokeDasharray="3 2" />
+            <circle cx={xFor(hover)} cy={yForApy(apy[hover])} r={4} fill={C.purple} stroke="#fff" strokeWidth={2} />
+          </g>
+        )}
+
+        <text x={padL - 38} y={padT - 4} style={{ fontSize: 9.5, fill: C.text4, fontFamily: "'Inter',sans-serif",
+                                                  fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase" }}>
+          APY
+        </text>
+        {activeOverlays.length > 0 && (
+          <text x={padL + chartW + 6} y={padT - 4} style={{ fontSize: 9.5, fill: C.text4, fontFamily: "'Inter',sans-serif",
+                                                            fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase" }}>
+            Score
+          </text>
+        )}
+      </svg>
+
+      <div style={{ marginTop: 10, fontSize: 11, color: C.text4, display: "flex", alignItems: "center", gap: 6,
+                    paddingTop: 10, borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+        <span style={{ width: 14, height: 2, background: C.purple, borderRadius: 1 }} />
+        <span>Solid: APY (left axis, %)</span>
+        {activeOverlays.length > 0 && (
+          <>
+            <span style={{ marginLeft: 10, width: 14, borderTop: `1.5px dashed ${C.text3}` }} />
+            <span>Dashed: Score (right axis, 0–100)</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScoreBar({ subScores, weights, finalScore, conf }) {
   const cats = [
     { key: "capital", label: "Capital", w: weights.capital, color: "#6366f1" },
@@ -474,6 +816,15 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   const fetchInternally = !skipFetch;
   const { vault: detailVault, loading } = useVaultDetail(fetchInternally ? vaultId : null);
   const v = detailVault || listVault;
+  // Score-history series for the 4 sub-score sparkline cards + multi-overlay chart.
+  const scoreHistory = useScoreHistory(vaultId, 90);
+  // Lifted state so a click on a sub-score card can toggle its overlay on
+  // the chart below (chart is the visual; cards are the trigger).
+  const [activeOverlays, setActiveOverlays] = useState([]);
+  const toggleOverlay = (key) => {
+    setActiveOverlays(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+    document.getElementById("yieldo-history-chart")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   // Real overall success-rate from /v1/vaults/{id}/stats — shown on the vault card.
   const { stats: vaultStats } = useVaultStats(vaultId, { days: 30 });
   const overallSuccess = vaultStats ? formatRate(vaultStats.success_rate, vaultStats.total) : null;
@@ -640,7 +991,6 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
                 </div>
               </div>
             </div>
-            <ScoreBar subScores={v.subScores} weights={weights} finalScore={v.yieldoScore} conf={v.conf} />
           </Card>
           <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
             <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
@@ -758,15 +1108,35 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           </div>
         </div>
 
-        {/* APY History Chart */}
+        {/* Sub-score history grid — one card per dimension. Click a card to
+            toggle that dimension as an overlay on the chart below. */}
+        <div style={{ display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                      gap: isMobile ? 10 : 12, marginBottom: isMobile ? 14 : 16 }}>
+          {[
+            { key: "capital",     label: "Capital",     weight: weights.capital,     accent: DIM.capital,     value: v.subScores?.capital,     history: scoreHistory.capital     },
+            { key: "performance", label: "Performance", weight: weights.performance, accent: DIM.performance, value: v.subScores?.performance, history: scoreHistory.performance },
+            { key: "risk",        label: "Risk",        weight: weights.risk,        accent: DIM.risk,        value: v.subScores?.risk,        history: scoreHistory.risk        },
+            { key: "trust",       label: "Trust",       weight: weights.trust,       accent: DIM.trust,       value: v.subScores?.trust,       history: scoreHistory.trust       },
+          ].map(c => (
+            <SubScoreCard key={c.key} label={c.label} value={c.value} weight={c.weight}
+              history={c.history} accent={c.accent} isMobile={isMobile}
+              isActiveOverlay={activeOverlays.includes(c.key)}
+              onClick={() => toggleOverlay(c.key)} />
+          ))}
+        </div>
+
+        {/* Multi-overlay chart — APY (solid) + selectable score dimensions (dashed) */}
         {hasHistory && (
-          <Card style={{ padding: isMobile ? "12px 10px" : "20px 24px", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: isMobile ? "0 6px" : 0 }}>
-              <span style={{ fontSize: 16 }}>📈</span>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>APY History</span>
-              <span style={{ fontSize: 11, color: C.text4 }}>({apyHistory.length} days)</span>
-            </div>
-            <APYChart data={apyHistory} dates={apyDates} benchmarkData={null} height={isMobile ? 160 : 220} />
+          <Card id="yieldo-history-chart" style={{ padding: isMobile ? "14px 12px" : "20px 24px", marginBottom: 20 }}>
+            <MultiOverlayChart
+              apyHistory={apyHistory}
+              apyDates={apyDates}
+              scoreHistory={scoreHistory}
+              isMobile={isMobile}
+              activeOverlays={activeOverlays}
+              setActiveOverlays={setActiveOverlays}
+            />
           </Card>
         )}
 
