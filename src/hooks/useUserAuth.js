@@ -40,7 +40,8 @@ export function useUserAuth() {
     }
   }, [address, isConnected]);
 
-  // Restore existing session when wallet connects (no auto-sign)
+  // Restore existing session when wallet connects (no auto-sign here — the
+  // proactive-SIWE effect below handles the missing-session case).
   useEffect(() => {
     if (!isConnected || !address) return;
     const stored = getStored();
@@ -49,7 +50,9 @@ export function useUserAuth() {
     }
   }, [isConnected, address]);
 
-  // Validate session on mount
+  // Validate session on mount. If the server says the token is no longer
+  // valid (revoked / pruned / clock-skew) we clear it locally so the next
+  // effect can prompt for a fresh signature.
   useEffect(() => {
     const stored = getStored();
     if (!stored) { setSession(null); return; }
@@ -107,6 +110,36 @@ export function useUserAuth() {
   };
 
   const login = useCallback(doLogin, [address, signMessageAsync]);
+
+  // Proactive SIWE: as soon as the wallet is connected AND we don't have a
+  // valid stored session, fire the sign-in flow. Before this, the SIWE
+  // popup was deferred until the user clicked Deposit — so someone opening
+  // the app the next day with their wallet still connected could browse
+  // for minutes, then be surprised by a sign prompt at the worst possible
+  // moment (mid-deposit). Now the prompt arrives at the same moment the
+  // wallet reports connected, which matches every user's mental model of
+  // "I'm logged in if my wallet is connected and my session is fresh."
+  //
+  // `autoLoginAttempted` is reset on disconnect/address-change above, so a
+  // single user-reject doesn't loop. If the user rejects, they can still
+  // trigger the sign manually via any auth-gated action.
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    if (autoLoginAttempted.current) return;
+    const stored = getStored();
+    if (stored && stored.address?.toLowerCase() === address.toLowerCase()) {
+      // Already have a fresh session — nothing to do.
+      return;
+    }
+    autoLoginAttempted.current = true;
+    // Tiny delay so wagmi's connection state has fully settled before we
+    // hit the wallet provider with a sign request — otherwise some
+    // providers (notably MetaMask mobile) drop the request as "no active
+    // session yet" on cold-page-load races.
+    const t = setTimeout(() => { doLogin(); }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
 
   const logout = useCallback(() => {
     const stored = getStored();
