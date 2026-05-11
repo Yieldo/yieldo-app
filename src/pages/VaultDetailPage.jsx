@@ -573,9 +573,19 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
   );
 }
 
-// Multi-overlay APY+score chart. APY on left axis (%), score dimensions on
-// right axis (0–100), dashed lines per active overlay so the user can spot
-// when score changes lead APY changes.
+// Morpho-style APY chart with optional score overlays.
+//
+// Design notes (after switching to Morpho's visual language):
+// - The current APY is the headline — shown as a huge number top-left like
+//   `app.morpho.org/<chain>/vault/<id>` does. The chart is supporting data.
+// - No left-axis labels and no vertical gridlines — the only in-chart axis
+//   element is a single horizontal reference line with a floating value
+//   label on the right edge inside the plot.
+// - Hover shows a floating dark pill (date + APY) anchored above the cursor
+//   point, with a single circle marker on the line. The vertical guide is
+//   kept faint so the cursor reads as a soft pin instead of a crosshair.
+// - Score overlays (dashed) still work but are visually subordinate — they
+//   only render when the user explicitly toggles them on.
 function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activeOverlays, setActiveOverlays }) {
   const [range, setRange] = useState("90d");
   const [hover, setHover] = useState(null);
@@ -589,14 +599,14 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
   }, []);
 
   const W = Math.max(320, containerW);
-  const H = isMobile ? 180 : 240;
-  // Tighter horizontal padding on phones so the chart area itself stays
-  // readable on iPhone SE-class widths (320–360px). The right axis pad only
-  // appears when score overlays are active and need their own labels.
-  const padL = isMobile ? 36 : 44;
-  const padR = activeOverlays.length > 0 ? (isMobile ? 32 : 40) : (isMobile ? 8 : 14);
-  const padT = 14;
-  const padB = isMobile ? 24 : 28;
+  const H = isMobile ? 200 : 260;
+  // No left-axis labels (Morpho-style) — current APY is in the header now.
+  // Right pad reserves space for the floating reference-line value + the
+  // score-axis labels when an overlay is active.
+  const padL = isMobile ? 6 : 10;
+  const padR = activeOverlays.length > 0 ? (isMobile ? 36 : 44) : (isMobile ? 40 : 48);
+  const padT = 18;
+  const padB = isMobile ? 26 : 30;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
@@ -608,8 +618,13 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
   if (apy.length < 2) {
     return <div style={{ fontSize: 12, color: C.text4, padding: 24, textAlign: "center" }}>Insufficient APY history</div>;
   }
-  const apyMin = Math.min(...apy) - 0.1;
-  const apyMax = Math.max(...apy) + 0.1;
+  // Pad y-bounds proportionally so the line doesn't kiss the top/bottom of
+  // the plot. Floor at 0 since negative APY isn't physically meaningful here.
+  const rawMin = Math.min(...apy);
+  const rawMax = Math.max(...apy);
+  const yPad = Math.max(0.05, (rawMax - rawMin) * 0.12);
+  const apyMin = Math.max(0, rawMin - yPad);
+  const apyMax = rawMax + yPad;
   const apyRange = (apyMax - apyMin) || 1;
 
   const scoreMin = 0;
@@ -643,11 +658,33 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
   const apyPath = smooth(apyPts);
   const apyArea = apyPath + ` L${(padL + chartW).toFixed(1)},${(padT + chartH).toFixed(1)} L${padL.toFixed(1)},${(padT + chartH).toFixed(1)} Z`;
 
-  const apyTicks = [apyMin, apyMin + apyRange / 2, apyMax];
+  // ONE reference line at the upper-quarter mark, rounded to a clean value
+  // so the floating label reads as a meaningful threshold (Morpho's "10%"
+  // treatment). Subbed in for the previous 3-tick grid.
+  const refRaw = apyMin + apyRange * 0.75;
+  const niceRound = (x) => {
+    if (x >= 10) return Math.round(x);
+    if (x >= 1)  return Math.round(x * 2) / 2;
+    return Math.round(x * 10) / 10;
+  };
+  const refVal = niceRound(refRaw);
+  const refLabel = refVal.toFixed(refVal >= 10 ? 0 : refVal >= 1 ? 1 : 2) + "%";
+
+  // Current APY = last point of the windowed series. Becomes the headline.
+  const currentApy = apy[apy.length - 1];
+
   const scoreTicks = [0, 50, 100];
 
-  const xLabelCount = isMobile ? 3 : 5;
+  const xLabelCount = isMobile ? 4 : 7;
   const xLabelIdx = Array.from({ length: xLabelCount }, (_, i) => Math.floor(i * (apy.length - 1) / (xLabelCount - 1)));
+  const formatXLabel = (d) => {
+    if (!d) return "";
+    const parts = d.split("-");
+    if (parts.length < 3) return d;
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    return `${parseInt(parts[2], 10)} ${months[monthIdx] || ""}`;
+  };
 
   const OVERLAYS = [
     { key: "composite",   label: "Composite",   color: DIM.composite },
@@ -666,19 +703,36 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
     data: sliceTail(scoreHistory[key] || []),
   }));
 
+  // Tooltip geometry — pill is an SVG <g> so it scales with the chart and we
+  // can clamp it to the plot bounds in chart space (not screen-space CSS).
+  const tooltip = hover !== null ? (() => {
+    const cx = xFor(hover);
+    const cy = yForApy(apy[hover]);
+    const tipW = isMobile ? 96 : 110;
+    const tipH = 42;
+    let tx = cx - tipW / 2;
+    if (tx < padL + 2) tx = padL + 2;
+    if (tx + tipW > padL + chartW - 2) tx = padL + chartW - tipW - 2;
+    const ty = Math.max(padT + 2, cy - tipH - 12);
+    return { cx, cy, tx, ty, tipW, tipH, date: dates[hover], val: apy[hover] };
+  })() : null;
+
   return (
     <div ref={containerRef}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                    marginBottom: isMobile ? 10 : 12, flexWrap: "wrap", gap: 8 }}>
+      {/* Header — big "Net APY: X.XX%" left, range pills right. Matches
+          Morpho's vault chart headline so the current value is the headline,
+          not the chart axis labels. */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                    marginBottom: isMobile ? 10 : 14, flexWrap: "wrap", gap: 10 }}>
         <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-          <div style={{ fontSize: isMobile ? 13.5 : 15, fontWeight: 700 }}>APY &amp; Score history</div>
-          {/* Subtitle hidden on phones — saves a row of vertical space and the
-              overlay-pill row is self-explanatory next to it. */}
-          {!isMobile && (
-            <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>
-              Tap a dimension below to overlay it on the APY line.
-            </div>
-          )}
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.text3, letterSpacing: ".02em" }}>
+            Net APY
+          </div>
+          <div style={{ fontSize: isMobile ? 28 : 36, fontWeight: 700, color: C.text,
+                        letterSpacing: "-.02em", lineHeight: 1.1, marginTop: 2 }}>
+            {currentApy.toFixed(2)}
+            <span style={{ color: C.text4, fontWeight: 600 }}>%</span>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 3, background: C.bg, padding: 3, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }}>
           {["30d", "60d", "90d"].map(r => (
@@ -694,16 +748,117 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
         </div>
       </div>
 
-      {/* Overlay pills — wrap on desktop, horizontal-scroll on phone (5 pills
-          would otherwise wrap to 3 lines on iPhone SE). The label is hidden
-          on phone since the pills are next to the chart and obviously overlay it. */}
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}
+           onMouseMove={e => {
+             const rect = e.currentTarget.getBoundingClientRect();
+             const x = (e.clientX - rect.left) * (W / rect.width);
+             const idx = Math.round(((x - padL) / chartW) * (apy.length - 1));
+             if (idx >= 0 && idx < apy.length) setHover(idx);
+           }}
+           onMouseLeave={() => setHover(null)}
+           onTouchStart={e => {
+             const t = e.touches[0]; if (!t) return;
+             const rect = e.currentTarget.getBoundingClientRect();
+             const x = (t.clientX - rect.left) * (W / rect.width);
+             const idx = Math.round(((x - padL) / chartW) * (apy.length - 1));
+             if (idx >= 0 && idx < apy.length) setHover(idx);
+           }}
+           onTouchMove={e => {
+             const t = e.touches[0]; if (!t) return;
+             const rect = e.currentTarget.getBoundingClientRect();
+             const x = (t.clientX - rect.left) * (W / rect.width);
+             const idx = Math.round(((x - padL) / chartW) * (apy.length - 1));
+             if (idx >= 0 && idx < apy.length) setHover(idx);
+           }}
+           onTouchEnd={() => setHover(null)}>
+
+        <defs>
+          <linearGradient id="apyOverlayGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={C.purple} stopOpacity="0.22" />
+            <stop offset="60%" stopColor={C.purple} stopOpacity="0.06" />
+            <stop offset="100%" stopColor={C.purple} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Single horizontal reference line + floating value label on the
+            right edge inside the plot — Morpho's "10%" treatment. */}
+        <line x1={padL} x2={padL + chartW} y1={yForApy(refVal)} y2={yForApy(refVal)}
+              stroke={C.border} strokeDasharray="2,3" />
+        <text x={padL + chartW - 4} y={yForApy(refVal) - 4} textAnchor="end"
+              style={{ fontSize: 10.5, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+          {refLabel}
+        </text>
+
+        {/* Score-axis labels (right side) — only when an overlay is active. */}
+        {activeOverlays.length > 0 && scoreTicks.map((t, i) => (
+          <text key={`st-${i}`} x={padL + chartW + 6} y={yForScore(t) + 4} textAnchor="start"
+                style={{ fontSize: 10, fill: C.text4, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+            {t}
+          </text>
+        ))}
+
+        {/* X-axis date labels — no axis line, just text floating at bottom. */}
+        {xLabelIdx.map(i => (
+          <text key={`xl-${i}`} x={xFor(i)} y={H - 6} textAnchor="middle"
+                style={{ fontSize: 10.5, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+            {formatXLabel(dates[i])}
+          </text>
+        ))}
+
+        {/* APY area + line — the headline series. */}
+        <path d={apyArea} fill="url(#apyOverlayGrad)" />
+        <path d={apyPath} fill="none" stroke={C.purple} strokeWidth={2.25}
+              strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Score overlays (dashed, subordinate). */}
+        {overlaySeries.map(({ key, color, data }) => {
+          if (!data || data.length < 2) return null;
+          const padCount = apy.length - data.length;
+          const padded = padCount > 0
+            ? [...Array(padCount).fill(data[0]), ...data]
+            : data.slice(-apy.length);
+          const pts = padded.map((v, i) => [xFor(i), yForScore(v)]);
+          const path = smooth(pts);
+          return (
+            <g key={key}>
+              <path d={path} fill="none" stroke={color} strokeWidth={1.6}
+                    strokeDasharray="4,3" strokeLinejoin="round" strokeLinecap="round" opacity={0.85} />
+              <circle cx={xFor(apy.length - 1)} cy={yForScore(padded[padded.length - 1])} r={3}
+                      fill={color} stroke="#fff" strokeWidth={2} />
+            </g>
+          );
+        })}
+
+        {/* Hover: faint vertical guide, ringed circle on the line, dark
+            floating tooltip pill with date + APY. */}
+        {tooltip && (
+          <g style={{ pointerEvents: "none" }}>
+            <line x1={tooltip.cx} y1={padT} x2={tooltip.cx} y2={padT + chartH}
+                  stroke={C.text3} strokeWidth={1} opacity={0.25} />
+            <circle cx={tooltip.cx} cy={tooltip.cy} r={5} fill={C.purple} stroke="#fff" strokeWidth={2.5} />
+            <rect x={tooltip.tx} y={tooltip.ty} width={tooltip.tipW} height={tooltip.tipH}
+                  rx={6} ry={6} fill="#1e1428" />
+            <text x={tooltip.tx + 10} y={tooltip.ty + 17}
+                  style={{ fontSize: 10.5, fill: "rgba(255,255,255,.65)", fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
+              {tooltip.date}
+            </text>
+            <text x={tooltip.tx + 10} y={tooltip.ty + 34}
+                  style={{ fontSize: 13, fill: "#fff", fontFamily: "'Inter',sans-serif", fontWeight: 700 }}>
+              {tooltip.val.toFixed(2)}%
+            </text>
+          </g>
+        )}
+      </svg>
+
+      {/* Overlay pills moved BELOW the chart so the APY story leads. Toggle
+          to add score lines. Mobile gets horizontal scroll so 5 pills don't
+          wrap to 3 rows on small screens. */}
       <div style={{
-        display: "flex", gap: 6, marginBottom: 12, alignItems: "center",
+        display: "flex", gap: 6, marginTop: 14, alignItems: "center",
         flexWrap: isMobile ? "nowrap" : "wrap",
         overflowX: isMobile ? "auto" : "visible",
         overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
-        // Hide scrollbar visually — the pills' edges still hint at scroll.
         msOverflowStyle: "none", scrollbarWidth: "none",
         paddingBottom: isMobile ? 2 : 0,
       }}>
@@ -731,112 +886,6 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
             </button>
           );
         })}
-      </div>
-
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}
-           onMouseMove={e => {
-             const rect = e.currentTarget.getBoundingClientRect();
-             const x = (e.clientX - rect.left) * (W / rect.width);
-             const idx = Math.round(((x - padL) / chartW) * (apy.length - 1));
-             if (idx >= 0 && idx < apy.length) setHover(idx);
-           }}
-           onMouseLeave={() => setHover(null)}>
-        {apyTicks.map((t, i) => (
-          <g key={`apyt-${i}`}>
-            <line x1={padL} x2={padL + chartW} y1={yForApy(t)} y2={yForApy(t)}
-                  stroke={C.border} strokeDasharray="2,3" />
-            <text x={padL - 8} y={yForApy(t) + 4} textAnchor="end"
-                  style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
-              {t.toFixed(2)}%
-            </text>
-          </g>
-        ))}
-        {activeOverlays.length > 0 && scoreTicks.map((t, i) => (
-          <text key={`st-${i}`} x={padL + chartW + 6} y={yForScore(t) + 4} textAnchor="start"
-                style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
-            {t}
-          </text>
-        ))}
-        {xLabelIdx.map(i => {
-          const d = dates[i];
-          if (!d) return null;
-          const parts = d.split("-");
-          const label = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : d;
-          return (
-            <text key={`xl-${i}`} x={xFor(i)} y={H - 8} textAnchor="middle"
-                  style={{ fontSize: 10, fill: C.text3, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
-              {label}
-            </text>
-          );
-        })}
-
-        <defs>
-          <linearGradient id="apyOverlayGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={C.purple} stopOpacity="0.18" />
-            <stop offset="100%" stopColor={C.purple} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={apyArea} fill="url(#apyOverlayGrad)" />
-        <path d={apyPath} fill="none" stroke={C.purple} strokeWidth={2.25}
-              strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={xFor(apy.length - 1)} cy={yForApy(apy[apy.length - 1])} r={3.5}
-                fill={C.purple} stroke="#fff" strokeWidth={2} />
-
-        {overlaySeries.map(({ key, color, data }) => {
-          if (!data || data.length < 2) return null;
-          // Score series may have fewer points than APY — pad with last value at the start
-          const padCount = apy.length - data.length;
-          const padded = padCount > 0
-            ? [...Array(padCount).fill(data[0]), ...data]
-            : data.slice(-apy.length);
-          const pts = padded.map((v, i) => [xFor(i), yForScore(v)]);
-          const path = smooth(pts);
-          return (
-            <g key={key}>
-              <path d={path} fill="none" stroke={color} strokeWidth={1.8}
-                    strokeDasharray="4,3" strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
-              <circle cx={xFor(apy.length - 1)} cy={yForScore(padded[padded.length - 1])} r={3}
-                      fill={color} stroke="#fff" strokeWidth={2} />
-            </g>
-          );
-        })}
-
-        {hover !== null && (
-          <g>
-            <line x1={xFor(hover)} y1={padT} x2={xFor(hover)} y2={padT + chartH}
-                  stroke={C.purple} strokeWidth={1} opacity={0.35} strokeDasharray="3 2" />
-            <circle cx={xFor(hover)} cy={yForApy(apy[hover])} r={4} fill={C.purple} stroke="#fff" strokeWidth={2} />
-          </g>
-        )}
-
-        <text x={padL - 38} y={padT - 4} style={{ fontSize: 9.5, fill: C.text4, fontFamily: "'Inter',sans-serif",
-                                                  fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase" }}>
-          APY
-        </text>
-        {activeOverlays.length > 0 && (
-          <text x={padL + chartW + 6} y={padT - 4} style={{ fontSize: 9.5, fill: C.text4, fontFamily: "'Inter',sans-serif",
-                                                            fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase" }}>
-            Score
-          </text>
-        )}
-      </svg>
-
-      <div style={{ marginTop: 10, fontSize: 11, color: C.text4,
-                    display: "flex",
-                    flexDirection: isMobile ? "column" : "row",
-                    alignItems: isMobile ? "flex-start" : "center",
-                    gap: isMobile ? 4 : 6,
-                    paddingTop: 10, borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 14, height: 2, background: C.purple, borderRadius: 1 }} />
-          <span>Solid: APY (left axis, %)</span>
-        </div>
-        {activeOverlays.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 14, borderTop: `1.5px dashed ${C.text3}` }} />
-            <span>Dashed: Score (right axis, 0–100)</span>
-          </div>
-        )}
       </div>
     </div>
   );
