@@ -8,6 +8,7 @@
     { "source": "/api/users", "destination": "/api/users" },
     { "source": "/api/vaults/:vaultId", "destination": "/api/vaults/[vaultId]" },
     { "source": "/api/vaults", "destination": "/api/vaults" },
+    { "source": "/vault/:vaultId", "destination": "/api/og-html/:vaultId" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
