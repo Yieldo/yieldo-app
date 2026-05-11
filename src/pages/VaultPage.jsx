@@ -11,6 +11,7 @@ const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.j
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const WithdrawModal = lazy(() => import("../components/WithdrawModal.jsx"));
 import InvestorShell from "../components/InvestorShell.jsx";
+import LowScoreConfirmModal, { isLowScoreVault } from "../components/LowScoreConfirmModal.jsx";
 
 import { DEPOSITABLE_CHAINS, SUPPORTED_CHAIN_NAMES } from "../chains.js";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
@@ -232,6 +233,11 @@ export default function VaultPage() {
   const { balances, totalIdle } = useWalletBalances();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
   const [depositVault, setDepositVault] = useState(null);
+  // When a low-score vault's Deposit button is clicked we stash it here and
+  // pop a confirmation modal first. Once acknowledged we promote it to
+  // `depositVault` to open the real deposit flow. Keeps the gate in one place
+  // for both the table row and grid card paths.
+  const [pendingLowScoreVault, setPendingLowScoreVault] = useState(null);
   const [withdrawPosition, setWithdrawPosition] = useState(null);
   const [userPositions, setUserPositions] = useState({});
   const [vaultTypes, setVaultTypes] = useState({});
@@ -299,6 +305,10 @@ export default function VaultPage() {
     e.preventDefault();
     e.stopPropagation();
     if (!isConnected) { openConnectModal(); return; }
+    // Gate low-score vaults behind an explicit acknowledgement — same rule as
+    // VaultDetailPage so the warning shows regardless of where the user
+    // initiates the deposit from.
+    if (isLowScoreVault(vault)) { setPendingLowScoreVault(vault); return; }
     setDepositVault(vault);
   }, [isConnected, openConnectModal]);
 
@@ -715,6 +725,18 @@ export default function VaultPage() {
         </div>
       )}
 
+      {pendingLowScoreVault && (
+        <LowScoreConfirmModal
+          vault={pendingLowScoreVault}
+          isMobile={winW < 768}
+          onCancel={() => setPendingLowScoreVault(null)}
+          onConfirm={() => {
+            const v = pendingLowScoreVault;
+            setPendingLowScoreVault(null);
+            setDepositVault(v);
+          }}
+        />
+      )}
       {depositVault && (
         <Suspense fallback={null}>
           <DepositModal vault={depositVault} onClose={() => setDepositVault(null)} />

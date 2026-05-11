@@ -8,6 +8,7 @@ import { useDepositMeta, useDepositMetaMap } from "../hooks/useDepositMeta.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
+import LowScoreConfirmModal, { LOW_SCORE_THRESHOLD as LSC_THRESHOLD, isLowScoreVault } from "../components/LowScoreConfirmModal.jsx";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
 
@@ -942,6 +943,12 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   const [fbSending, setFbSending] = useState(false);
   const [fbDone, setFbDone] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  // Friction step for low-score vaults — if the composite Yieldo Score is
+  // under 40 we surface a "you're depositing into a risky vault" confirmation
+  // before opening the deposit modal. Set per click (not sticky) so the user
+  // sees the warning every time they initiate, not just the first time.
+  const [lowScoreConfirmOpen, setLowScoreConfirmOpen] = useState(false);
+  const isLowScore = isLowScoreVault(v);
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { isAuthenticated, login: userLogin, loading: authLoading } = useUserAuth();
@@ -979,8 +986,12 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   const handleDeposit = useCallback(async () => {
     if (depositDisabled) return;
     if (!isConnected) { openConnectModal(); return; }
+    // Score < 40 means at least one of Capital/Performance/Risk/Trust is poor
+    // enough that an uninformed user could lose money. Force explicit
+    // acknowledgement instead of opening the deposit modal directly.
+    if (isLowScore) { setLowScoreConfirmOpen(true); return; }
     setDepositOpen(true);
-  }, [depositDisabled, isConnected, openConnectModal]);
+  }, [depositDisabled, isConnected, openConnectModal, isLowScore]);
 
   const submitFeedback = async () => {
     setFbSending(true);
@@ -1598,6 +1609,14 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             )}
           </div>
         </div>
+      )}
+      {lowScoreConfirmOpen && v && (
+        <LowScoreConfirmModal
+          vault={v}
+          isMobile={isMobile}
+          onCancel={() => setLowScoreConfirmOpen(false)}
+          onConfirm={() => { setLowScoreConfirmOpen(false); setDepositOpen(true); }}
+        />
       )}
       {depositOpen && v && (
         <Suspense fallback={null}>
