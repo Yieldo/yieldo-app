@@ -586,7 +586,7 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
 //   kept faint so the cursor reads as a soft pin instead of a crosshair.
 // - Score overlays (dashed) still work but are visually subordinate — they
 //   only render when the user explicitly toggles them on.
-function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activeOverlays, setActiveOverlays }) {
+function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, currentApy: liveApy, isMobile, activeOverlays, setActiveOverlays }) {
   const [range, setRange] = useState("90d");
   const [hover, setHover] = useState(null);
   const containerRef = useRef(null);
@@ -670,8 +670,15 @@ function MultiOverlayChart({ apyHistory, apyDates, scoreHistory, isMobile, activ
   const refVal = niceRound(refRaw);
   const refLabel = refVal.toFixed(refVal >= 10 ? 0 : refVal >= 1 ? 1 : 2) + "%";
 
-  // Current APY = last point of the windowed series. Becomes the headline.
-  const currentApy = apy[apy.length - 1];
+  // Headline value = the live `v.apy` from the parent (same number the score
+  // card shows). Falling back to the last history point only if no live value
+  // was passed in — keeps the chart usable in any standalone-render context.
+  // Using the live value matters: history is daily-bucketed (the last point
+  // can be 12-24h old), but the page header shows the realtime indexer APY,
+  // so before we plumbed this through the two numbers disagreed by a few bps.
+  const currentApy = (typeof liveApy === "number" && Number.isFinite(liveApy))
+    ? liveApy
+    : apy[apy.length - 1];
 
   const scoreTicks = [0, 50, 100];
 
@@ -1345,6 +1352,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               apyHistory={apyHistory}
               apyDates={apyDates}
               scoreHistory={scoreHistory}
+              currentApy={v.apy}
               isMobile={isMobile}
               activeOverlays={activeOverlays}
               setActiveOverlays={setActiveOverlays}
