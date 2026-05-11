@@ -26,6 +26,7 @@ import AdminVaultDetailPage from './pages/AdminVaultDetailPage.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
+import ClickTracker from './components/ClickTracker.jsx'
 import './index.css'
 
 const queryClient = new QueryClient()
@@ -70,6 +71,7 @@ createRoot(document.getElementById('root')).render(
           <BrowserRouter>
             <TxTracker />
             <RefTracker />
+            <ClickTracker />
             <RoleRedirect />
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />

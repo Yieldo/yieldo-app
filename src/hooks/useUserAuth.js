@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useSignMessage } from "wagmi";
+import { getStoredClickId } from "./useTrackingParams.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const STORAGE_KEY = "yieldo_user_session";
@@ -100,6 +101,21 @@ export function useUserAuth() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setSession(sessionData);
+
+      // Attribution: if the visitor came from a tracked share link, post
+      // the click_id alongside the wallet so the backend can link them.
+      // Best-effort — never blocks the login on success. The server also
+      // reads the click cookie if our localStorage value is missing.
+      try {
+        const clickId = getStoredClickId();
+        fetch(`${API}/v1/track/attribute`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: address, click_id: clickId || null }),
+        }).catch(() => {});
+      } catch {}
+
       setLoading(false);
       return true;
     } catch (e) {
