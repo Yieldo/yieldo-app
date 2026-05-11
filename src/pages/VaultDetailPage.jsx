@@ -9,6 +9,42 @@ import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
+const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
+
+// Build a pre-filled X/Twitter share intent URL for a vault. Picks the two
+// dimensions that contribute the most points to the final score (weighted
+// contribution = subScore × weight, rounded) so the tweet leads with what the
+// vault is actually strongest at — "Risk 30/35, Trust 22/25" reads as a real
+// recommendation, not a stats dump. Falls back gracefully when the score or
+// subScores are missing (fresh vault, indexer cycle gap).
+function buildShareTweet(v) {
+  const url = `${APP_URL}/vault/${encodeURIComponent(v.id)}`;
+  const score = (v.yieldoScore !== null && v.yieldoScore !== undefined) ? v.yieldoScore : null;
+  // Scoring weights MUST match the rawScore formula in useVaultData.js
+  // (capital 0.20, performance 0.20, risk 0.35, trust 0.25). If these drift
+  // the tweet will misrepresent the score breakdown.
+  const dims = v.subScores ? [
+    { k: "Capital",     v: v.subScores.capital,     w: 0.20 },
+    { k: "Performance", v: v.subScores.performance, w: 0.20 },
+    { k: "Risk",        v: v.subScores.risk,        w: 0.35 },
+    { k: "Trust",       v: v.subScores.trust,       w: 0.25 },
+  ] : [];
+  // Pick top 2 by contribution (subScore × weight). Sorted by raw contribution
+  // not subScore — a 90 on Trust (worth 22/25) beats a 95 on Capital (worth 19/20).
+  const top = dims
+    .filter(d => typeof d.v === "number")
+    .map(d => ({ ...d, contrib: d.v * d.w, max: Math.round(d.w * 100) }))
+    .sort((a, b) => b.contrib - a.contrib)
+    .slice(0, 2)
+    .map(d => `${d.k} ${Math.round(d.contrib)}/${d.max}`)
+    .join(", ");
+  // Tweet body — keep under 200 chars so the t.co-wrapped link + handle still fit.
+  const lead = score !== null
+    ? `${v.name} scores ${score}/100 on @YieldoHQ`
+    : `${v.name} on @YieldoHQ`;
+  const body = top ? `${lead} — ${top}. Full breakdown:` : `${lead}. Full breakdown:`;
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}`;
+}
 
 function useWindowWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
@@ -993,6 +1029,20 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           {!isMobile && <><span style={{ color: C.text4 }}>/</span><span style={{ fontSize: 13, fontWeight: 500, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span></>}
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {/* Share-on-X — visible on mobile too (X audience is mobile-first).
+              Opens a prefilled intent URL with score, top-2 dimensions, @YieldoHQ
+              tag, and canonical vault link. One-click free-distribution surface. */}
+          <Btn
+            small
+            onClick={() => window.open(buildShareTweet(v), "_blank", "noopener,noreferrer")}
+            title="Share this vault's Yieldo Score on X"
+            style={isMobile ? { padding: "6px 10px" } : undefined}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            {!isMobile && <span>Share</span>}
+          </Btn>
           {!isMobile && <Btn small onClick={() => navigate(`/embed?v=${encodeURIComponent(vaultId)}`)} title="Get embeddable badge for this vault">Embed Badge</Btn>}
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
           <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>
