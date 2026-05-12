@@ -103,8 +103,27 @@ export default async function handler(req, res) {
     if (chainName) descParts.push(`on ${chainName}`);
     descParts.push("— live Yieldo Score with Capital, Performance, Risk, and Trust breakdown. Deposit cross-chain in one click.");
     const description = descParts.join(" ");
-    const ogImage = `${API_BASE}/v1/og/vault/${encodeURIComponent(vaultId)}.png`;
-    const pageUrl = `${proto}://${host}/vault/${encodeURIComponent(vaultId)}`;
+
+    // Pass through score-lock query params so the OG image renders with the
+    // numbers that were current at SHARE time, not at SCRAPE time. Fixes the
+    // X embed inconsistency where tweet body said "Score 80" but the image
+    // showed a drifted 77. See app/routes/og.py for the API side.
+    const SCORE_PARAMS = ["score", "capital", "performance", "risk", "trust", "apy"];
+    const lockedParams = new URLSearchParams();
+    for (const k of SCORE_PARAMS) {
+      const v = req.query[k];
+      if (v !== undefined && v !== null && v !== "") {
+        lockedParams.set(k, String(v));
+      }
+    }
+    const lockQuery = lockedParams.toString();
+    const ogImage = `${API_BASE}/v1/og/vault/${encodeURIComponent(vaultId)}.png${lockQuery ? `?${lockQuery}` : ""}`;
+    // Include the lock params in the og:url too. Twitter / Telegram / Discord
+    // cache OG scrapes per URL — if we returned a constant page URL with a
+    // varying og:image, the social platform would still serve the first-ever
+    // scrape of this vault to every viewer of every subsequent share. Letting
+    // the og:url vary per share forces a fresh scrape each time.
+    const pageUrl = `${proto}://${host}/vault/${encodeURIComponent(vaultId)}${lockQuery ? `?${lockQuery}` : ""}`;
 
     html = rewriteMeta(html, { title, description, ogImage, pageUrl });
 

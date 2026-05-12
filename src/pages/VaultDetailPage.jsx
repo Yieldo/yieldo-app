@@ -19,7 +19,6 @@ const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
 // recommendation, not a stats dump. Falls back gracefully when the score or
 // subScores are missing (fresh vault, indexer cycle gap).
 function buildShareTweet(v) {
-  const url = `${APP_URL}/vault/${encodeURIComponent(v.id)}`;
   const score = (v.yieldoScore !== null && v.yieldoScore !== undefined) ? v.yieldoScore : null;
   // Scoring weights MUST match the rawScore formula in useVaultData.js
   // (capital 0.20, performance 0.20, risk 0.35, trust 0.25). If these drift
@@ -39,6 +38,29 @@ function buildShareTweet(v) {
     .slice(0, 2)
     .map(d => `${d.k} ${Math.round(d.contrib)}/${d.max}`)
     .join(", ");
+
+  // Bake the score values that appear in the tweet body INTO the share URL
+  // so the OG image renders with the same numbers Twitter scrapes. Without
+  // this, the tweet text said "Score 80, Risk 29/35" but the live image
+  // would render at scrape-time and show drifted values like Score 77 /
+  // Risk 79 — a visible inconsistency in the embed. See app/routes/og.py
+  // and api/og-html/[vaultId].js for the params we read on the API side.
+  const lockParams = new URLSearchParams();
+  if (score !== null) lockParams.set("score", String(score));
+  if (v.subScores) {
+    if (typeof v.subScores.capital     === "number") lockParams.set("capital",     String(v.subScores.capital));
+    if (typeof v.subScores.performance === "number") lockParams.set("performance", String(v.subScores.performance));
+    if (typeof v.subScores.risk        === "number") lockParams.set("risk",        String(v.subScores.risk));
+    if (typeof v.subScores.trust       === "number") lockParams.set("trust",       String(v.subScores.trust));
+  }
+  if (typeof v.apy === "number" && Number.isFinite(v.apy)) {
+    // Two decimals matches the on-page display so the image and the tweet
+    // text don't disagree at the rounding boundary.
+    lockParams.set("apy", v.apy.toFixed(2));
+  }
+  const lockSuffix = lockParams.toString();
+  const url = `${APP_URL}/vault/${encodeURIComponent(v.id)}${lockSuffix ? `?${lockSuffix}` : ""}`;
+
   // Tweet body — keep under 200 chars so the t.co-wrapped link + handle still fit.
   const lead = score !== null
     ? `${v.name} scores ${score}/100 on @YieldoHQ`
