@@ -38,10 +38,6 @@ export const PAUSED_OVERRIDES = {
     paused: true,
     reason: "Deposits temporarily unavailable. Please check back later.",
   },
-  "999:0x96c6cbb6251ee1c257b2162ca0f39aa5fa44b1fb": {
-    paused: true,
-    reason: "Deposits temporarily paused by Hyperbeat. Resumes when they reopen the vault.",
-  },
 };
 
 // The indexer occasionally has the wrong asset symbol/decimals for a vault
