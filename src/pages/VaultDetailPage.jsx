@@ -218,13 +218,31 @@ const SCORE_TOOLTIP_COPY = {
 const DOCS_URL = "https://docs.yieldo.xyz/";
 
 // Small (i) glyph with a hover/tap popover explaining a sub-score dimension.
-// Click-anywhere-outside closes it. Hover-driven on desktop, tap-driven on
-// mobile (handlers gated by isMobile). placement="up" anchors the popover
-// above the icon so it doesn't get clipped at the bottom of a card.
+// Hover-driven on desktop, tap-driven on mobile. The popover stays open while
+// the cursor is over EITHER the (i) button or the popover itself — leaving
+// the button schedules a 140ms close which is cancelled if the cursor enters
+// the popup, so the user has time to slide across the gap and click 'Learn
+// more'. Click-anywhere-outside also closes. placement="up" anchors the
+// popover above the icon so it doesn't get clipped at the bottom of a card.
 function ScoreInfoTooltip({ dimension, isMobile, placement = "down" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const closeTimerRef = useRef(null);
   const copy = SCORE_TOOLTIP_COPY[dimension];
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimerRef.current = setTimeout(() => setOpen(false), 140);
+  };
+  // Belt-and-braces cleanup on unmount.
+  useEffect(() => () => cancelClose(), []);
+
   useEffect(() => {
     if (!open) return;
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -232,6 +250,7 @@ function ScoreInfoTooltip({ dimension, isMobile, placement = "down" }) {
     document.addEventListener("touchstart", h);
     return () => { document.removeEventListener("mousedown", h); document.removeEventListener("touchstart", h); };
   }, [open]);
+
   if (!copy) return null;
   const popStyle = placement === "up"
     ? { bottom: "calc(100% + 8px)", top: "auto" }
@@ -240,9 +259,9 @@ function ScoreInfoTooltip({ dimension, isMobile, placement = "down" }) {
     <span ref={ref} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        onMouseEnter={() => { if (!isMobile) setOpen(true); }}
-        onMouseLeave={() => { if (!isMobile) setOpen(false); }}
+        onClick={(e) => { e.stopPropagation(); cancelClose(); setOpen(o => !o); }}
+        onMouseEnter={() => { if (!isMobile) { cancelClose(); setOpen(true); } }}
+        onMouseLeave={() => { if (!isMobile) scheduleClose(); }}
         aria-label={`What is the ${dimension} score?`}
         style={{
           background: "transparent", border: "none", padding: 0, cursor: "pointer",
@@ -257,6 +276,8 @@ function ScoreInfoTooltip({ dimension, isMobile, placement = "down" }) {
         <div
           role="tooltip"
           onClick={(e) => e.stopPropagation()}
+          onMouseEnter={() => { if (!isMobile) cancelClose(); }}
+          onMouseLeave={() => { if (!isMobile) scheduleClose(); }}
           style={{
             position: "absolute", left: "50%", transform: "translateX(-50%)",
             ...popStyle,
