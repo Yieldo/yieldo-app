@@ -553,3 +553,22 @@ export function useScoreHistory(vaultId, days = 90) {
 
   return { ...data, loading };
 }
+
+// AI-generated 1-2 sentence explanation of a sub-score. Lazy — only fires
+// when `enabled` flips true (we wire this to "expanded card" so we don't
+// burn API budget for cards the user never opens). Server caches per
+// (vault, dimension, UTC day) so repeated hits are essentially free.
+export function useScoreExplanation(vaultId, dimension, enabled) {
+  const [state, setState] = useState({ text: null, source: null, loading: false, error: null });
+  useEffect(() => {
+    if (!enabled || !vaultId || !dimension) return;
+    let cancelled = false;
+    setState(s => ({ ...s, loading: true, error: null }));
+    fetch(`${PARTNER_API}/v1/scores/explain/${encodeURIComponent(vaultId)}/${dimension}`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(j => { if (!cancelled) setState({ text: j.explanation || null, source: j.source || null, loading: false, error: null }); })
+      .catch(e => { if (!cancelled) setState({ text: null, source: null, loading: false, error: e.message || "load failed" }); });
+    return () => { cancelled = true; };
+  }, [vaultId, dimension, enabled]);
+  return state;
+}

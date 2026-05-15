@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } fro
 import { useParams, useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { useVaultDetail, useScoreHistory } from "../hooks/useVaultData.js";
+import { useVaultDetail, useScoreHistory, useScoreExplanation } from "../hooks/useVaultData.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { useDepositMeta, useDepositMetaMap } from "../hooks/useDepositMeta.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
@@ -190,6 +190,135 @@ function ScoreRing({ score, size = 44, sw = 4 }) {
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(0,0,0,.04)" strokeWidth={sw}/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"/></svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size < 24 ? 8 : size < 32 ? 10 : 13, fontWeight: 700, color: col }}>{score}</div>
+    </div>
+  );
+}
+
+// Plain-English copy used by the (i) tooltip next to each sub-score. Weights
+// MUST match the rawScore formula in useVaultData.js (and the share-tweet
+// builder above) — drift here would misrepresent the score breakdown.
+const SCORE_TOOLTIP_COPY = {
+  capital: {
+    weight: "20%",
+    body: "Measures vault size, depositor concentration, and liquidity depth — how much capital the vault commands and how resilient that capital is.",
+  },
+  performance: {
+    weight: "20%",
+    body: "Whether the vault actually delivers risk-adjusted returns vs. a live benchmark (Aave). High APY alone won't move this score — sustained, organic outperformance will.",
+  },
+  risk: {
+    weight: "35%",
+    body: "The structural safety of the vault: peg stability, withdrawal access, governance controls, and depositor concentration.",
+  },
+  trust: {
+    weight: "25%",
+    body: "Tracks depositors' behavior. A high score means long average holding periods, strong capital retention, and net inflows.",
+  },
+};
+const DOCS_URL = "https://docs.yieldo.xyz/";
+
+// Small (i) glyph with a hover/tap popover explaining a sub-score dimension.
+// Click-anywhere-outside closes it. Hover-driven on desktop, tap-driven on
+// mobile (handlers gated by isMobile). placement="up" anchors the popover
+// above the icon so it doesn't get clipped at the bottom of a card.
+function ScoreInfoTooltip({ dimension, isMobile, placement = "down" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const copy = SCORE_TOOLTIP_COPY[dimension];
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    document.addEventListener("touchstart", h);
+    return () => { document.removeEventListener("mousedown", h); document.removeEventListener("touchstart", h); };
+  }, [open]);
+  if (!copy) return null;
+  const popStyle = placement === "up"
+    ? { bottom: "calc(100% + 8px)", top: "auto" }
+    : { top: "calc(100% + 8px)", bottom: "auto" };
+  return (
+    <span ref={ref} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        onMouseEnter={() => { if (!isMobile) setOpen(true); }}
+        onMouseLeave={() => { if (!isMobile) setOpen(false); }}
+        aria-label={`What is the ${dimension} score?`}
+        style={{
+          background: "transparent", border: "none", padding: 0, cursor: "pointer",
+          width: 14, height: 14, borderRadius: 14, display: "inline-flex",
+          alignItems: "center", justifyContent: "center", color: C.text3,
+          fontSize: 9, fontWeight: 700, lineHeight: 1, fontStyle: "italic",
+          fontFamily: "Georgia,serif",
+          boxShadow: "inset 0 0 0 1px currentColor",
+        }}
+      >i</button>
+      {open && (
+        <div
+          role="tooltip"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute", left: "50%", transform: "translateX(-50%)",
+            ...popStyle,
+            background: C.white, border: `1px solid ${C.border2}`,
+            borderRadius: 10, padding: "10px 12px", width: 260,
+            boxShadow: "0 8px 24px rgba(0,0,0,.12)", zIndex: 50,
+            fontSize: 12, lineHeight: 1.5, color: C.text2, textAlign: "left",
+            cursor: "default", whiteSpace: "normal",
+            textTransform: "none", letterSpacing: "normal",
+          }}
+        >
+          <div style={{ fontWeight: 700, color: C.text, marginBottom: 4, textTransform: "capitalize" }}>
+            {dimension} <span style={{ color: C.text4, fontWeight: 500 }}>({copy.weight} weight)</span>
+          </div>
+          <div>{copy.body}</div>
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer"
+             style={{ display: "inline-block", marginTop: 6, fontSize: 11, fontWeight: 600, color: C.purple, textDecoration: "none" }}>
+            Learn more →
+          </a>
+        </div>
+      )}
+    </span>
+  );
+}
+
+// Renders the AI-generated 1-2 sentence explanation of a sub-score, with a
+// toggle to expand/collapse. Lazy fetch — the network request only fires
+// once the user opens the panel (passed into the hook via `enabled`).
+function ScoreExplanation({ vaultId, dimension }) {
+  const [open, setOpen] = useState(false);
+  const { text, loading, error, source } = useScoreExplanation(vaultId, dimension, open);
+  return (
+    <div style={{ marginTop: 10, marginBottom: 14, padding: "10px 12px",
+                  borderRadius: 10, background: "rgba(122,28,203,.04)",
+                  border: `1px solid rgba(122,28,203,.10)` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between",
+                 background: "transparent", border: "none", padding: 0, cursor: "pointer",
+                 fontFamily: "'Inter',sans-serif", fontSize: 12, fontWeight: 600,
+                 color: C.purple, letterSpacing: ".01em" }}
+      >
+        <span>✨ Why this score?</span>
+        <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.55, color: C.text2 }}>
+          {loading && <span style={{ color: C.text3 }}>Generating explanation…</span>}
+          {!loading && text && <span>{text}</span>}
+          {!loading && !text && error && (
+            <span style={{ color: C.text3 }}>Couldn't load explanation right now.</span>
+          )}
+          {!loading && text && source === "template" && (
+            <div style={{ marginTop: 6, fontSize: 10.5, color: C.text4, fontStyle: "italic" }}>
+              AI explanation unavailable right now — try again later.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -528,7 +657,7 @@ function MiniSparkline({ data, color, width = 132, height = 32 }) {
 // One of the four sub-score boxes shown above the chart. Shows the current
 // score, weight, sparkline, and 30-day delta. Click toggles the overlay on
 // the main chart below.
-function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, onClick, isMobile }) {
+function SubScoreCard({ label, dimension, value, weight, history, accent, isActiveOverlay, onClick, isMobile }) {
   const last = history.length ? history[history.length - 1] : null;
   const prior = history.length > 30 ? history[history.length - 31] : (history[0] ?? last);
   const delta = (last != null && prior != null) ? Math.round(last - prior) : null;
@@ -563,8 +692,11 @@ function SubScoreCard({ label, value, weight, history, accent, isActiveOverlay, 
       <div style={{ position: "absolute", left: 0, top: 16, bottom: 16, width: 3,
                     background: accent, borderRadius: 2 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.text2, letterSpacing: ".05em", textTransform: "uppercase" }}>
-          {label}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.text2, letterSpacing: ".05em", textTransform: "uppercase" }}>
+            {label}
+          </span>
+          <ScoreInfoTooltip dimension={dimension} isMobile={isMobile} />
         </span>
         <span style={{ fontSize: 10.5, color: C.text4, fontWeight: 500 }}>{Math.round(weight * 100)}% weight</span>
       </div>
@@ -1360,7 +1492,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             { key: "risk",        label: "Risk",        weight: weights.risk,        accent: DIM.risk,        value: v.subScores?.risk,        history: scoreHistory.risk        },
             { key: "trust",       label: "Trust",       weight: weights.trust,       accent: DIM.trust,       value: v.subScores?.trust,       history: scoreHistory.trust       },
           ].map(c => (
-            <SubScoreCard key={c.key} label={c.label} value={c.value} weight={c.weight}
+            <SubScoreCard key={c.key} label={c.label} dimension={c.key} value={c.value} weight={c.weight}
               history={c.history} accent={c.accent} isMobile={isMobile}
               isActiveOverlay={activeOverlays.includes(c.key)}
               onClick={() => toggleOverlay(c.key)} />
@@ -1394,9 +1526,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#6366f1" }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Capital</span>
+              <ScoreInfoTooltip dimension="capital" isMobile={isMobile} />
               <ScoreRing score={v.subScores.capital} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
             </div>
+            <ScoreExplanation vaultId={v.id} dimension="capital" />
             <MR label="Total Value Locked" value={fmtTvl(v.tvl)} trend={v.tvlChange7d} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1432,9 +1566,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Performance</span>
+              <ScoreInfoTooltip dimension="performance" isMobile={isMobile} />
               <ScoreRing score={v.subScores.performance} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
             </div>
+            <ScoreExplanation vaultId={v.id} dimension="performance" />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>Net APY</span>
@@ -1501,9 +1637,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b" }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Risk</span>
+              <ScoreInfoTooltip dimension="risk" isMobile={isMobile} />
               <ScoreRing score={v.subScores.risk} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>35% weight</span>
             </div>
+            <ScoreExplanation vaultId={v.id} dimension="risk" />
             <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
             {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
             <MR label="Pause Events" value={v.pauseEvents} />
@@ -1544,9 +1682,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
               <span style={{ fontSize: 15, fontWeight: 700 }}>Trust</span>
+              <ScoreInfoTooltip dimension="trust" isMobile={isMobile} />
               <ScoreRing score={v.subScores.trust} size={28} sw={3} />
               <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
             </div>
+            <ScoreExplanation vaultId={v.id} dimension="trust" />
             {(() => { const val = v.capitalRetention?.[capRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; const flag = d !== null && d < 50 ? "critical" : d !== null && d < 70 ? "warning" : undefined; return (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
