@@ -10,6 +10,10 @@ export const CURATOR_OVERRIDES = {
   "1:0x08c6f91e2b681faf5e17227f2a44c307b3c1364c": "Ether.fi", // Liquid USD
   "1:0xf0bb20865277abd641a307ece5ee04e79073416c": "Ether.fi", // Liquid ETH
   "1:0x5f46d540b6ed704c3c8789105f30e075aa900726": "Ether.fi", // Liquid BTC
+  // Veda Liquid EUR on Optimism. Indexer's `source` field defaults to "Morpho"
+  // because the address isn't in VEDA_VAULT_ADDRESSES on the indexer side yet
+  // — this override keeps the UI showing Ether.fi until that's wired.
+  "10:0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13": "Ether.fi",
 };
 
 // User-facing messages only — no internal jargon (architecture names, contract
@@ -56,6 +60,14 @@ export const ASSET_OVERRIDES = {
 export const UNSUPPORTED_OVERRIDES = {
   "1:0x07ed467acd4ffd13023046968b0859781cb90d9b": {
     reason: "Under maintenance — integration in progress. Please check back soon.",
+  },
+  // Veda Liquid EUR (Optimism). Wired into the registry so the vault appears
+  // with its Yieldo Score, but the deposit path needs the on-chain EURC
+  // Optimism token address in ASSET_TOKEN_CONFIG[10] before quotes can route
+  // — until then, surface a clean 'coming soon' message instead of letting
+  // users hit a confusing 'asset not supported' error from the quote endpoint.
+  "10:0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13": {
+    reason: "EUR deposits coming soon — Veda integration finalizing on Optimism.",
   },
 };
 
