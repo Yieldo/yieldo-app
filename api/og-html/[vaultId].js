@@ -117,13 +117,34 @@ export default async function handler(req, res) {
       }
     }
     const lockQuery = lockedParams.toString();
-    const ogImage = `${API_BASE}/v1/og/vault/${encodeURIComponent(vaultId)}.png${lockQuery ? `?${lockQuery}` : ""}`;
-    // Include the lock params in the og:url too. Twitter / Telegram / Discord
-    // cache OG scrapes per URL — if we returned a constant page URL with a
-    // varying og:image, the social platform would still serve the first-ever
-    // scrape of this vault to every viewer of every subsequent share. Letting
-    // the og:url vary per share forces a fresh scrape each time.
-    const pageUrl = `${proto}://${host}/vault/${encodeURIComponent(vaultId)}${lockQuery ? `?${lockQuery}` : ""}`;
+    // Plain (unlocked) URL shares: append a UTC-hour bucket to the image URL
+    // so social platforms see a "new" image once an hour and re-fetch it,
+    // instead of caching the very first scrape forever. Backend's
+    // /v1/og/vault/{id}.png will then render against the latest score
+    // snapshot at re-scrape time. For locked URLs (with explicit score
+    // params) we never bucket — the share URL IS the source of truth and
+    // must produce the exact same image every time it's scraped.
+    let imageQuery = lockQuery;
+    if (!imageQuery) {
+      const now = new Date();
+      const bucket =
+        now.getUTCFullYear().toString() +
+        String(now.getUTCMonth() + 1).padStart(2, "0") +
+        String(now.getUTCDate()).padStart(2, "0") +
+        String(now.getUTCHours()).padStart(2, "0");
+      imageQuery = `t=${bucket}`;
+    }
+    const ogImage = `${API_BASE}/v1/og/vault/${encodeURIComponent(vaultId)}.png?${imageQuery}`;
+    // og:url logic:
+    //   - Locked share (params present): include those params so each
+    //     share has a unique canonical URL and social platforms re-scrape
+    //     for every distinct share, not just the first one they saw.
+    //   - Plain share (no params): use the actual URL the user pasted as
+    //     the canonical, with the hour bucket appended so platforms also
+    //     re-scrape the HTML once an hour. Without this, Discord/Telegram
+    //     would cache the very first preview indefinitely.
+    const urlBucket = lockQuery ? lockQuery : imageQuery;
+    const pageUrl = `${proto}://${host}/vault/${encodeURIComponent(vaultId)}${urlBucket ? `?${urlBucket}` : ""}`;
 
     html = rewriteMeta(html, { title, description, ogImage, pageUrl });
 

@@ -1123,6 +1123,145 @@ const MR = ({ label, value, unit, trend, flag, desc, trigger }) => (
   </div>
 );
 
+// Morpho-style floating deposit panel — pinned to the right edge of the
+// viewport on wide desktops so the Deposit CTA is always reachable as the
+// user scrolls through metrics. Mobile/narrow desktops keep the top-bar
+// Deposit button (this is purely additive for wide screens).
+//
+// Rendered with `position: fixed` (not sticky-in-grid) so it doesn't reflow
+// the main content layout. Width-gated to viewports >= 1300px so it never
+// overlaps the 1200px-wide main column.
+function FloatingDepositPanel({
+  vault,
+  apy,
+  score,
+  depositDisabled,
+  pauseReason,
+  notIntegrated,
+  adminDisabledDeposits,
+  authLoading,
+  isLowScore,
+  onDepositClick,
+  vaultMin,
+}) {
+  if (!vault) return null;
+  const scoreColor = score == null ? C.text3
+    : score >= 80 ? C.green : score >= 60 ? C.gold : score >= 40 ? C.amber : C.red;
+  const apyText = typeof apy === "number" && Number.isFinite(apy)
+    ? `${apy.toFixed(2)}%`
+    : "—";
+  const ctaLabel = notIntegrated ? "Coming soon"
+    : adminDisabledDeposits ? "Disabled"
+    : depositDisabled ? "Paused"
+    : authLoading ? "Signing in..."
+    : "Deposit";
+  const minText = (() => {
+    if (vaultMin?.noMin) return "No minimum deposit";
+    if (vaultMin?.raw == null) return null;
+    try {
+      const dec = vaultMin.decimals ?? 6;
+      const human = Number(vaultMin.raw) / Math.pow(10, dec);
+      if (!Number.isFinite(human) || human <= 0) return null;
+      const formatted = human < 1 ? human.toFixed(4).replace(/0+$/, "").replace(/\.$/, "") : human.toLocaleString();
+      return `Minimum deposit: ${formatted} ${vaultMin.symbol || ""}`.trim();
+    } catch { return null; }
+  })();
+  return (
+    <aside
+      aria-label="Deposit panel"
+      style={{
+        position: "fixed",
+        top: 78,
+        right: "max(20px, calc((100vw - 1200px) / 2 - 340px))",
+        width: 308,
+        maxHeight: "calc(100vh - 100px)",
+        overflowY: "auto",
+        zIndex: 40,
+        background: C.white,
+        borderRadius: 14,
+        border: `1px solid ${C.border}`,
+        boxShadow: "0 10px 32px rgba(0,0,0,.08)",
+        padding: 18,
+        fontFamily: "'Inter',sans-serif",
+      }}
+    >
+      {/* Header row: vault name + asset chip */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>
+            Deposit into
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {vault.name}
+          </div>
+          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+            {vault.chain} · {String(vault.asset || "").toUpperCase()}
+          </div>
+        </div>
+        {score != null && (
+          <div title="Yieldo Score" style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: scoreColor, padding: "4px 8px", borderRadius: 6, background: `${scoreColor}14`, whiteSpace: "nowrap" }}>
+            {score}/100
+          </div>
+        )}
+      </div>
+
+      {/* Big APY headline */}
+      <div style={{ background: C.purpleDim, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>
+          Net APY
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: C.purple, lineHeight: 1.15, letterSpacing: "-.02em" }}>
+          {apyText}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <button
+        type="button"
+        onClick={onDepositClick}
+        disabled={depositDisabled}
+        title={pauseReason || undefined}
+        style={{
+          width: "100%",
+          padding: "12px 14px",
+          borderRadius: 10,
+          border: "none",
+          cursor: depositDisabled ? "not-allowed" : "pointer",
+          backgroundImage: depositDisabled ? "none" : C.purpleGrad,
+          background: depositDisabled ? C.surfaceAlt : undefined,
+          color: depositDisabled ? C.text3 : "#fff",
+          fontWeight: 600,
+          fontSize: 14,
+          fontFamily: "'Inter',sans-serif",
+          boxShadow: depositDisabled ? "none" : C.purpleShadow,
+          opacity: depositDisabled ? 0.7 : 1,
+          transition: "transform .12s",
+        }}
+      >
+        {ctaLabel}
+      </button>
+
+      {/* Footer info — minimum + low-score warning */}
+      {(minText || isLowScore || pauseReason) && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+          {minText && (
+            <div style={{ fontSize: 11, color: C.text3 }}>{minText}</div>
+          )}
+          {isLowScore && !depositDisabled && (
+            <div style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>
+              ⚠ Low Yieldo Score — deposit warning shown on click
+            </div>
+          )}
+          {pauseReason && depositDisabled && (
+            <div style={{ fontSize: 11, color: C.amber }}>{pauseReason}</div>
+          )}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+
 export default function VaultDetailPage({ vault: listVault, onBack, skipFetch }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -1293,6 +1432,25 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
+      {/* Morpho-style floating deposit panel — only on wide desktops where
+          there's room to the right of the 1200px main column without
+          overlapping content. Mobile + narrow desktops keep the existing
+          top-bar Deposit button. */}
+      {!isMobile && winW >= 1620 && (
+        <FloatingDepositPanel
+          vault={v}
+          apy={typeof v.apy === "number" ? v.apy : null}
+          score={v.yieldoScore}
+          depositDisabled={depositDisabled}
+          pauseReason={pauseReason}
+          notIntegrated={notIntegrated}
+          adminDisabledDeposits={adminDisabledDeposits}
+          authLoading={authLoading}
+          isLowScore={isLowScore}
+          onDepositClick={handleDeposit}
+          vaultMin={vaultMin}
+        />
+      )}
       <div style={{ padding: pad, maxWidth: 1200, margin: "0 auto" }}>
         {pauseReason && (
           <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
