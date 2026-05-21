@@ -1236,11 +1236,11 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     }
   });
   const winW = useWindowWidth();
+  const isMobile = winW < 768;
   // Show the inline deposit panel only when the viewport has room for the
   // ~1200px content column + 380px panel + gutters. Below this we collapse
   // to single-column and the top-bar Deposit button is the primary CTA.
   const showFloatingPanel = !isMobile && winW >= 1280;
-  const isMobile = winW < 768;
   const pad = isMobile ? "14px 16px" : "24px 32px";
   const weights = { capital: .20, performance: .25, risk: .35, trust: .20 };
   const [tvlTf, setTvlTf] = useState("7d");
