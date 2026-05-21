@@ -1144,13 +1144,16 @@ function FloatingDepositPanel({
     <aside
       aria-label="Deposit panel"
       style={{
-        position: "fixed",
+        // Sticky inside the 2-column flex so it stays visible as the user
+        // scrolls the metric list, but still occupies real layout space
+        // (gap between content and panel is provided by the flex `gap`).
+        position: "sticky",
         top: 78,
-        right: "max(20px, calc((100vw - 1200px) / 2 - 400px))",
+        alignSelf: "flex-start",
+        flexShrink: 0,
         width: 380,
         maxHeight: "calc(100vh - 100px)",
         overflowY: "auto",
-        zIndex: 40,
         background: C.white,
         borderRadius: 14,
         border: `1px solid ${C.border}`,
@@ -1233,6 +1236,10 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     }
   });
   const winW = useWindowWidth();
+  // Show the inline deposit panel only when the viewport has room for the
+  // ~1200px content column + 380px panel + gutters. Below this we collapse
+  // to single-column and the top-bar Deposit button is the primary CTA.
+  const showFloatingPanel = !isMobile && winW >= 1280;
   const isMobile = winW < 768;
   const pad = isMobile ? "14px 16px" : "24px 32px";
   const weights = { capital: .20, performance: .25, risk: .35, trust: .20 };
@@ -1371,19 +1378,14 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
         </div>
       </div>
       {loading && <div style={{ padding: isMobile ? "8px 16px" : "8px 32px", background: C.purpleDim, fontSize: 12, color: C.purple }}>Loading detailed data...</div>}
-      {/* Morpho-style floating deposit panel — only on wide desktops where
-          there's room to the right of the 1200px main column without
-          overlapping content. Mobile + narrow desktops keep the existing
-          top-bar Deposit button. */}
-      {!isMobile && winW >= 1620 && (
-        <FloatingDepositPanel
-          vault={v}
-          score={v.yieldoScore}
-          depositDisabled={depositDisabled}
-          pauseReason={pauseReason}
-        />
-      )}
-      <div style={{ padding: pad, maxWidth: 1200, margin: "0 auto" }}>
+      {/* Two-column wide-desktop layout: main content + sticky deposit
+          panel on the right. The container max-width grows when the panel
+          is rendered so the metric cards stay readable AND the panel sits
+          beside them without overlap. On narrow desktops + mobile we drop
+          to a single-column 1200px container (panel is hidden, the top-bar
+          Deposit button is the primary CTA). Threshold tuned so the
+          smallest desktops that still fit content+panel get the layout. */}
+      <div style={{ padding: pad, maxWidth: showFloatingPanel ? 1640 : 1200, margin: "0 auto" }}>
         {pauseReason && (
           <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8,
                         background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.3)",
@@ -1391,6 +1393,12 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <strong>Deposits paused.</strong> {pauseReason}
           </div>
         )}
+        <div style={{
+          display: showFloatingPanel ? "flex" : "block",
+          gap: showFloatingPanel ? 24 : 0,
+          alignItems: "flex-start",
+        }}>
+          <div style={{ flex: showFloatingPanel ? "1 1 0" : undefined, minWidth: 0 }}>
         {/* Header */}
         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
           <Card style={{ flex: "1 1 0", padding: isMobile ? 16 : 24 }}>
@@ -1891,6 +1899,16 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           <span style={{ fontSize: 14 }}>⚠️</span>
           <div style={{ fontSize: 11, color: "rgba(0,0,0,.5)", lineHeight: 1.5 }}><strong>Disclaimer:</strong> Yieldo Scores and all metrics are for <strong>data visualization only</strong> — not financial advice. Past performance ≠ future results.</div>
         </div>
+          </div>{/* /main column */}
+          {showFloatingPanel && (
+            <FloatingDepositPanel
+              vault={v}
+              score={v.yieldoScore}
+              depositDisabled={depositDisabled}
+              pauseReason={pauseReason}
+            />
+          )}
+        </div>{/* /flex wrapper */}
       </div>
 
       {/* Feedback Modal */}
