@@ -254,7 +254,7 @@ function saveDepositLocal(deposit) {
   } catch {}
 }
 
-function DepositModal({ vault, onClose }) {
+function DepositModal({ vault, onClose, inline = false }) {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { switchChain } = useSwitchChain();
@@ -895,14 +895,16 @@ function DepositModal({ vault, onClose }) {
     );
   }
 
-  return (
-    <Overlay onClose={onClose}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Deposit</div>
-          <div style={{ fontSize: 12, color: C.text3 }}>{vault.name} · {CHAINS[vaultChainId]}</div>
+  const body = (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: inline ? "0 0 14px" : "16px 20px", borderBottom: inline ? "none" : `1px solid ${C.border}` }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: inline ? 14 : 16, fontWeight: 700 }}>Deposit</div>
+          <div style={{ fontSize: 12, color: C.text3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{vault.name} · {CHAINS[vaultChainId]}</div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.text3, padding: 4 }}>✕</button>
+        {!inline && (
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.text3, padding: 4 }}>✕</button>
+        )}
       </div>
 
       <div style={{ padding: 20 }}>
@@ -1070,8 +1072,11 @@ function DepositModal({ vault, onClose }) {
           </StatusPane>
         )}
       </div>
-    </Overlay>
+    </>
   );
+
+  if (inline) return body;
+  return <Overlay onClose={onClose}>{body}</Overlay>;
 }
 
 /* =========== Sub-components =========== */
