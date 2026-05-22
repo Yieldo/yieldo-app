@@ -24,6 +24,55 @@ import { MongoClient } from "mongodb";
 
 const API_BASE = process.env.YIELDO_API_BASE || "https://api.yieldo.xyz";
 
+// Agency click-attribution webhook. When set, real-user clicks on
+// /vault/:id?src=x_reply&tweet_id=&template=&cohort= URLs are forwarded
+// fire-and-forget so the agency's analytics DB picks them up. Empty env
+// var = forwarding disabled (initial deploy state until Matt sends the
+// Cloudflare Tunnel URL).
+const AGENCY_CLICK_WEBHOOK_URL = process.env.AGENCY_CLICK_WEBHOOK_URL || "";
+const AGENCY_CLICK_TOKEN = process.env.AGENCY_CLICK_TOKEN || process.env.YIELDO_INTERNAL_TOKEN || "";
+
+// User-Agent patterns we never want to count as clicks — these are link
+// preview crawlers (Slack, Discord, Twitter card bot, etc.). The agency
+// asked us to filter on our side since we know our traffic shape better.
+const BOT_UA_REGEX = /(Twitterbot|Slackbot|Discordbot|facebookexternalhit|LinkedInBot|TelegramBot|Googlebot|bingbot|YandexBot|DuckDuckBot|Applebot|PinterestBot|WhatsApp|Embedly|Pingdom|UptimeRobot|curl\/|wget\/|HTTPie|python-requests|axios\/|Go-http-client|node-fetch|undici|vercel-og-render|yieldo-og-render)/i;
+
+function isBotUA(ua) {
+  if (!ua) return true; // empty UA → assume bot
+  return BOT_UA_REGEX.test(ua);
+}
+
+// Fire-and-forget agency POST. Never awaited (we don't block the SPA render
+// on this), never throws upward (we silently swallow so a flaky webhook can't
+// brick first-load on /vault/*).
+function forwardClickToAgency({ vaultSlug, tweetId, template, cohort, userAgent, referer }) {
+  if (!AGENCY_CLICK_WEBHOOK_URL) return;
+  const body = JSON.stringify({
+    vault_slug: vaultSlug,
+    tweet_id: tweetId || null,
+    template: template || null,
+    cohort: cohort || null,
+    user_agent: userAgent || null,
+    referer: referer || null,
+  });
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "yieldo-click-forward/1.0",
+  };
+  if (AGENCY_CLICK_TOKEN) headers["Authorization"] = `Bearer ${AGENCY_CLICK_TOKEN}`;
+  // 1.5s timeout — agency endpoint should be 202 in <100ms per spec.
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 1500);
+  fetch(AGENCY_CLICK_WEBHOOK_URL, {
+    method: "POST",
+    headers,
+    body,
+    signal: controller.signal,
+  })
+    .catch(() => { /* fire-and-forget, no retry */ })
+    .finally(() => clearTimeout(t));
+}
+
 let cachedClient = null;
 async function getDb() {
   if (cachedClient) return cachedClient.db("yieldo_v1");
@@ -62,6 +111,30 @@ export default async function handler(req, res) {
   try {
     const { vaultId } = req.query;
     if (!vaultId) return res.status(400).send("Missing vaultId");
+
+    // Agency click attribution — forward to the agency webhook iff:
+    //   1. The URL carries the agency's tracking params (any of src /
+    //      tweet_id / template / cohort present)
+    //   2. The request looks like a real user (not a link-preview bot)
+    //   3. The webhook URL is configured
+    // Fired before HTML rendering so a slow agency endpoint doesn't delay
+    // the SPA load — the call itself is fire-and-forget with a 1.5s
+    // timeout so an unreachable webhook can't tie up the function either.
+    const { src, tweet_id, template, cohort } = req.query;
+    const hasAttribution = !!(src || tweet_id || template || cohort);
+    if (hasAttribution) {
+      const ua = req.headers["user-agent"] || "";
+      if (!isBotUA(ua)) {
+        forwardClickToAgency({
+          vaultSlug: vaultId,
+          tweetId: Array.isArray(tweet_id) ? tweet_id[0] : tweet_id,
+          template: Array.isArray(template) ? template[0] : template,
+          cohort: Array.isArray(cohort) ? cohort[0] : cohort,
+          userAgent: ua,
+          referer: req.headers["referer"] || null,
+        });
+      }
+    }
 
     // Determine the canonical host. Prefer the request's host so this works
     // identically on preview deployments (e.g. yieldo-app-git-foo.vercel.app).
