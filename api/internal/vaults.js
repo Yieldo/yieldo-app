@@ -119,52 +119,60 @@ function buildTrustFlags(activeFlags) {
 }
 
 
-// score_changed_at: walk back the indexer's `score_snapshots` collection
-// for this vault, find the most recent timestamp at which the CURRENT
-// composite score first took its current value (i.e. the prior snapshot
-// had a different score). Bounded to 90d lookback so a never-changing
-// score doesn't scan all history.
-//
-// Returns ISO string or null when we can't determine (vault too new,
-// score is null, no historical snapshots, etc).
-async function computeScoreChangedAt(db, vaultId, currentScore) {
-  if (currentScore == null) return null;
-  const cutoff = new Date(Date.now() - 90 * 24 * 3600 * 1000);
+// score_changed_at: one aggregation query that returns a Map of
+// vault_id → ISO timestamp at which the current score first took its
+// present value. Bounded to 7d lookback because:
+//   1. Agency only uses this to surface "biggest movers in last 24h" —
+//      anything older than that isn't a mover anyway.
+//   2. 100 vaults × 168 hourly snapshots = ~17K docs in ONE round trip,
+//      vs. 100 separate cursors in the per-vault version that was hitting
+//      10s wall-clock.
+// Vaults whose score is unchanged across the full 7d window come back as
+// null — correct behaviour (they're not movers).
+async function buildScoreChangedMap(db) {
+  const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const result = new Map();
   try {
-    // Pull the recent score history descending. With hourly snapshots over
-    // 90 days that's ~2160 docs per vault — small. We stream rather than
-    // load all so we can bail on the first score-change boundary.
-    const cursor = db.collection("score_snapshots").find(
-      { vault_id: vaultId, ts: { $gte: cutoff } },
-      { projection: { ts: 1, yieldo_score: 1, _id: 0 }, sort: { ts: -1 } }
-    );
-    let lastSeenAtCurrent = null;
-    for await (const doc of cursor) {
-      const s = doc.yieldo_score;
-      if (s == null) continue;
-      const rounded = Math.round(Number(s));
-      if (rounded === Math.round(Number(currentScore))) {
-        lastSeenAtCurrent = doc.ts;
-        continue;
+    const histories = await db.collection("score_snapshots").aggregate([
+      { $match: { ts: { $gte: cutoff } } },
+      { $sort: { ts: -1 } },
+      {
+        $group: {
+          _id: "$vault_id",
+          scores: { $push: { ts: "$ts", score: "$yieldo_score" } },
+        },
+      },
+    ], { allowDiskUse: true }).toArray();
+
+    for (const h of histories) {
+      const scores = h.scores;
+      if (!Array.isArray(scores) || scores.length === 0) continue;
+      // scores[0] is the most recent (we sorted desc above).
+      const currentRaw = scores[0].score;
+      if (currentRaw == null) continue;
+      const current = Math.round(Number(currentRaw));
+      let lastSeenAtCurrent = scores[0].ts;
+      for (let i = 1; i < scores.length; i++) {
+        const s = scores[i].score;
+        if (s == null) continue;
+        const rounded = Math.round(Number(s));
+        if (rounded === current) {
+          lastSeenAtCurrent = scores[i].ts;
+          continue;
+        }
+        // First older snapshot with a DIFFERENT score = boundary. The
+        // current score took effect at lastSeenAtCurrent's ts.
+        result.set(h._id, new Date(lastSeenAtCurrent).toISOString());
+        break;
       }
-      // First snapshot back with a DIFFERENT score → boundary.
-      // The score changed AT lastSeenAtCurrent's ts (the most recent ts at
-      // which we'd already moved to the current value).
-      if (lastSeenAtCurrent) {
-        return new Date(lastSeenAtCurrent).toISOString();
-      }
-      return null;
+      // No break = score unchanged across entire window. Leave the
+      // vault out of the map; caller emits null.
     }
-    // We walked through entire window without finding a different score —
-    // the current score has held since at least the cutoff. Report the
-    // oldest ts we saw it at (the cutoff boundary effectively).
-    if (lastSeenAtCurrent) {
-      return new Date(lastSeenAtCurrent).toISOString();
-    }
-    return null;
   } catch (e) {
-    return null;
+    // On any failure, return empty map — endpoint still returns vault
+    // data, just with null score_changed_at for all entries.
   }
+  return result;
 }
 
 
@@ -198,15 +206,17 @@ export default async function handler(req, res) {
   try {
     const db = await getDb();
 
-    // Read the vaults collection + admin-state so we can drop entries that
-    // are Listed=off (the public app hides those, and the agency should
-    // never reply about them).
-    const [entries, adminStates] = await Promise.all([
+    // Three independent reads run in parallel: the vault list, admin
+    // state (so we drop Listed=off), and the score-change boundary map.
+    // Pre-computing the map in one aggregation is what brought the wall-
+    // clock from ~10s (100 per-vault cursors) down to <2s.
+    const [entries, adminStates, scoreChangedMap] = await Promise.all([
       db.collection("vaults").find({}).toArray(),
       db.collection("vault_admin_state")
         .find({}, { projection: { _id: 1, listed: 1 } })
         .toArray()
         .catch(() => []),
+      buildScoreChangedMap(db),
     ]);
 
     const listedOff = new Set(
@@ -215,9 +225,7 @@ export default async function handler(req, res) {
 
     const visible = entries.filter(e => !listedOff.has(e._id));
 
-    // Resolve score_changed_at per vault. Doing this in parallel because
-    // each lookup is independent and the response budget is generous.
-    const rows = await Promise.all(visible.map(async (e) => {
+    const rows = visible.map((e) => {
       const metrics = e.metrics || {};
       const yieldoScoreMetric = metrics.yieldo_score;
       const yieldoScore = yieldoScoreMetric && typeof yieldoScoreMetric === "object"
@@ -232,8 +240,6 @@ export default async function handler(req, res) {
       const asset = (e.asset || "").toLowerCase();
       const protocol = e.source || e.protocol || null;
 
-      const scoreChangedAt = await computeScoreChangedAt(db, e._id, score);
-
       return {
         // Slug matches our /vault/:id URL routing (chain_id:address form).
         // We also support /vaults/:slug (plural) via vercel.json redirect
@@ -245,9 +251,9 @@ export default async function handler(req, res) {
         score,
         trust_flags: buildTrustFlags(activeFlags),
         category: deriveCategory(asset, protocol),
-        score_changed_at: scoreChangedAt,
+        score_changed_at: scoreChangedMap.get(e._id) || null,
       };
-    }));
+    });
 
     // Stable ordering: highest score first, ties alphabetical.
     rows.sort((a, b) => {
