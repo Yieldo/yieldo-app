@@ -233,12 +233,12 @@ const METRIC_CATALOG = [
   { cat: "Risk", code: "timelock", label: "Access Control (Timelock)", weight: "5.9%", refresh: REFRESH.hour48, key: "timelock" },
   // — Trust (25%) —
   { cat: "Trust", code: "T01.30d", label: "Capital Retention (30d)", weight: "20%", refresh: REFRESH.hour12, key: "T01.30d" },
-  { cat: "Trust", code: "T09", label: "Avg Deposit Duration", weight: "15%", refresh: REFRESH.daily, key: "T09" },
-  { cat: "Trust", code: "T07", label: "Holders 90+ Days", weight: "10%", refresh: REFRESH.daily, key: "T07" },
-  { cat: "Trust", code: "T11", label: "HODL Ratio", weight: "15%", refresh: REFRESH.daily, key: "T11" },
+  { cat: "Trust", code: "T09", label: "Avg Deposit Duration", weight: "15%", refresh: REFRESH.hour12, key: "T09" },
+  { cat: "Trust", code: "T07", label: "Holders 90+ Days", weight: "10%", refresh: REFRESH.hour12, key: "T07" },
+  { cat: "Trust", code: "T11", label: "HODL Ratio", weight: "15%", refresh: REFRESH.hour12, key: "T11" },
   { cat: "Trust", code: "T10", label: "Net Depositors (30d)", weight: "5%", refresh: REFRESH.hour12, key: "T10" },
-  { cat: "Trust", code: "T10b", label: "Net Flow Direction (30d)", weight: "20%", refresh: REFRESH.realtime, key: "T10b" },
-  { cat: "Trust", code: "T06", label: "Quick Exit Rate", weight: "10%", refresh: REFRESH.daily, key: "T06" },
+  { cat: "Trust", code: "T10b", label: "Net Flow Direction (30d)", weight: "20%", refresh: REFRESH.hour12, key: "T10b" },
+  { cat: "Trust", code: "T06", label: "Quick Exit Rate", weight: "10%", refresh: REFRESH.hour12, key: "T06" },
   { cat: "Trust", code: "T03.30d", label: "User Retention (30d)", weight: "5%", refresh: REFRESH.hour12, key: "T03.30d" },
 ];
 
@@ -266,8 +266,8 @@ const FLAG_CATALOG = [
   { code: "F13", label: "Net Capital Outflow", sev: "warning", penalty: -5, trigger: "C05 net outflow flag set", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
   { code: "F16", label: "Sustained Negative APY (3d+)", sev: "critical", penalty: -20, trigger: "P02 negative APY sustained 3d+", refresh: REFRESH.realtime, src: "Performance fetcher" },
   { code: "F15", label: "Negative APY", sev: "warning", penalty: -5, trigger: "P02 negative APY (1d)", refresh: REFRESH.realtime, src: "Performance fetcher" },
-  { code: "F21", label: "Very Short Holding", sev: "critical", penalty: -10, trigger: "T05 avg holding = critical (very short)", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
-  { code: "F20", label: "Short Holding", sev: "warning", penalty: -3, trigger: "T05 avg holding = warning (short)", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
+  { code: "F21", label: "Very Short Holding", sev: "critical", penalty: -10, trigger: "T05 avg holding = critical (very short)", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
+  { code: "F20", label: "Short Holding", sev: "warning", penalty: -3, trigger: "T05 avg holding = warning (short)", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
   { code: "F32", label: "Severely Below Benchmark", sev: "critical", penalty: -15, trigger: "7d APY < 0.25x benchmark (or P03b)", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
   { code: "F31", label: "Below Benchmark APY", sev: "warning", penalty: -5, trigger: "7d APY 0.25-0.5x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
   { code: "F30", label: "Slightly Below Benchmark", sev: "info", penalty: 0, trigger: "7d APY 0.5-0.8x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
@@ -275,7 +275,7 @@ const FLAG_CATALOG = [
   { code: "F23", label: "New Vault", sev: "info", penalty: 0, trigger: "Vault age < 30 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
   { code: "F24", label: "Early Vault", sev: "info", penalty: 0, trigger: "Vault age 30-90 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
   { code: "F25", label: "Async Withdrawals", sev: "info", penalty: 0, trigger: "R06 withdrawal mode = Async", refresh: REFRESH.hour48, src: "Risk fetcher (ERC-7540 check)" },
-  { code: "QE", label: "High Quick Exit Rate", sev: "warning", penalty: 0, trigger: "Quick exit rate > 25%", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
+  { code: "QE", label: "High Quick Exit Rate", sev: "warning", penalty: 0, trigger: "Quick exit rate > 25%", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
 ];
 
 const SEV_STYLE = {
