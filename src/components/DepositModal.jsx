@@ -307,6 +307,26 @@ function DepositModal({ vault, onClose, inline = false }) {
   const [lifiStatus, setLifiStatus] = useState(null);
   const referralTimer = useRef(null);
   const statusPollRef = useRef(null);
+
+  // Done/Close handler: in modal mode this just closes the popup; in inline
+  // mode (no popup to close) we reset the form back to "input" so the user
+  // can immediately make another deposit instead of staring at a frozen
+  // success screen.
+  const handleDoneClose = useCallback(() => {
+    if (!inline && typeof onClose === "function") {
+      onClose();
+      return;
+    }
+    setStep("input");
+    setAmount("");
+    setErrorMsg("");
+    setQuote(null);
+    setBuildData(null);
+    setApprovalTxHash(null);
+    setTxHash(null);
+    setLifiStatus(null);
+    setSelectedRoute(null);
+  }, [inline, onClose]);
   // Pre-bridge balance of the destination token for this user, captured when
   // tracking begins. Used at step-2 to compute the ACTUAL delivered amount and
   // re-quote the intent against real delivery (not the pre-bridged prediction).
@@ -1030,7 +1050,7 @@ function DepositModal({ vault, onClose, inline = false }) {
                 </a>
               </div>
             )}
-            <div style={{ marginTop: 20 }}><ActionBtn onClick={onClose}>Done</ActionBtn></div>
+            <div style={{ marginTop: 20 }}><ActionBtn onClick={handleDoneClose}>{inline ? "Deposit again" : "Done"}</ActionBtn></div>
           </StatusPane>
         )}
 
@@ -1058,7 +1078,7 @@ function DepositModal({ vault, onClose, inline = false }) {
             <div style={{ marginTop: 16, fontSize: 11, color: C.text3, textAlign: "left" }}>
               You can deposit directly from {CHAINS[vaultChainId]} by selecting it as source chain and using the same token.
             </div>
-            <div style={{ marginTop: 12 }}><ActionBtn onClick={onClose}>Close</ActionBtn></div>
+            <div style={{ marginTop: 12 }}><ActionBtn onClick={handleDoneClose}>{inline ? "Start over" : "Close"}</ActionBtn></div>
           </StatusPane>
         )}
 
