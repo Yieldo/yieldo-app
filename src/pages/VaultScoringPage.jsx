@@ -184,6 +184,212 @@ const FORMULAS = {
   "T03.30d": { formula: "active_users / total_unique_users × 100\nActive = balance > $100\n\n>80%→100, 60-80%→70\n40-60%→40, <40%→15", source: "Morpho API positions / on-chain events" },
 };
 
+// ============================================================================
+// CATALOG DATA — source of truth for the Metrics + Flags reference tabs.
+//
+// `refresh` reflects how often the underlying data actually updates in prod
+// (indexer-v1). The main cycle runs every 5 min; some fetchers are gated by
+// FETCHER_GUARD_HOURS so their data only re-pulls on a slower cadence even
+// though scores recompute every cycle:
+//   trust=12h, risk=48h, third_party=6h, p03=1h; holder details daily via
+//   scripts/refresh_holders.py; score_snapshots written hourly.
+// Keep this in sync when indexer cadence or scoring rules change.
+// ============================================================================
+
+const REFRESH = {
+  realtime: "5 min",       // recomputed every indexer cycle
+  hour1: "1 hour",         // P03 benchmark-ratio guard
+  hour6: "6 hours",        // third_party (price/depeg) guard
+  hour12: "12 hours",      // trust fetcher guard (depositors, concentration)
+  hour48: "48 hours",      // risk fetcher guard (governance/incidents)
+  daily: "Daily",          // holder-detail cron (refresh_holders.py)
+  hourly: "Hourly",        // score_snapshots write cadence
+};
+
+// Ordered metric catalog. `calc`/`source` reuse the FORMULAS map where a
+// matching key exists; `refresh` is added here per the prod cadence above.
+const METRIC_CATALOG = [
+  // — Capital (20%) —
+  { cat: "Capital", code: "C01", label: "Total Value Locked", weight: "18.75%", refresh: REFRESH.realtime, key: "C01" },
+  { cat: "Capital", code: "C02.30d", label: "TVL Velocity (30d)", weight: "18.75%", refresh: REFRESH.realtime, key: "C02.30d" },
+  { cat: "Capital", code: "C07", label: "Unique Depositors", weight: "18.75%", refresh: REFRESH.hour12, key: "C07" },
+  { cat: "Capital", code: "R07", label: "Pending Withdrawals", weight: "18.75%", refresh: REFRESH.realtime, key: "R07" },
+  { cat: "Capital", code: "C04.7d", label: "Net Flows (7d)", weight: "18.75%", refresh: REFRESH.realtime, key: "C04.7d" },
+  { cat: "Capital", code: "R06", label: "Deposit Latency", weight: "6.25%", refresh: REFRESH.hour48, key: "R06" },
+  // — Performance (20%) —
+  { cat: "Performance", code: "P05", label: "Sharpe (vs benchmark)", weight: "15%", refresh: REFRESH.realtime, key: "P05" },
+  { cat: "Performance", code: "P08", label: "Max Drawdown", weight: "25%", refresh: REFRESH.realtime, key: "P08" },
+  { cat: "Performance", code: "P09", label: "Drawdown Duration", weight: "5%", refresh: REFRESH.realtime, key: "P09" },
+  { cat: "Performance", code: "P10", label: "Yield Composition", weight: "10%", refresh: REFRESH.realtime, key: "P10" },
+  { cat: "Performance", code: "P03.7d", label: "APY vs Benchmark (7d)", weight: "25%", refresh: REFRESH.hour1, key: "P03.7d" },
+  { cat: "Performance", code: "P06", label: "Win Rate", weight: "10%", refresh: REFRESH.realtime, key: "P06" },
+  { cat: "Performance", code: "P07", label: "Worst Week", weight: "5%", refresh: REFRESH.realtime, key: "P07" },
+  { cat: "Performance", code: "P13", label: "Alpha Consistency", weight: "5%", refresh: REFRESH.realtime, key: "P13" },
+  // — Risk (35%) —
+  { cat: "Risk", code: "R10", label: "Severe Incidents (90d)", weight: "35.3%", refresh: REFRESH.hour48, key: "R10" },
+  { cat: "Risk", code: "R01", label: "Asset Depeg Risk", weight: "29.4%", refresh: REFRESH.hour6, key: "R01" },
+  { cat: "Risk", code: "R09_top5", label: "Depositor Concentration (Top-5)", weight: "17.6%", refresh: REFRESH.hour12, key: "R09_top5" },
+  { cat: "Risk", code: "R06.wd", label: "Withdrawal Latency", weight: "11.8%", refresh: REFRESH.hour48, key: "R06.wd" },
+  { cat: "Risk", code: "timelock", label: "Access Control (Timelock)", weight: "5.9%", refresh: REFRESH.hour48, key: "timelock" },
+  // — Trust (25%) —
+  { cat: "Trust", code: "T01.30d", label: "Capital Retention (30d)", weight: "20%", refresh: REFRESH.hour12, key: "T01.30d" },
+  { cat: "Trust", code: "T09", label: "Avg Deposit Duration", weight: "15%", refresh: REFRESH.daily, key: "T09" },
+  { cat: "Trust", code: "T07", label: "Holders 90+ Days", weight: "10%", refresh: REFRESH.daily, key: "T07" },
+  { cat: "Trust", code: "T11", label: "HODL Ratio", weight: "15%", refresh: REFRESH.daily, key: "T11" },
+  { cat: "Trust", code: "T10", label: "Net Depositors (30d)", weight: "5%", refresh: REFRESH.hour12, key: "T10" },
+  { cat: "Trust", code: "T10b", label: "Net Flow Direction (30d)", weight: "20%", refresh: REFRESH.realtime, key: "T10b" },
+  { cat: "Trust", code: "T06", label: "Quick Exit Rate", weight: "10%", refresh: REFRESH.daily, key: "T06" },
+  { cat: "Trust", code: "T03.30d", label: "User Retention (30d)", weight: "5%", refresh: REFRESH.hour12, key: "T03.30d" },
+];
+
+// Penalty flags (deriveFlags in lib/scoring.js). Re-evaluated every indexer
+// cycle (~5 min); the underlying input metric's own cadence still gates how
+// fresh the trigger data is (noted per flag). Penalty subtracts from the
+// final composite after the confidence multiplier.
+const FLAG_CATALOG = [
+  { code: "F01", label: "Vault Paused", sev: "critical", penalty: -30, trigger: "R04 = vault paused on-chain", refresh: REFRESH.hour48, src: "Risk fetcher (on-chain + Morpho events)" },
+  { code: "F02", label: "Emergency Event", sev: "critical", penalty: -50, trigger: "R05 = emergency withdraw / exploit event", refresh: REFRESH.hour48, src: "Risk fetcher (on-chain log scan)" },
+  { code: "F03", label: "Severe Depeg", sev: "critical", penalty: -25, trigger: "Asset price deviation > 4% from peg", refresh: REFRESH.hour6, src: "third_party (CoinGecko)" },
+  { code: "F10", label: "Minor Depeg", sev: "warning", penalty: -10, trigger: "Asset price deviation 2-4% from peg", refresh: REFRESH.hour6, src: "third_party (CoinGecko)" },
+  { code: "F04", label: "TVL Crash (1d)", sev: "critical", penalty: -20, trigger: "TVL change 1d < -20%", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
+  { code: "F11", label: "TVL Drop (1d)", sev: "warning", penalty: -8, trigger: "TVL change 1d between -10% and -20%", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
+  { code: "F05", label: "TVL Crash (7d)", sev: "critical", penalty: -20, trigger: "TVL change 7d < -40%", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
+  { code: "F12", label: "TVL Drop (7d)", sev: "warning", penalty: -8, trigger: "TVL change 7d between -20% and -40%", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
+  { code: "F06", label: "Very Few Depositors (<10)", sev: "critical", penalty: -15, trigger: "Unique depositors < 10", refresh: REFRESH.hour12, src: "Trust fetcher (holders)" },
+  { code: "F14", label: "Low Depositors (<50)", sev: "warning", penalty: -5, trigger: "Unique depositors 10-49", refresh: REFRESH.hour12, src: "Trust fetcher (holders)" },
+  { code: "F07", label: "High Incentive Dependence", sev: "warning", penalty: -10, trigger: "P11 incentive share = critical", refresh: REFRESH.realtime, src: "yield_composition (rewards / netApy)" },
+  { code: "F17", label: "Moderate Incentive", sev: "info", penalty: -5, trigger: "P11 incentive share = warning", refresh: REFRESH.realtime, src: "yield_composition" },
+  { code: "F08", label: "Withdrawal Queue Crisis", sev: "critical", penalty: -20, trigger: "R08 pending withdrawals = critical", refresh: REFRESH.realtime, src: "Capital/Risk (async vaults)" },
+  { code: "F18", label: "Elevated Pending Withdrawals", sev: "warning", penalty: -8, trigger: "R08 pending withdrawals = warning", refresh: REFRESH.realtime, src: "Capital/Risk (async vaults)" },
+  { code: "F09", label: "Retention Declining (severe)", sev: "critical", penalty: -15, trigger: "T02 capital-retention trend = critical", refresh: REFRESH.hour12, src: "Trust fetcher" },
+  { code: "F19", label: "Retention Declining", sev: "warning", penalty: -5, trigger: "T02 capital-retention trend = warning", refresh: REFRESH.hour12, src: "Trust fetcher" },
+  { code: "F13", label: "Net Capital Outflow", sev: "warning", penalty: -5, trigger: "C05 net outflow flag set", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
+  { code: "F16", label: "Sustained Negative APY (3d+)", sev: "critical", penalty: -20, trigger: "P02 negative APY sustained 3d+", refresh: REFRESH.realtime, src: "Performance fetcher" },
+  { code: "F15", label: "Negative APY", sev: "warning", penalty: -5, trigger: "P02 negative APY (1d)", refresh: REFRESH.realtime, src: "Performance fetcher" },
+  { code: "F21", label: "Very Short Holding", sev: "critical", penalty: -10, trigger: "T05 avg holding = critical (very short)", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
+  { code: "F20", label: "Short Holding", sev: "warning", penalty: -3, trigger: "T05 avg holding = warning (short)", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
+  { code: "F32", label: "Severely Below Benchmark", sev: "critical", penalty: -15, trigger: "7d APY < 0.25x benchmark (or P03b)", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
+  { code: "F31", label: "Below Benchmark APY", sev: "warning", penalty: -5, trigger: "7d APY 0.25-0.5x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
+  { code: "F30", label: "Slightly Below Benchmark", sev: "info", penalty: 0, trigger: "7d APY 0.5-0.8x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
+  { code: "F22", label: "Incentivized Yield", sev: "info", penalty: 0, trigger: "P12 = Incentivized Yield", refresh: REFRESH.realtime, src: "yield_composition" },
+  { code: "F23", label: "New Vault", sev: "info", penalty: 0, trigger: "Vault age < 30 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
+  { code: "F24", label: "Early Vault", sev: "info", penalty: 0, trigger: "Vault age 30-90 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
+  { code: "F25", label: "Async Withdrawals", sev: "info", penalty: 0, trigger: "R06 withdrawal mode = Async", refresh: REFRESH.hour48, src: "Risk fetcher (ERC-7540 check)" },
+  { code: "QE", label: "High Quick Exit Rate", sev: "warning", penalty: 0, trigger: "Quick exit rate > 25%", refresh: REFRESH.daily, src: "Trust fetcher (holder events)" },
+];
+
+const SEV_STYLE = {
+  critical: { color: "#d93636", bg: "#FFF0F0", icon: "🔴", label: "Critical" },
+  warning: { color: "#d97706", bg: "#FFFBEB", icon: "🟡", label: "Warning" },
+  info: { color: "#1565C0", bg: "#E3F2FD", icon: "🔵", label: "Info" },
+};
+
+function RefreshBadge({ value }) {
+  const fast = value === REFRESH.realtime;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5,
+      background: fast ? "rgba(26,157,63,.08)" : C.surfaceAlt,
+      color: fast ? C.green : C.text2, whiteSpace: "nowrap",
+    }}>{value}</span>
+  );
+}
+
+// Metrics reference tab — calculation, refresh rate, source per scored metric.
+function MetricsCatalogTab() {
+  const cats = ["Capital", "Performance", "Risk", "Trust"];
+  const catColor = { Capital: "#6366f1", Performance: C.teal, Risk: "#ef4444", Trust: C.gold };
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: 14, lineHeight: 1.5 }}>
+        Every scored metric: how it's calculated, how often the underlying data refreshes in production, and where it comes from.
+        Scores recompute every <strong>5 min</strong> (indexer cycle); some inputs are gated by slower guard windows shown in the Refresh column.
+      </div>
+      {cats.map(cat => {
+        const rows = METRIC_CATALOG.filter(m => m.cat === cat);
+        return (
+          <div key={cat} style={{ marginBottom: 18, background: C.white, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: catColor[cat] + "10", borderBottom: `2px solid ${catColor[cat]}40` }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: catColor[cat] }} />
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{cat}</span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: C.surfaceAlt }}>
+                  <th style={th}>Code</th>
+                  <th style={th}>Metric</th>
+                  <th style={{ ...th, textAlign: "right" }}>Weight</th>
+                  <th style={th}>Calculation</th>
+                  <th style={th}>Refresh</th>
+                  <th style={th}>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((m, i) => {
+                  const info = FORMULAS[m.key] || {};
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, verticalAlign: "top" }}>
+                      <td style={td}><code style={{ fontSize: 11, background: C.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>{m.code}</code></td>
+                      <td style={{ ...td, fontWeight: 600, whiteSpace: "nowrap" }}>{m.label}</td>
+                      <td style={{ ...td, textAlign: "right", color: C.text3 }}>{m.weight}</td>
+                      <td style={td}><pre style={{ margin: 0, fontSize: 10.5, color: C.text2, lineHeight: 1.45, fontFamily: "'JetBrains Mono','Fira Code',monospace", whiteSpace: "pre-wrap" }}>{info.formula || "—"}</pre></td>
+                      <td style={td}><RefreshBadge value={m.refresh} /></td>
+                      <td style={{ ...td, fontSize: 11, color: C.text3 }}>{info.source || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Flags reference tab — trigger, severity, penalty, refresh, source per flag.
+function FlagsCatalogTab() {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: 14, lineHeight: 1.5 }}>
+        Penalty flags subtract from the final score (after the confidence multiplier). Re-evaluated every indexer cycle (~5 min);
+        the Refresh column shows how fresh each flag's <em>trigger data</em> is, since some inputs are gated by slower fetcher windows.
+      </div>
+      <div style={{ background: C.white, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: C.surfaceAlt }}>
+              <th style={th}>Code</th>
+              <th style={th}>Flag</th>
+              <th style={th}>Severity</th>
+              <th style={{ ...th, textAlign: "right" }}>Penalty</th>
+              <th style={th}>Trigger</th>
+              <th style={th}>Refresh</th>
+              <th style={th}>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {FLAG_CATALOG.map((f, i) => {
+              const s = SEV_STYLE[f.sev];
+              return (
+                <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, verticalAlign: "top" }}>
+                  <td style={td}><code style={{ fontSize: 11, background: C.surfaceAlt, padding: "1px 4px", borderRadius: 3 }}>{f.code}</code></td>
+                  <td style={{ ...td, fontWeight: 600, whiteSpace: "nowrap" }}>{f.label}</td>
+                  <td style={td}><span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap" }}>{s.icon} {s.label}</span></td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700, color: f.penalty < 0 ? C.red : C.text3 }}>{f.penalty === 0 ? "0" : f.penalty}</td>
+                  <td style={{ ...td, fontSize: 11.5, color: C.text2 }}>{f.trigger}</td>
+                  <td style={td}><RefreshBadge value={f.refresh} /></td>
+                  <td style={{ ...td, fontSize: 11, color: C.text3 }}>{f.src}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function MetricRow({ r, isExpanded, onToggle }) {
   const info = FORMULAS[r.metric] || {};
   return (
@@ -371,6 +577,7 @@ export default function VaultScoringPage() {
   const [sortBy, setSortBy] = useState("yieldoScore");
   const [sortDir, setSortDir] = useState("desc");
   const [expanded, setExpanded] = useState(null);
+  const [tab, setTab] = useState("debugger"); // debugger | metrics | flags
 
   const sorted = useMemo(() => {
     let list = vaults;
@@ -403,14 +610,44 @@ export default function VaultScoringPage() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Inter',sans-serif", color: C.text }}>
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 14px" }} className="scoring-page-pad"><style>{`@media (min-width: 768px) { .scoring-page-pad { padding: 24px 20px !important; } }`}</style>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>Vault Scoring Debugger</div>
-            <div style={{ fontSize: 13, color: C.text3 }}>Internal tool — click any vault to see full score breakdown</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>Vault Scoring</div>
+            <div style={{ fontSize: 13, color: C.text3 }}>
+              {tab === "debugger" && "Internal tool — click any vault to see full score breakdown"}
+              {tab === "metrics" && "Metrics catalog — calculation, refresh rate, and source for every scored metric"}
+              {tab === "flags" && "Flags catalog — trigger, severity, penalty, refresh rate, and source for every flag"}
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: C.text3 }}>{sorted.length} vaults</div>
+          {tab === "debugger" && <div style={{ fontSize: 12, color: C.text3 }}>{sorted.length} vaults</div>}
         </div>
 
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: `1px solid ${C.border2}` }}>
+          {[
+            { id: "debugger", label: "Scoring Debugger" },
+            { id: "metrics", label: "Metrics" },
+            { id: "flags", label: "Flags" },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
+                fontFamily: "'Inter',sans-serif", fontSize: 13,
+                fontWeight: tab === t.id ? 700 : 500,
+                color: tab === t.id ? C.purple : C.text3,
+                borderBottom: tab === t.id ? `2px solid ${C.purple}` : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >{t.label}</button>
+          ))}
+        </div>
+
+        {tab === "metrics" && <MetricsCatalogTab />}
+        {tab === "flags" && <FlagsCatalogTab />}
+
+        {tab === "debugger" && <>
         <div style={{ marginBottom: 16 }}>
           <input
             type="text"
@@ -477,6 +714,7 @@ export default function VaultScoringPage() {
             </tbody>
           </table>
         </div>
+        </>}
       </div>
     </div>
   );
