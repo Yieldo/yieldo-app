@@ -385,8 +385,8 @@ export function deriveFlags(v) {
   const depCount = v.C07 || 0;
   if (depCount < 10) flags.push({ id: "F06", severity: "critical", label: "Very Few Depositors (<10)", penalty: -15 });
   else if (depCount < 50) flags.push({ id: "F14", severity: "warning", label: "Low Depositors (<50)", penalty: -5 });
-  if (v.P11 === true || v.P11 === "critical") flags.push({ id: "F07", severity: "warning", label: "High Incentive Dep.", penalty: -10 });
-  else if (v.P11 === "warning") flags.push({ id: "F17", severity: "info", label: "Moderate Incentive", penalty: -5 });
+  if (v.P11 === true || v.P11 === "critical") flags.push({ id: "F07", severity: "critical", label: "Extreme Incentive Dependency", penalty: -10 });
+  else if (v.P11 === "warning") flags.push({ id: "F17", severity: "warning", label: "High Incentive Ratio", penalty: -5 });
   if (v.R08 === true || v.R08 === "critical") flags.push({ id: "F08", severity: "critical", label: "Withdrawal Queue Crisis", penalty: -20 });
   else if (v.R08 === "warning") flags.push({ id: "F18", severity: "warning", label: "Elevated Pending Withdrawals", penalty: -8 });
   if (v.T02 === "critical") flags.push({ id: "F09", severity: "critical", label: "Retention Declining", penalty: -15 });
@@ -405,13 +405,22 @@ export function deriveFlags(v) {
   } else {
     if (v.P03b) flags.push({ id: "F32", severity: "critical", label: "Severely Below Benchmark", penalty: -15 });
   }
+  // F34 — 1d APY 50-90% of benchmark (WARNING, no score penalty). Per sheet
+  // Flags Spec; complements the 7d F30/F31/F32 ladder with a 1d early signal.
+  const bench1d = typeof p03 === "object" && typeof p03["1d"] === "number" ? p03["1d"] : null;
+  if (bench1d !== null && bench1d >= 0.5 && bench1d < 0.9) {
+    flags.push({ id: "F34", severity: "warning", label: "APY Below Benchmark (1d)", penalty: 0 });
+  }
   if (v.P12 === "Incentivized Yield") flags.push({ id: "F22", severity: "info", label: "Incentivized Yield", penalty: 0 });
   const age = v.D01 || 0;
   if (age < 30) flags.push({ id: "F23", severity: "info", label: "New Vault", penalty: 0 });
   else if (age < 90) flags.push({ id: "F24", severity: "info", label: "Early Vault", penalty: 0 });
   if (v.R06 === "Async") flags.push({ id: "F25", severity: "info", label: "Async Withdrawals", penalty: 0 });
+  // F33 — quick-exit rate 15-20% (INFO, no score penalty). Per sheet Flags
+  // Spec (metric T06b early-warning band). Above 20% the Trust sub-score's
+  // T06 metric handles the penalty directly, so there's no separate flag.
   const quickExit = typeof v.T06 === "number" ? v.T06 : 0;
-  if (quickExit > 25) flags.push({ id: "QE", severity: "warning", label: "High Quick Exit Rate", penalty: 0 });
+  if (quickExit >= 15 && quickExit < 20) flags.push({ id: "F33", severity: "info", label: "Elevated Quick Exit Rate", penalty: 0 });
   return flags;
 }
 

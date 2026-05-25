@@ -257,8 +257,8 @@ const FLAG_CATALOG = [
   { code: "F12", label: "TVL Drop (7d)", sev: "warning", penalty: -8, trigger: "TVL change 7d between -20% and -40%", refresh: REFRESH.realtime, src: "Capital fetcher / snapshot diff" },
   { code: "F06", label: "Very Few Depositors (<10)", sev: "critical", penalty: -15, trigger: "Unique depositors < 10", refresh: REFRESH.hour12, src: "Trust fetcher (holders)" },
   { code: "F14", label: "Low Depositors (<50)", sev: "warning", penalty: -5, trigger: "Unique depositors 10-49", refresh: REFRESH.hour12, src: "Trust fetcher (holders)" },
-  { code: "F07", label: "High Incentive Dependence", sev: "warning", penalty: -10, trigger: "P11 incentive share = critical", refresh: REFRESH.realtime, src: "yield_composition (rewards / netApy)" },
-  { code: "F17", label: "Moderate Incentive", sev: "info", penalty: -5, trigger: "P11 incentive share = warning", refresh: REFRESH.realtime, src: "yield_composition" },
+  { code: "F07", label: "Extreme Incentive Dependency", sev: "critical", penalty: -10, trigger: "incentive_ratio ≥ 50%", refresh: REFRESH.realtime, src: "yield_composition (rewards / netApy)" },
+  { code: "F17", label: "High Incentive Ratio", sev: "warning", penalty: -5, trigger: "incentive_ratio 25-50%", refresh: REFRESH.realtime, src: "yield_composition" },
   { code: "F08", label: "Withdrawal Queue Crisis", sev: "critical", penalty: -20, trigger: "R08 pending withdrawals = critical", refresh: REFRESH.realtime, src: "Capital/Risk (async vaults)" },
   { code: "F18", label: "Elevated Pending Withdrawals", sev: "warning", penalty: -8, trigger: "R08 pending withdrawals = warning", refresh: REFRESH.realtime, src: "Capital/Risk (async vaults)" },
   { code: "F09", label: "Retention Declining (severe)", sev: "critical", penalty: -15, trigger: "T02 capital-retention trend = critical", refresh: REFRESH.hour12, src: "Trust fetcher" },
@@ -270,12 +270,13 @@ const FLAG_CATALOG = [
   { code: "F20", label: "Short Holding", sev: "warning", penalty: -3, trigger: "T05 avg holding = warning (short)", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
   { code: "F32", label: "Severely Below Benchmark", sev: "critical", penalty: -15, trigger: "7d APY < 0.25x benchmark (or P03b)", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
   { code: "F31", label: "Below Benchmark APY", sev: "warning", penalty: -5, trigger: "7d APY 0.25-0.5x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
-  { code: "F30", label: "Slightly Below Benchmark", sev: "info", penalty: 0, trigger: "7d APY 0.5-0.8x benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
+  { code: "F30", label: "Slightly Below Benchmark (7d)", sev: "info", penalty: 0, trigger: "7d APY 50-80% of benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio" },
+  { code: "F34", label: "APY Below Benchmark (1d)", sev: "warning", penalty: 0, trigger: "1d APY 50-90% of benchmark", refresh: REFRESH.hour1, src: "P03 benchmark ratio (1d)" },
   { code: "F22", label: "Incentivized Yield", sev: "info", penalty: 0, trigger: "P12 = Incentivized Yield", refresh: REFRESH.realtime, src: "yield_composition" },
   { code: "F23", label: "New Vault", sev: "info", penalty: 0, trigger: "Vault age < 30 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
   { code: "F24", label: "Early Vault", sev: "info", penalty: 0, trigger: "Vault age 30-90 days", refresh: REFRESH.realtime, src: "Confidence fetcher (D01)" },
   { code: "F25", label: "Async Withdrawals", sev: "info", penalty: 0, trigger: "R06 withdrawal mode = Async", refresh: REFRESH.hour48, src: "Risk fetcher (ERC-7540 check)" },
-  { code: "QE", label: "High Quick Exit Rate", sev: "warning", penalty: 0, trigger: "Quick exit rate > 25%", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
+  { code: "F33", label: "Elevated Quick Exit Rate", sev: "info", penalty: 0, trigger: "Quick exit rate 15-20%", refresh: REFRESH.hour12, src: "Trust fetcher (holder events)" },
 ];
 
 const SEV_STYLE = {
