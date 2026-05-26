@@ -387,6 +387,10 @@ function _mapVault(raw) {
     assetPrice: raw.R01 || null,
     vol24h: raw.vol_24h || null,
     fee: raw.fee != null ? (raw.fee > 1 ? raw.fee : raw.fee * 100) : null,
+    // Management fee — only the Morpho V2 fetcher reports this (management_fee,
+    // already stored as a percent). Most vaults (classic MetaMorpho etc.) have
+    // no separate mgmt fee, so this is null → UI shows 0%.
+    managementFee: raw.management_fee != null ? raw.management_fee : null,
     timelock: raw.timelock || 0,
     maturity: raw.D02 || "Unknown",
     P03b: raw.P03b,

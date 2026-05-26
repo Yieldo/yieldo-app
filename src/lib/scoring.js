@@ -7,10 +7,20 @@
 
 export function getAssetType(asset) {
   const a = (asset || "").toLowerCase();
-  if (["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "eurcv", "usds", "usda"].includes(a)) return "stablecoin";
+  if (["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "eurcv", "eure", "usds", "usda"].includes(a)) return "stablecoin";
   if (["weth", "wsteth", "re7lrt"].includes(a)) return "eth";
   if (["wbtc", "cbbtc", "lbtc", "ubtc"].includes(a)) return "btc";
   return "other";
+}
+
+// EUR-pegged stablecoins. Their USD price tracks the EUR/USD FX rate
+// (~1.05-1.20), so the standard "deviates from $1" depeg check fires falsely
+// every cycle. The indexer (third_party.py) compares these to the live
+// EUR/USD rate and sets R02_depeg correctly — so the frontend must DEFER to
+// R02_depeg for these instead of recomputing from R01 vs $1.
+const EUR_PEGGED_ASSETS = new Set(["eurc", "eurcv", "eure"]);
+export function isEurPegged(asset) {
+  return EUR_PEGGED_ASSETS.has((asset || "").toLowerCase());
 }
 
 // ---------- Capital ----------
@@ -141,8 +151,11 @@ export function scoreIncidents(count) {
   if (count === 2) return 10;
   return 0;
 }
-export function scoreDepegRisk(assetPrice, assetType) {
+export function scoreDepegRisk(assetPrice, assetType, asset, r02depeg) {
   if (assetType !== "stablecoin") return 80;
+  // EUR-pegged stables: the $1 ladder is meaningless (their USD price ≈ EUR/USD
+  // ≈ 1.05-1.20). Use the indexer's EUR-aware R02_depeg flag instead.
+  if (isEurPegged(asset)) return r02depeg ? 0 : 100;
   if (assetPrice == null) return 50;
   const price = assetPrice;
   if (price > 0.995) return 100;
@@ -320,7 +333,7 @@ export function calcRiskScore(raw) {
   const top5 = top5raw > 1 ? top5raw / 100 : top5raw;
   return (
     scoreIncidents(incidents) * 0.353 +
-    scoreDepegRisk(raw.R01, assetType) * 0.294 +
+    scoreDepegRisk(raw.R01, assetType, raw.asset, raw.R02_depeg) * 0.294 +
     scoreConcentration(top5, raw.C07 || 0) * 0.176 +
     scoreWithdrawalLatency(raw.R06 || "Instant") * 0.118 +
     scoreTimelock(raw.timelock || 0) * 0.059
@@ -365,11 +378,14 @@ export function deriveFlags(v) {
   const assetType = getAssetType((v.asset || "").toLowerCase());
   if (v.R04) flags.push({ id: "F01", severity: "critical", label: "Vault Paused", penalty: -30 });
   if (v.R05) flags.push({ id: "F02", severity: "critical", label: "Emergency Event", penalty: -50 });
-  if (assetType === "stablecoin" && typeof v.R01 === "number") {
+  if (assetType === "stablecoin" && !isEurPegged(v.asset) && typeof v.R01 === "number") {
+    // USD-pegged stables: deviation from $1.00.
     const deviation = Math.abs(1 - v.R01) * 100;
     if (deviation > 4) flags.push({ id: "F03", severity: "critical", label: "Severe Depeg", penalty: -25 });
     else if (deviation > 2) flags.push({ id: "F10", severity: "warning", label: "Minor Depeg", penalty: -10 });
   } else if (v.R02_depeg) {
+    // EUR-pegged stables + non-stables: defer to the indexer's depeg flag
+    // (EUR-aware — compares to the live EUR/USD rate, not $1).
     flags.push({ id: "F03", severity: "critical", label: "Severe Depeg", penalty: -25 });
   }
   const c02 = v.C02 || {};

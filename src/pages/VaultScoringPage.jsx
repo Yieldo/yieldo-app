@@ -123,7 +123,7 @@ function calcBreakdown(raw) {
 
   const risk = [
     { metric: "R10", label: "Incidents (90d)", rawVal: incidents, rawFmt: String(incidents), score: scoreIncidents(incidents), weight: 0.353 },
-    { metric: "R01", label: "Depeg Risk", rawVal: raw.R01, rawFmt: raw.R01 !== null && raw.R01 !== undefined ? `$${fv(raw.R01, 4)}` : "N/A", score: scoreDepegRisk(raw.R01, assetType), weight: 0.294 },
+    { metric: "R01", label: "Depeg Risk", rawVal: raw.R01, rawFmt: raw.R01 !== null && raw.R01 !== undefined ? `$${fv(raw.R01, 4)}` : "N/A", score: scoreDepegRisk(raw.R01, assetType, raw.asset, raw.R02_depeg), weight: 0.294 },
     { metric: "R09_top5", label: "Concentration (Top5)", rawVal: top5, rawFmt: `${(top5 * 100).toFixed(1)}%`, score: scoreConcentration(top5, raw.C07 || 0), weight: 0.176 },
     { metric: "R06", label: "Withdrawal Latency", rawVal: raw.R06 || "Instant", rawFmt: raw.R06 || "Instant", score: scoreWithdrawalLatency(raw.R06 || "Instant"), weight: 0.118 },
     { metric: "timelock", label: "Timelock", rawVal: raw.timelock || 0, rawFmt: raw.timelock ? `${((raw.timelock || 0) / 3600).toFixed(1)}h` : "None", score: scoreTimelock(raw.timelock || 0), weight: 0.059 },

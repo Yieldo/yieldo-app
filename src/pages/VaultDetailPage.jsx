@@ -171,6 +171,12 @@ const KNOWN_NAMES = {
   "0x0000000000000000000000000000000000000000": "Zero Address",
 };
 
+// Vaults that require a curator whitelist before deposits are accepted.
+// Keyed by vault_id (chain:address, lowercased). Surfaced as a header note.
+const WHITELIST_REQUIRED_VAULTS = new Set([
+  "1:0x238a700ed6165261cf8b2e544ba797bc11e466ba", // Midas Fasanara ONE
+]);
+
 const Btn = ({ children, primary, small, ghost, active, onClick, disabled, title, style: sx = {} }) => {
   const b = { fontFamily: "'Inter',sans-serif", fontSize: small ? 13 : 14, fontWeight: 500, border: "none", borderRadius: 6, cursor: disabled ? "not-allowed" : "pointer", padding: small ? "6px 12px" : "10px 18px", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s", opacity: disabled ? 0.5 : 1, ...sx };
   if (primary) return <button onClick={onClick} disabled={disabled} title={title} style={{ ...b, backgroundImage: C.purpleGrad, color: "#fff", boxShadow: C.purpleShadow }}>{children}</button>;
@@ -1224,9 +1230,14 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     setActiveOverlays(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
     document.getElementById("yieldo-history-chart")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
-  // Real overall success-rate from /v1/vaults/{id}/stats — shown on the vault card.
+  // Real overall success-rate from /v1/vaults/{id}/stats — kept for any other
+  // consumers; the header "Deposit Success Rate" box was removed.
   const { stats: vaultStats } = useVaultStats(vaultId, { days: 30 });
   const overallSuccess = vaultStats ? formatRate(vaultStats.success_rate, vaultStats.total) : null;
+  // Vaults that gate deposits behind a curator whitelist — surfaced in the
+  // header so users know before attempting a deposit. Keyed by vault_id
+  // (chain:address, lowercased).
+  const requiresWhitelist = WHITELIST_REQUIRED_VAULTS.has((vaultId || "").toLowerCase());
   // Go back via history if there's somewhere to return to (e.g. /wallets), otherwise default to /vault
   const handleBack = onBack || (() => {
     if (window.history.length > 1) {
@@ -1399,9 +1410,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           alignItems: "flex-start",
         }}>
           <div style={{ flex: showFloatingPanel ? "1 1 0" : undefined, minWidth: 0 }}>
-        {/* Header */}
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
-          <Card style={{ flex: "1 1 0", padding: isMobile ? 16 : 24 }}>
+        {/* Header — stacked full width: Score card on top, APY/stats below. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16, marginBottom: 20 }}>
+          <Card style={{ width: "100%", padding: isMobile ? 16 : 24 }}>
             <div style={{ display: "flex", gap: isMobile ? 12 : 16, alignItems: "flex-start", marginBottom: 16 }}>
               <ScoreRing score={v.yieldoScore} size={isMobile ? 56 : 72} sw={isMobile ? 5 : 6} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1484,7 +1495,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               </div>
             )}
           </Card>
-          <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ width: "100%", display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "1fr 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 10 : 16, alignItems: "start" }}>
             <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
@@ -1543,12 +1554,12 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               <div style={{ height: 1, background: C.border, margin: "8px 0" }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div style={{ textAlign: "center", padding: "6px 0" }}>
-                  <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>SHARPE</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: v.sharpe && v.sharpe >= 1.5 ? C.green : v.sharpe && v.sharpe >= 1 ? C.gold : C.text2 }}>{fmt(v.sharpe)}</div>
+                  <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>PERF FEE</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text2 }}>{v.fee !== null && v.fee !== undefined ? `${v.fee.toFixed(v.fee % 1 === 0 ? 0 : 1)}%` : "N/A"}</div>
                 </div>
                 <div style={{ textAlign: "center", padding: "6px 0" }}>
-                  <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>MAX DD</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: v.maxDD && v.maxDD < -5 ? C.red : C.text2 }}>{fmt(v.maxDD, "%")}</div>
+                  <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>MGMT FEE</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text2 }}>{v.managementFee !== null && v.managementFee !== undefined ? `${v.managementFee.toFixed(v.managementFee % 1 === 0 ? 0 : 1)}%` : "0%"}</div>
                 </div>
               </div>
             </Card>
@@ -1581,21 +1592,15 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
                   </div>
                 </div>
               )}
-              {overallSuccess && vaultStats?.total > 0 && (() => {
-                const pct = parseInt(overallSuccess);
-                const col = pct >= 95 ? C.green : pct >= 80 ? C.amber : C.red;
-                return (
-                  <div style={{ marginTop: 8, padding: "6px 0", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
-                    <div style={{ fontSize: 10, color: C.text4, fontWeight: 600 }}>DEPOSIT SUCCESS RATE (30D)</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: col }}>
-                      {overallSuccess}{" "}
-                      <span style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>
-                        ({vaultStats.completed}/{vaultStats.total})
-                      </span>
-                    </div>
+              {requiresWhitelist && (
+                <div style={{ marginTop: 8, padding: "8px 10px", borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>🔒</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.amber }}>Requires Whitelist</div>
+                    <div style={{ fontSize: 10.5, color: C.text3, lineHeight: 1.35 }}>Deposits are restricted to approved addresses by the curator.</div>
                   </div>
-                );
-              })()}
+                </div>
+              )}
             </Card>
           </div>
         </div>
