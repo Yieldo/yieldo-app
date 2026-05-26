@@ -41,6 +41,69 @@ const FONT_MONO = `'JetBrains Mono', 'SF Mono', Menlo, monospace`;
 const DIMENSION_FILTERS = ['All signals', 'Risk', 'Performance', 'Capital', 'Trust'];
 const TIME_FILTERS = ['24h', '7d', '30d'];
 
+// ---------- Watchlist ----------
+// localStorage-backed set of vault_ids the user wants to follow. The Intel
+// feed can then narrow every tier to only signals touching those vaults.
+const WATCHLIST_KEY = 'yieldo_intel_watchlist_v1';
+
+function loadWatchlist() {
+  try {
+    const raw = localStorage.getItem(WATCHLIST_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map((s) => String(s).toLowerCase()) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function useWatchlist() {
+  const [ids, setIds] = useState(loadWatchlist);
+  const persist = useCallback((next) => {
+    setIds(next);
+    try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...next])); } catch { /* ignore quota */ }
+  }, []);
+  const toggle = useCallback((vaultId) => {
+    if (!vaultId) return;
+    const id = String(vaultId).toLowerCase();
+    setIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  const has = useCallback((vaultId) => ids.has(String(vaultId || '').toLowerCase()), [ids]);
+  return { ids, toggle, has, count: ids.size, persist };
+}
+
+// All vault_ids a signal touches: its primary vaultId + every affected vault.
+function signalVaultIds(signal) {
+  const out = [];
+  if (signal?.vaultId) out.push(String(signal.vaultId).toLowerCase());
+  for (const a of signal?.affected || []) {
+    if (a?.vaultId) out.push(String(a.vaultId).toLowerCase());
+  }
+  return out;
+}
+
+// Star toggle — click to add/remove a vault from the watchlist. Stops
+// propagation so it doesn't trigger the card's own click handler.
+function WatchStar({ vaultId, watched, onToggle, size = 16 }) {
+  if (!vaultId) return null;
+  return (
+    <button
+      type="button"
+      title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+      aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(vaultId); }}
+      style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 1,
+        color: watched ? '#E0A714' : C.hint, fontSize: size, flexShrink: 0,
+      }}
+    >{watched ? '★' : '☆'}</button>
+  );
+}
+
 // ---------- Subcomponents ----------
 
 function SectionHeader({ dot, label, count, accent }) {
@@ -186,7 +249,7 @@ function EvolutionTimeline({ evolution, firstSeenAgo }) {
   );
 }
 
-function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCardClick }) {
+function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCardClick, watched, onToggleWatch }) {
   const [hover, setHover] = useState(false);
   const { isMobile } = useResponsive();
   // Card is clickable when there's somewhere to go (single vault OR affected list).
@@ -230,6 +293,7 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
         <span style={{ fontSize: 11, color: C.hint, marginLeft: 'auto', fontFamily: FONT_MONO }}>
           {signal.updateCount > 0 ? `Updated ${signal.timeAgo}` : signal.timeAgo}
         </span>
+        {signal.vaultId && <WatchStar vaultId={signal.vaultId} watched={watched} onToggle={onToggleWatch} size={18} />}
       </div>
       <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 10px', color: C.ink, letterSpacing: '-.015em', lineHeight: 1.32 }}>
         {signal.headline}
@@ -304,7 +368,7 @@ function HighSignalCard({ signal, onPrimary, onSecondary, onAffectedClick, onCar
   );
 }
 
-function NotableSignalRow({ signal, isLast, onClick }) {
+function NotableSignalRow({ signal, isLast, onClick, watched, onToggleWatch }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -338,11 +402,12 @@ function NotableSignalRow({ signal, isLast, onClick }) {
       <span style={{ fontSize: 11, color: C.hint, flexShrink: 0, fontFamily: FONT_MONO }}>
         {signal.updateCount > 0 ? `Updated ${signal.timeAgo}` : signal.timeAgo}
       </span>
+      {signal.vaultId && <WatchStar vaultId={signal.vaultId} watched={watched} onToggle={onToggleWatch} />}
     </div>
   );
 }
 
-function ActivityRow({ row, onClick }) {
+function ActivityRow({ row, onClick, watched, onToggleWatch }) {
   const [hover, setHover] = useState(false);
   const tone = row.tone === 'pos' ? C.posInk : row.tone === 'neg' ? C.negInk : C.hint;
   return (
@@ -364,7 +429,10 @@ function ActivityRow({ row, onClick }) {
       <span style={{ color: C.hint, fontSize: 11, fontFamily: FONT_MONO }}>{row.time}</span>
       <span style={{ color: C.ink, fontWeight: 500 }}>{row.desc}</span>
       <span style={{ color: tone, fontWeight: 600, fontFamily: FONT_MONO, fontSize: 12 }}>{row.delta}</span>
-      <span style={{ color: C.muted, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600 }}>{row.score ?? '—'}</span>
+      <span style={{ color: C.muted, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+        {row.score ?? '—'}
+        {row.vaultId && <WatchStar vaultId={row.vaultId} watched={watched} onToggle={onToggleWatch} size={14} />}
+      </span>
     </div>
   );
 }
@@ -410,6 +478,8 @@ export default function IntelPage() {
   const [activeTime, setActiveTime] = useState('24h');
   const [showAllNotable, setShowAllNotable] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
+  const watchlist = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   const [feed, setFeed] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -439,11 +509,27 @@ export default function IntelPage() {
     return () => clearInterval(id);
   }, [fetchFeed]);
 
-  const high = feed?.high || [];
-  const notable = feed?.notable || [];
-  const activity = feed?.activity || [];
   const totals = feed?.totals || {};
   const engine = feed?.engine || {};
+
+  // Watchlist filter: when on, narrow every tier to signals touching a
+  // watched vault. Applied before the show-more slicing below.
+  const matchesWatch = useCallback(
+    (s) => signalVaultIds(s).some((id) => watchlist.has(id)),
+    [watchlist],
+  );
+  const high = useMemo(() => {
+    const arr = feed?.high || [];
+    return watchlistOnly ? arr.filter(matchesWatch) : arr;
+  }, [feed, watchlistOnly, matchesWatch]);
+  const notable = useMemo(() => {
+    const arr = feed?.notable || [];
+    return watchlistOnly ? arr.filter(matchesWatch) : arr;
+  }, [feed, watchlistOnly, matchesWatch]);
+  const activity = useMemo(() => {
+    const arr = feed?.activity || [];
+    return watchlistOnly ? arr.filter(matchesWatch) : arr;
+  }, [feed, watchlistOnly, matchesWatch]);
 
   const visibleNotable = useMemo(() => (showAllNotable ? notable : notable.slice(0, 6)), [showAllNotable, notable]);
   const visibleActivity = useMemo(() => (showAllActivity ? activity : activity.slice(0, 8)), [showAllActivity, activity]);
@@ -498,6 +584,21 @@ export default function IntelPage() {
           {TIME_FILTERS.map((f) => (
             <FilterPill key={f} label={f} active={activeTime === f} onClick={() => setActiveTime(f)} />
           ))}
+          {!isMobile && <span style={{ width: 1, height: 22, background: C.border, margin: '0 8px' }} />}
+          <button
+            onClick={() => setWatchlistOnly((v) => !v)}
+            title={watchlist.count === 0 ? 'Star vaults on any signal to build your watchlist' : 'Show only signals for your watched vaults'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 999,
+              fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              border: `1px solid ${watchlistOnly ? C.purple : C.border}`,
+              background: watchlistOnly ? C.purpleGrad : 'rgba(255,255,255,.7)',
+              color: watchlistOnly ? '#fff' : C.purpleDeep,
+            }}
+          >
+            <span style={{ color: watchlistOnly ? '#fff' : '#E0A714' }}>★</span>
+            Watchlist{watchlist.count > 0 ? ` (${watchlist.count})` : ''}
+          </button>
           <a href="https://docs.yieldo.xyz/Scoring/four-dimensions" target="_blank" rel="noopener noreferrer"
              style={{ marginLeft: isMobile ? 0 : 'auto', fontSize: 11.5, fontWeight: 600, color: C.purpleDeep, textDecoration: 'none', padding: '5px 10px', borderRadius: 999, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap' }}>
             Score breakdown ↗
@@ -505,13 +606,19 @@ export default function IntelPage() {
         </div>
       </div>
 
-      {/* Stats strip */}
+      {/* Stats strip — counts reflect the watchlist filter when it's active. */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <StatCard label="High signals" value={high.length} hint={`last ${activeTime}`} />
-        <StatCard label="Notable" value={totals.notable ?? notable.length} hint={`last ${activeTime}`} />
-        <StatCard label="Activity events" value={totals.activity ?? activity.length} hint={`last ${activeTime}`} />
+        <StatCard label="Notable" value={watchlistOnly ? notable.length : (totals.notable ?? notable.length)} hint={`last ${activeTime}`} />
+        <StatCard label="Activity events" value={watchlistOnly ? activity.length : (totals.activity ?? activity.length)} hint={`last ${activeTime}`} />
         <StatCard label="Vaults monitored" value={engine.vaults ?? '—'} hint="across 7 chains" />
       </div>
+
+      {watchlistOnly && watchlist.count === 0 && (
+        <div style={{ background: C.purpleBg, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px', marginBottom: 18, fontSize: 13, color: C.body, lineHeight: 1.5 }}>
+          <strong style={{ color: C.ink }}>Your watchlist is empty.</strong> Tap the ☆ star on any signal to follow that vault — then this filter shows only alerts for vaults you're watching.
+        </div>
+      )}
 
       {error && (
         <div style={{ background: C.highBg, border: `1px solid ${C.highBorder}`, color: C.highInk, borderRadius: 10, padding: '14px 18px', fontSize: 13, marginBottom: 18 }}>
@@ -558,6 +665,8 @@ export default function IntelPage() {
                     if (s.vaultId) goToVault(s.vaultId);
                     else if (s.affected?.length) setModalSignal(s);
                   }}
+                  watched={watchlist.has(s.vaultId)}
+                  onToggleWatch={watchlist.toggle}
                 />
               ))}
             </div>
@@ -577,6 +686,8 @@ export default function IntelPage() {
                   signal={s}
                   isLast={i === visibleNotable.length - 1}
                   onClick={() => goToVault(s.vaultId)}
+                  watched={watchlist.has(s.vaultId)}
+                  onToggleWatch={watchlist.toggle}
                 />
               ))}
             </div>
@@ -602,7 +713,7 @@ export default function IntelPage() {
                 <span style={{ textAlign: 'right' }}>Score</span>
               </div>
               {visibleActivity.map((row, i) => (
-                <ActivityRow key={row.signalId || i} row={row} onClick={() => goToVault(row.vaultId)} />
+                <ActivityRow key={row.signalId || i} row={row} onClick={() => goToVault(row.vaultId)} watched={watchlist.has(row.vaultId)} onToggleWatch={watchlist.toggle} />
               ))}
             </div>
           )}
