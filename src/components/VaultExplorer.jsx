@@ -1,7 +1,9 @@
 // Shared vault filter + table used by VaultPage and WalletsPage
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { SUPPORTED_CHAIN_NAMES } from "../chains.js";
+import { StrategyBars, StrategyChip, StrategyTierCell } from "./StrategyBars.jsx";
+import { TIER_META } from "../lib/strategyTier.js";
 
 export const C = {
   bg: "#f8f7fc", white: "#fff", black: "#121212", surfaceAlt: "#faf9fe",
@@ -293,6 +295,19 @@ export function VaultExplorer({
   const [fAt, setFAt] = useState([]);
   const [fCh, setFCh] = useState([]);
   const [fRi, setFRi] = useState([]);
+  // Strategy tier filter — multi-select, with URL state (?strategy=T1,T2) for
+  // shareable links. We sync only this param; other filters stay component-local.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [fTier, setFTier] = useState(() =>
+    (searchParams.get("strategy") || "").split(",").map(s => s.trim()).filter(t => TIER_META[t])
+  );
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (fTier.length) next.set("strategy", fTier.join(","));
+    else next.delete("strategy");
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fTier]);
   const [fYT, setFYT] = useState("all");
   const [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]);
@@ -319,17 +334,18 @@ export function VaultExplorer({
   const CURATORS = useMemo(() => [...new Set(ALL.map(v => v.curator))].filter(Boolean).sort(), [ALL]);
 
   const clearAll = () => {
-    setSearch(""); setFCh([]); setFAt([]); setFRi([]); setFCu([]); setFFS([]);
+    setSearch(""); setFCh([]); setFAt([]); setFRi([]); setFCu([]); setFFS([]); setFTier([]);
     setFYT("all"); setFPr([]); setFApy(0); setFTvl(0); setFDep(0); setFAge(0); setFSc(0);
   };
 
   const secCount = [fCu, fFS].filter(a => a.length).length + (fSc > 0 ? 1 : 0) + (fApy > 0 ? 1 : 0) + (fTvl > 0 ? 1 : 0) + (fAge > 0 ? 1 : 0) + (fDep > 0 ? 1 : 0);
-  const totalActive = [fAt, fCh, fRi, fPr].filter(a => a.length).length + (fYT !== "all" ? 1 : 0) + secCount;
+  const totalActive = [fAt, fCh, fRi, fPr, fTier].filter(a => a.length).length + (fYT !== "all" ? 1 : 0) + secCount;
 
   const pills = [];
   fAt.forEach(a => pills.push({ label: ATYPES.find(x => x.id === a)?.label, remove: () => tog(fAt, setFAt, a) }));
   fCh.forEach(c => pills.push({ label: c, remove: () => tog(fCh, setFCh, c) }));
   fRi.forEach(r => pills.push({ label: `${r} risk`, remove: () => tog(fRi, setFRi, r) }));
+  fTier.forEach(t => pills.push({ label: `${t} ${TIER_META[t]?.label || ""}`.trim(), remove: () => tog(fTier, setFTier, t) }));
   fPr.forEach(p => pills.push({ label: p, remove: () => tog(fPr, setFPr, p) }));
   if (fYT !== "all") pills.push({ label: fYT === "real" ? "Real Yield" : "Incentivized", remove: () => setFYT("all") });
   fCu.forEach(c => pills.push({ label: c, remove: () => setFCu(fCu.filter(x => x !== c)) }));
@@ -350,6 +366,7 @@ export function VaultExplorer({
     if (fPr.length) r = r.filter(v => fPr.includes(v.protocol));
     if (fAt.length) r = r.filter(v => fAt.includes(v.assetType));
     if (fRi.length) r = r.filter(v => fRi.includes(v.risk));
+    if (fTier.length) r = r.filter(v => fTier.includes(v.strategyTier));
     if (fCu.length) r = r.filter(v => fCu.includes(v.curator));
     if (fFS.length) r = r.filter(v => {
       if (fFS.includes("clean") && v.flags.filter(f => f.severity !== "info").length === 0) return true;
@@ -375,7 +392,7 @@ export function VaultExplorer({
     };
     if (sm[sortBy]) { r.sort(sm[sortBy]); if (sortDir === "asc") r.reverse(); }
     return r;
-  }, [ALL, search, fCh, fPr, fAt, fRi, fCu, fFS, fYT, fApy, fTvl, fDep, fAge, fSc, sortBy, sortDir]);
+  }, [ALL, search, fCh, fPr, fAt, fRi, fTier, fCu, fFS, fYT, fApy, fTvl, fDep, fAge, fSc, sortBy, sortDir]);
 
   return (
     <>
@@ -408,8 +425,24 @@ export function VaultExplorer({
               </div>
             </div>
           </div>
-          {/* Row 2: Chain + Yield + Protocol + Advanced + Sort */}
+          {/* Row 2: Strategy + Chain + Yield + Protocol + Advanced + Sort */}
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10, rowGap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Strategy</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {["T1", "T2", "T3"].map(t => {
+                  const active = fTier.includes(t);
+                  const col = { T1: C.green, T2: C.amber, T3: C.red }[t];
+                  return (
+                    <button key={t} onClick={() => tog(fTier, setFTier, t)} title={TIER_META[t]?.desc}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px 4px 8px", borderRadius: 6, fontSize: 11, fontWeight: active ? 600 : 400, background: active ? `${col}18` : "transparent", border: `1px solid ${active ? col + "50" : C.border}`, color: active ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                      <StrategyBars tier={t} size="sm" />{TIER_META[t]?.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Chain</span>
               <div style={{ display: "flex", gap: 3 }}>
@@ -546,7 +579,7 @@ export function VaultExplorer({
                 );
               })()}
               <div>Vault</div>
-              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Yield",null],["Age","age"]].map(([label,key])=>(
+              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Strategy",null],["Age","age"]].map(([label,key])=>(
                 <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4, userSelect: "none" }}>
                   {label}{sortBy===key ? (sortDir==="desc" ? " \u2193" : " \u2191") : ""}
                 </div>
@@ -608,7 +641,7 @@ export function VaultExplorer({
                   <div><FlagBadge flags={v.flags.filter(f => f.severity !== "info")} compact/></div>
                   <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
                   <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
-                  <div><YieldBadge t={v.yieldType}/></div>
+                  <div onClick={e => e.preventDefault()}><StrategyTierCell tier={v.strategyTier}/></div>
                   <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
                 </Link>
               );
@@ -657,7 +690,7 @@ export function VaultExplorer({
                     </div>
                     <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                       <Badge color={v.riskC}>{v.risk}</Badge>
-                      <YieldBadge t={v.yieldType}/>
+                      {v.strategyTier && <StrategyChip tier={v.strategyTier} />}
                       <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
                       <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
                     </div>

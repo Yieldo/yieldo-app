@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CHAIN_NAMES } from "../chains.js";
+import { deriveStrategyTier } from "../lib/strategyTier.js";
 // Scoring lives in a shared module so the same logic powers both the React
 // app and the server-rendered embed badge (api/badge/[vaultId].js).
 import {
@@ -430,6 +431,13 @@ function _mapVault(raw) {
     rewards: raw.rewards,
     flow_history: raw.flow_history,
     tvlSpark: Array.isArray(raw.tvl_spark) && raw.tvl_spark.length > 1 ? raw.tvl_spark : null,
+    // Allocation breakdown (markets a vault is deployed into) + the derived
+    // Strategy Tier. `allocation` is the authoritative payload from the
+    // indexer; `strategy` is the client-computed {tier, oneLiner, composition}
+    // (see lib/strategyTier.js). Null when the protocol doesn't expose it.
+    allocation: raw.allocations && Array.isArray(raw.allocations.positions) ? raw.allocations : null,
+    strategy: deriveStrategyTier(raw.allocations, raw.asset),
+    strategyTier: deriveStrategyTier(raw.allocations, raw.asset)?.tier || null,
     _raw: raw,
   };
 }

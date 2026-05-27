@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link, useSearchParams } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useVaults } from "../hooks/useVaultData.js";
 import { useWalletBalances } from "../hooks/useWalletBalances.js";
 import { useUserAuth } from "../hooks/useUserAuth.js";
 import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplorer.jsx";
+import { StrategyBars, StrategyChip, StrategyTierCell } from "../components/StrategyBars.jsx";
+import { TIER_META } from "../lib/strategyTier.js";
 const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
 const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
@@ -318,6 +320,17 @@ export default function VaultPage() {
   const [search, setSearch] = useState(""), [moreFilters, setMoreFilters] = useState(false);
   const [fAt, setFAt] = useState([]), [fCh, setFCh] = useState([]), [fRi, setFRi] = useState([]), [fYT, setFYT] = useState("all"), [fPr, setFPr] = useState([]);
   const [fCu, setFCu] = useState([]), [fFS, setFFS] = useState([]);
+  // Strategy tier filter — multi-select with shareable URL state (?strategy=T1,T2).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [fTier, setFTier] = useState(() =>
+    (searchParams.get("strategy") || "").split(",").map(s => s.trim()).filter(t => TIER_META[t])
+  );
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (fTier.length) next.set("strategy", fTier.join(",")); else next.delete("strategy");
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fTier]);
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
   const [sortDir, setSortDir] = useState("desc");
@@ -392,13 +405,14 @@ export default function VaultPage() {
     setFAt(p.fAt || []); setFCh(p.fCh || []); setFYT(p.fYT || "all"); setFApy(0);
     setSortBy(p.sort || "yieldoScore"); setActivePreset(key);
   };
-  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFCu([]);setFFS([]);setFYT("all");setFPr([]);setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
+  const clearAll = () => { setSearch("");setFCh([]);setFAt([]);setFRi([]);setFTier([]);setFCu([]);setFFS([]);setFYT("all");setFPr([]);setFApy(0);setFTvl(0);setFDep(0);setFAge(0);setFSc(0);setActivePreset(null); };
   const secCount = [fCu,fFS].filter(a=>a.length).length + (fSc>0?1:0) + (fApy>0?1:0) + (fTvl>0?1:0) + (fAge>0?1:0) + (fDep>0?1:0);
-  const totalActive = [fAt,fCh,fRi,fPr].filter(a=>a.length).length + (fYT!=="all"?1:0) + secCount;
+  const totalActive = [fAt,fCh,fRi,fPr,fTier].filter(a=>a.length).length + (fYT!=="all"?1:0) + secCount;
   const pills = [];
   fAt.forEach(a => pills.push({ label: ATYPES.find(x=>x.id===a)?.label, remove: ()=>tog(fAt,setFAt,a) }));
   fCh.forEach(c => pills.push({ label: c, remove: ()=>tog(fCh,setFCh,c) }));
   fRi.forEach(r => pills.push({ label: `${r} risk`, remove: ()=>tog(fRi,setFRi,r) }));
+  fTier.forEach(t => pills.push({ label: `${t} ${TIER_META[t]?.label || ""}`.trim(), remove: ()=>tog(fTier,setFTier,t) }));
   fPr.forEach(p => pills.push({ label: p, remove: ()=>tog(fPr,setFPr,p) }));
   if(fYT!=="all") pills.push({ label: fYT==="real"?"Real Yield":"Incentivized", remove: ()=>setFYT("all") });
   fCu.forEach(c => pills.push({ label: c, remove: ()=>setFCu(fCu.filter(x=>x!==c)) }));
@@ -416,6 +430,7 @@ export default function VaultPage() {
     if(fPr.length)r=r.filter(v=>fPr.includes(v.protocol));
     if(fAt.length)r=r.filter(v=>fAt.includes(v.assetType));
     if(fRi.length)r=r.filter(v=>fRi.includes(v.risk));
+    if(fTier.length)r=r.filter(v=>fTier.includes(v.strategyTier));
     if(fCu.length)r=r.filter(v=>fCu.includes(v.curator));
     if(fFS.length)r=r.filter(v=>{if(fFS.includes("clean")&&v.flags.filter(f=>f.severity!=="info").length===0)return true;if(fFS.includes("warning")&&v.warnFlags>0&&v.critFlags===0)return true;if(fFS.includes("critical")&&v.critFlags>0)return true;return false;});
     if(fYT!=="all")r=r.filter(v=>v.yieldType===fYT);
@@ -423,7 +438,7 @@ export default function VaultPage() {
     if(fAge>0)r=r.filter(v=>v.age>=fAge);if(fSc>0)r=r.filter(v=>v.yieldoScore>=fSc);
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0),perfScore:(a,b)=>(b.perfComposite||0)-(a.perfComposite||0)};
     if(sm[sortBy]){r.sort(sm[sortBy]); if(sortDir==="asc")r.reverse();} return r;
-  }, [ALL,search,fCh,fPr,fAt,fRi,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy,sortDir]);
+  }, [ALL,search,fCh,fPr,fAt,fRi,fTier,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy,sortDir]);
 
   if (loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -508,8 +523,22 @@ export default function VaultPage() {
               </div>
             </div>
           </div>
-          {/* Row 2: Chain + Yield + Protocol + Advanced + Sort + View */}
+          {/* Row 2: Strategy + Chain + Yield + Protocol + Advanced + Sort + View */}
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10, rowGap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Strategy</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {["T1","T2","T3"].map(t => { const active = fTier.includes(t); const col = { T1: C.green, T2: C.amber, T3: C.red }[t];
+                  return (
+                    <button key={t} onClick={()=>tog(fTier,setFTier,t)} title={TIER_META[t]?.desc}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px 4px 8px", borderRadius: 6, fontSize: 11, fontWeight: active ? 600 : 400, background: active ? `${col}18` : "transparent", border: `1px solid ${active ? col+"50" : C.border}`, color: active ? col : C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                      <StrategyBars tier={t} size="sm" />{TIER_META[t]?.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: C.border, flexShrink: 0 }} />
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 11, color: C.text3, fontWeight: 500 }}>Chain</span>
               <div style={{ display: "flex", gap: 3 }}>
@@ -578,7 +607,7 @@ export default function VaultPage() {
           <Card><div style={{ overflow: "auto" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960, userSelect: "none" }}>
               <div>Vault</div>
-              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Yield",null],["Age","age"]].map(([label,key])=>(
+              {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Strategy",null],["Age","age"]].map(([label,key])=>(
                 <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4 }}>
                   {label}{sortBy===key ? (sortDir==="desc" ? " ↓" : " ↑") : ""}
                 </div>
@@ -594,7 +623,7 @@ export default function VaultPage() {
                 <div><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{fmtTvl(v.tvl)}</div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.depositors.toLocaleString()}</div>
-                <div><YieldBadge t={v.yieldType}/></div>
+                <div onClick={e=>e.preventDefault()}><StrategyTierCell tier={v.strategyTier}/></div>
                 <div style={{ fontSize: 11, color: C.text2 }}>{v.age}d</div>
                 <div style={{ display: "flex", gap: 4 }} title={ds.tip || ""}>
                   <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (ds.ok) handleDeposit(e, v); }} disabled={!ds.ok} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif", border: ds.ok ? `1px solid ${C.purple}40` : `1px solid ${C.border}`, background: ds.ok ? C.purpleDim : C.surfaceAlt, color: ds.ok ? C.purple : C.text4, cursor: ds.ok ? "pointer" : "not-allowed", opacity: ds.ok ? 1 : 0.6 }}>{ds.label}</button>
@@ -629,7 +658,7 @@ export default function VaultPage() {
                   </div>
                   <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                     <Badge color={v.riskC}>{v.risk}</Badge>
-                    <YieldBadge t={v.yieldType}/>
+                    {v.strategyTier && <StrategyChip tier={v.strategyTier} />}
                     <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
                     <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
                   </div>

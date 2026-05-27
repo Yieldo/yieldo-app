@@ -8,6 +8,8 @@ import { useDepositMeta, useDepositMetaMap } from "../hooks/useDepositMeta.js";
 import { useVaultStats, formatRate } from "../hooks/useVaultStats.js";
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
+import { StrategyChip } from "../components/StrategyBars.jsx";
+import AllocationCard from "../components/AllocationCard.jsx";
 import LowScoreConfirmModal, { LOW_SCORE_THRESHOLD as LSC_THRESHOLD, isLowScoreVault } from "../components/LowScoreConfirmModal.jsx";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
@@ -1422,8 +1424,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
                 </div>
                 <div style={{ fontSize: 13, color: C.text3, marginBottom: 6 }}>Curated by {v.curator} · {v.chain} · {v.protocol}</div>
                 <div style={{ fontSize: 11, color: C.text4, marginBottom: 8, fontFamily: "monospace", wordBreak: "break-all" }}>{isMobile ? `${v.vault_address?.slice(0, 10)}...${v.vault_address?.slice(-8)}` : v.vault_address}</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <Badge color={v.riskC}>{v.risk} Risk</Badge>
+                  {v.strategyTier && <StrategyChip tier={v.strategyTier} prominent />}
                   <YieldBadge t={v.yieldType} />
                   <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
                   <Badge color={v.protocol === "Hyperbeat" ? "#E040FB" : v.protocol === "Veda" ? "#FF6B35" : C.blue} bg={v.protocol === "Hyperbeat" ? "#FCE4EC" : v.protocol === "Veda" ? "#FFF3E0" : C.blueBg}>{v.protocol}</Badge>
@@ -1495,6 +1498,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               </div>
             )}
           </Card>
+          <AllocationCard vault={v} />
           <div style={{ width: "100%", display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "1fr 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 10 : 16, alignItems: "start" }}>
             <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
