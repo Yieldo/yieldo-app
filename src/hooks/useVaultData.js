@@ -241,13 +241,24 @@ function _mapVault(raw) {
   const extBonus = calcExternalRatingBonus(raw.T14);
 
   const rawScore = (capScore * 0.20 + perfScore * 0.20 + riskScore * 0.35 + trustScore * 0.25) * conf + flagPenalty + extBonus;
-  const yieldoScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+
+  // Prefer the indexer's AUTHORITATIVE stored scores over the client-side
+  // recompute. The backend (scoring.py) is the source of truth used by
+  // ranking, the scoring sheet, and the AI score-explainer — the client
+  // recompute (calc*Score above) drifts from it (e.g. Aave concentration,
+  // timelock handling), which surfaced as the vault header showing a
+  // different number than the "Why this score?" explanation. Fall back to
+  // the recompute only when the backend hasn't scored this vault yet
+  // (brand-new / incomplete-metric vaults like some Hyperbeat ones).
+  const pickScore = (backend, computed) =>
+    (backend != null && Number.isFinite(Number(backend))) ? Number(backend) : computed;
+  const yieldoScore = Math.max(0, Math.min(100, Math.round(pickScore(raw.yieldo_score, rawScore))));
 
   const subScores = {
-    capital: Math.max(0, Math.min(100, Math.round(capScore))),
-    performance: Math.max(0, Math.min(100, Math.round(perfScore))),
-    risk: Math.max(0, Math.min(100, Math.round(riskScore))),
-    trust: Math.max(0, Math.min(100, Math.round(trustScore))),
+    capital: Math.max(0, Math.min(100, Math.round(pickScore(raw.capital_score, capScore)))),
+    performance: Math.max(0, Math.min(100, Math.round(pickScore(raw.performance_score, perfScore)))),
+    risk: Math.max(0, Math.min(100, Math.round(pickScore(raw.risk_score, riskScore)))),
+    trust: Math.max(0, Math.min(100, Math.round(pickScore(raw.trust_score, trustScore)))),
   };
 
   const curator = raw.curator || null;
