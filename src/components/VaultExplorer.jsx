@@ -101,6 +101,7 @@ export const AssetIcon = ({ asset, size = 14 }) => {
   if (a === "eurc") return <StableBadge size={size} letter="€" color="#2775CA" />;
   if (a === "usds") return <StableBadge size={size} letter="S" color="#FFC700" />;
   if (a === "usda") return <StableBadge size={size} letter="A" color="#1A237E" />;
+  if (a === "rlusd") return <StableBadge size={size} letter="R" color="#0A0A0A" />;
   // Other tokens
   if (a === "whype") return <StableBadge size={size} letter="H" color="#97FCE4" />;
   if (a === "wmon") return <StableBadge size={size} letter="M" color="#836EF9" />;
@@ -109,7 +110,7 @@ export const AssetIcon = ({ asset, size = 14 }) => {
 };
 
 export const ATYPES = [
-  { id: "stablecoin", label: "Stablecoin", icon: <UsdcIcon size={12} />, assets: ["USDC","USDT","DAI","FRAX","GHO","crvUSD","PYUSD","SUSD","EURC","USDS","USDA"] },
+  { id: "stablecoin", label: "Stablecoin", icon: <UsdcIcon size={12} />, assets: ["USDC","USDT","DAI","FRAX","GHO","crvUSD","PYUSD","SUSD","EURC","USDS","USDA","RLUSD"] },
   { id: "eth", label: "ETH", icon: <EthIcon size={12} />, assets: ["ETH","stETH","wstETH","cbETH","rETH","WETH","RE7LRT","WSTETH"] },
   { id: "btc", label: "BTC", icon: <BtcIcon size={12} />, assets: ["WBTC","tBTC","cbBTC","CBBTC","LBTC","UBTC"] },
   { id: "other", label: "Other", icon: <span style={{ fontSize: 11 }}>💎</span>, assets: ["LINK","UNI","ARB","OP","WHYPE","WMON"] },

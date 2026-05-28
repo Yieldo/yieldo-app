@@ -7,7 +7,7 @@
 
 export function getAssetType(asset) {
   const a = (asset || "").toLowerCase();
-  if (["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "eurcv", "eure", "usds", "usda"].includes(a)) return "stablecoin";
+  if (["usdc", "usdt", "dai", "pyusd", "susd", "eurc", "eurcv", "eure", "usds", "usda", "rlusd"].includes(a)) return "stablecoin";
   if (["weth", "wsteth", "re7lrt"].includes(a)) return "eth";
   if (["wbtc", "cbbtc", "lbtc", "ubtc"].includes(a)) return "btc";
   return "other";
