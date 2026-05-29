@@ -8,6 +8,7 @@ import { useUserAuth } from "../hooks/useUserAuth.js";
 import { EthIcon, BtcIcon, UsdcIcon, AssetIcon } from "../components/VaultExplorer.jsx";
 import { StrategyBars, StrategyChip, StrategyTierCell } from "../components/StrategyBars.jsx";
 import { TIER_META } from "../lib/strategyTier.js";
+import { externalDeposit } from "../lib/externalDeposit.js";
 const UserPositions = lazy(() => import("../components/UserPositions.jsx"));
 const PendingWithdrawals = lazy(() => import("../components/PendingWithdrawals.jsx"));
 const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
@@ -268,6 +269,10 @@ export default function VaultPage() {
   }, [isConnected, address]);
 
   const getDepositState = useCallback((v) => {
+    // Whitelist-gated / external vaults: clickable, but redirect to the
+    // protocol's own deposit page (handled in handleDeposit).
+    const ext = externalDeposit(v.id);
+    if (ext) return { ok: true, label: "Deposit ↗", tip: ext.reason };
     const vType = vaultTypes[v.id];
     // Admin disabled deposits — sync with the admin console toggle.
     if (v.deposits_enabled === false) {
@@ -306,6 +311,9 @@ export default function VaultPage() {
   const handleDeposit = useCallback(async (e, vault) => {
     e.preventDefault();
     e.stopPropagation();
+    // Whitelist-gated / external vaults redirect to the protocol's own page.
+    const ext = externalDeposit(vault.id);
+    if (ext) { window.open(ext.url, "_blank", "noopener,noreferrer"); return; }
     if (!isConnected) { openConnectModal(); return; }
     // Gate low-score vaults behind an explicit acknowledgement — same rule as
     // VaultDetailPage so the warning shows regardless of where the user

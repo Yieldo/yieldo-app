@@ -10,6 +10,7 @@ const DepositModal = lazy(() => import("../components/DepositModal.jsx"));
 const UserDeposits = lazy(() => import("../components/UserDeposits.jsx"));
 import { StrategyChip } from "../components/StrategyBars.jsx";
 import AllocationCard from "../components/AllocationCard.jsx";
+import { externalDeposit } from "../lib/externalDeposit.js";
 import LowScoreConfirmModal, { LOW_SCORE_THRESHOLD as LSC_THRESHOLD, isLowScoreVault } from "../components/LowScoreConfirmModal.jsx";
 const DEPOSIT_API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.yieldo.xyz";
@@ -1144,6 +1145,7 @@ function FloatingDepositPanel({
   score,
   depositDisabled,
   pauseReason,
+  extDeposit,
 }) {
   if (!vault) return null;
   const scoreColor = score == null ? C.text3
@@ -1182,7 +1184,28 @@ function FloatingDepositPanel({
         </div>
       )}
 
-      {depositDisabled ? (
+      {extDeposit ? (
+        // Whitelist-gated / external vault — deposits happen on the protocol's
+        // own page, not through Yieldo. Show a clear CTA that links out.
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>
+            Deposit into
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 12, paddingRight: 60 }}>
+            {vault.name}
+          </div>
+          <div style={{ background: C.amberDim || "rgba(217,119,6,0.07)", border: `1px solid rgba(217,119,6,.25)`, borderRadius: 10, padding: "12px 14px", marginBottom: 12, display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 14 }}>🔒</span>
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.45 }}>{extDeposit.reason}</div>
+          </div>
+          <a href={extDeposit.url} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", boxSizing: "border-box",
+                     padding: "12px 16px", borderRadius: 10, backgroundImage: C.purpleGrad, color: "#fff",
+                     fontWeight: 600, fontSize: 14, textDecoration: "none", boxShadow: C.purpleShadow }}>
+            {extDeposit.label} ↗
+          </a>
+        </div>
+      ) : depositDisabled ? (
         // Vault is paused / unsupported / admin-disabled — show a clean
         // reason card instead of the deposit form so users see immediately
         // why they can't deposit (no grey-button ambiguity).
@@ -1240,6 +1263,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
   // header so users know before attempting a deposit. Keyed by vault_id
   // (chain:address, lowercased).
   const requiresWhitelist = WHITELIST_REQUIRED_VAULTS.has((vaultId || "").toLowerCase());
+  // Vaults we redirect to the protocol's own deposit page (e.g. whitelist-gated
+  // Midas Fasanara ONE) instead of opening Yieldo's deposit flow.
+  const extDeposit = externalDeposit(vaultId);
   // Go back via history if there's somewhere to return to (e.g. /wallets), otherwise default to /vault
   const handleBack = onBack || (() => {
     if (window.history.length > 1) {
@@ -1313,6 +1339,8 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     || (adminDisabledDeposits ? "Deposits are temporarily disabled by Yieldo admin." : null);
 
   const handleDeposit = useCallback(async () => {
+    // Whitelist-gated / external vaults: send the user to the protocol's page.
+    if (extDeposit) { window.open(extDeposit.url, "_blank", "noopener,noreferrer"); return; }
     if (depositDisabled) return;
     if (!isConnected) { openConnectModal(); return; }
     // Score < 40 means at least one of Capital/Performance/Risk/Trust is poor
@@ -1320,7 +1348,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     // acknowledgement instead of opening the deposit modal directly.
     if (isLowScore) { setLowScoreConfirmOpen(true); return; }
     setDepositOpen(true);
-  }, [depositDisabled, isConnected, openConnectModal, isLowScore]);
+  }, [extDeposit, depositDisabled, isConnected, openConnectModal, isLowScore]);
 
   const submitFeedback = async () => {
     setFbSending(true);
@@ -1385,8 +1413,8 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           </Btn>
           {!isMobile && <Btn small onClick={() => navigate(`/embed?v=${encodeURIComponent(vaultId)}`)} title="Get embeddable badge for this vault">Embed Badge</Btn>}
           {!isMobile && <Btn small onClick={() => setFbOpen(true)}>Report Issue</Btn>}
-          <Btn primary small onClick={handleDeposit} disabled={depositDisabled} title={pauseReason || undefined}>
-            {notIntegrated ? "Coming soon" : adminDisabledDeposits ? "Disabled" : depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}
+          <Btn primary small onClick={handleDeposit} disabled={extDeposit ? false : depositDisabled} title={extDeposit ? extDeposit.reason : (pauseReason || undefined)}>
+            {extDeposit ? `${extDeposit.label} ↗` : notIntegrated ? "Coming soon" : adminDisabledDeposits ? "Disabled" : depositDisabled ? "Paused" : (authLoading ? "Signing in..." : "Deposit")}
           </Btn>
         </div>
       </div>
@@ -1915,6 +1943,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               score={v.yieldoScore}
               depositDisabled={depositDisabled}
               pauseReason={pauseReason}
+              extDeposit={extDeposit}
             />
           )}
         </div>{/* /flex wrapper */}
