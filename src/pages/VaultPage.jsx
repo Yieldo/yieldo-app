@@ -605,7 +605,7 @@ export default function VaultPage() {
         </div>
         {view === "table" && (
           <Card><div style={{ overflow: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960, userSelect: "none" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.6fr) minmax(0,.4fr) minmax(0,.55fr) minmax(0,.4fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.55fr) minmax(0,.45fr) minmax(140px,.7fr)", padding: "8px 12px", fontSize: 10, fontWeight: 600, color: C.text4, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap", minWidth: 960, userSelect: "none" }}>
               <div>Vault</div>
               {[["Score","yieldoScore"],["APY","apy"],["Risk","risk"],["Flags",null],["TVL","tvl"],["Dep.","depositors"],["Strategy",null],["Age","age"]].map(([label,key])=>(
                 <div key={label} onClick={key ? ()=>toggleSort(key) : undefined} style={{ cursor: key ? "pointer" : "default", color: sortBy===key ? C.purple : C.text4 }}>
@@ -615,7 +615,7 @@ export default function VaultPage() {
               <div></div>
             </div>
             {filtered.map(v=>{ const ds = getDepositState(v); return (
-              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "1.6fr .4fr .55fr .4fr .5fr .5fr .5fr .55fr .45fr .5fr", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+              <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1.6fr) minmax(0,.4fr) minmax(0,.55fr) minmax(0,.4fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.55fr) minmax(0,.45fr) minmax(140px,.7fr)", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
                 <div style={{ fontWeight: 700, color: C.purple, fontSize: 13 }}>{v.apy.toFixed(2)}%</div>

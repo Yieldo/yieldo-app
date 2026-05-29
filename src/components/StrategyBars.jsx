@@ -4,6 +4,7 @@
 // severity language), though Strategy (mechanical complexity) and Risk
 // (computed score) are different dimensions and won't always agree.
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { TIER_META } from "../lib/strategyTier.js";
 
 const TIER_COLOR = { T1: "#1a9d3f", T2: "#d97706", T3: "#d93636" };
@@ -50,29 +51,38 @@ export function StrategyChip({ tier, prominent = false }) {
 }
 
 // Table-cell variant: bars with an on-hover tooltip (tier code + definition).
-// Falls back to a native title for reliability inside scroll containers.
+// The tooltip is rendered in a fixed-position portal anchored to the bars so
+// it is NOT clipped by the table's `overflow:auto` scroll container (which
+// would otherwise swallow an absolutely-positioned tooltip).
 export function StrategyTierCell({ tier, size = "md" }) {
-  const [hover, setHover] = useState(false);
+  const [tip, setTip] = useState(null); // { x, y } viewport coords or null
   const meta = TIER_META[tier];
   if (!meta) return <span style={{ color: "rgba(0,0,0,0.25)", fontSize: 12 }}>—</span>;
   const color = TIER_COLOR[tier];
+
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ x: r.left + r.width / 2, y: r.top });
+  };
   return (
     <span
-      style={{ display: "inline-flex", cursor: "help", position: "relative" }}
+      style={{ display: "inline-flex", cursor: "help" }}
       title={`${tier} · ${meta.fullLabel} — ${meta.desc}`}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={show}
+      onMouseLeave={() => setTip(null)}
     >
       <StrategyBars tier={tier} size={size} />
-      {hover && (
+      {tip && createPortal(
         <span style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          position: "fixed", left: tip.x, top: tip.y - 8, transform: "translate(-50%, -100%)",
           background: "#121212", color: "#fff", padding: "8px 12px", borderRadius: 6, fontSize: 11,
-          width: 220, textAlign: "left", zIndex: 50, boxShadow: "0 4px 12px rgba(0,0,0,0.18)", pointerEvents: "none",
+          width: 220, textAlign: "left", zIndex: 9999, boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+          pointerEvents: "none", lineHeight: 1.5,
         }}>
           <span style={{ display: "block", fontWeight: 700, color, marginBottom: 4 }}>{tier} · {meta.fullLabel}</span>
-          <span style={{ display: "block", lineHeight: 1.5, opacity: 0.9 }}>{meta.desc}</span>
-        </span>
+          <span style={{ display: "block", opacity: 0.9 }}>{meta.desc}</span>
+        </span>,
+        document.body
       )}
     </span>
   );
