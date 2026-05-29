@@ -1050,7 +1050,7 @@ function DepositModal({ vault, onClose, inline = false }) {
                 </a>
               </div>
             )}
-            <div style={{ marginTop: 20 }}><ActionBtn onClick={handleDoneClose}>{inline ? "Deposit again" : "Done"}</ActionBtn></div>
+            <div style={{ marginTop: 20 }}><ActionBtn onClick={handleDoneClose}>Done</ActionBtn></div>
           </StatusPane>
         )}
 
