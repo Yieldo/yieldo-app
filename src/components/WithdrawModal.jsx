@@ -59,15 +59,34 @@ export default function WithdrawModal({ position, onClose }) {
   const [trackingId, setTrackingId] = useState("");
 
   const shareDecimals = position.share_decimals || 18;
+  const assetDecimals = position.asset_decimals || 6;
   const balance = BigInt(position.share_balance || "0");
+  // Asset-unit value of the full position (raw, asset_decimals). The withdraw
+  // API works in shares, but users think in USDC/asset value — so we take an
+  // asset amount and convert it to shares using the user's own position ratio
+  // (their shares == their asset value at the current price). Falls back to a
+  // shares input only when the asset value is unavailable (rare RPC gap).
+  const currentAssets = BigInt(position.current_assets || "0");
+  const assetMode = currentAssets > 0n;
+  const unitDecimals = assetMode ? assetDecimals : shareDecimals;
 
-  const sharesBN = useMemo(() => {
+  const amountBN = useMemo(() => {
     if (!amountInput) return 0n;
-    try { return parseUnits(amountInput, shareDecimals); } catch { return 0n; }
-  }, [amountInput, shareDecimals]);
+    try { return parseUnits(amountInput, unitDecimals); } catch { return 0n; }
+  }, [amountInput, unitDecimals]);
 
-  const setMax = () => setAmountInput(formatUnits(balance, shareDecimals));
-  const pctBtn = (p) => () => setAmountInput(formatUnits((balance * BigInt(p)) / 100n, shareDecimals));
+  // Shares to redeem. In asset mode, convert proportionally; a full-value
+  // request redeems the exact share balance so rounding never leaves dust.
+  const sharesBN = useMemo(() => {
+    if (!assetMode) return amountBN; // amountBN is already shares in fallback mode
+    if (amountBN <= 0n) return 0n;
+    if (amountBN >= currentAssets) return balance;
+    return (balance * amountBN) / currentAssets;
+  }, [assetMode, amountBN, currentAssets, balance]);
+
+  const maxRaw = assetMode ? currentAssets : balance;
+  const setMax = () => setAmountInput(formatUnits(maxRaw, unitDecimals));
+  const pctBtn = (p) => () => setAmountInput(formatUnits((maxRaw * BigInt(p)) / 100n, unitDecimals));
 
   // === Flow ===
 
@@ -79,7 +98,7 @@ export default function WithdrawModal({ position, onClose }) {
   const getQuote = useCallback(async () => {
     setError("");
     if (sharesBN <= 0n) { setError("Enter an amount"); return; }
-    if (sharesBN > balance) { setError("Exceeds balance"); return; }
+    if (assetMode ? amountBN > currentAssets : sharesBN > balance) { setError("Exceeds balance"); return; }
     try {
       const res = await fetch(`${API}/v1/withdraw/quote`, {
         method: "POST",
@@ -101,7 +120,7 @@ export default function WithdrawModal({ position, onClose }) {
     } catch (e) {
       setError(e.message || "Quote failed");
     }
-  }, [sharesBN, balance, position.vault_id, address]);
+  }, [sharesBN, balance, assetMode, amountBN, currentAssets, position.vault_id, address]);
 
   const submit = useCallback(async () => {
     setError("");
@@ -263,9 +282,9 @@ export default function WithdrawModal({ position, onClose }) {
           {!externalSite && view === "input" && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: C.text3 }}>Shares to redeem</span>
+                <span style={{ fontSize: 12, color: C.text3 }}>{assetMode ? `Amount (${position.asset_symbol})` : "Shares to redeem"}</span>
                 <button onClick={setMax} style={{ fontSize: 11, fontWeight: 600, color: C.purple, background: "none", border: "none", cursor: "pointer" }}>
-                  Balance: {fmt(balance, shareDecimals)} MAX
+                  Balance: {fmt(maxRaw, unitDecimals)} {assetMode ? position.asset_symbol : ""} MAX
                 </button>
               </div>
               <input
