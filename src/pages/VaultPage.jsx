@@ -342,6 +342,9 @@ export default function VaultPage() {
   const [fSc, setFSc] = useState(0), [fApy, setFApy] = useState(0), [fTvl, setFTvl] = useState(0), [fAge, setFAge] = useState(0), [fDep, setFDep] = useState(0);
   const [sortBy, setSortBy] = useState("yieldoScore");
   const [sortDir, setSortDir] = useState("desc");
+  // Pagination — render a page at a time so the initial paint isn't 100+ rows.
+  const [pageSize, setPageSize] = useState(20); // 0 = "All"
+  const [page, setPage] = useState(1);
   const toggleSort = (key) => {
     if (sortBy === key) setSortDir(d => d === "desc" ? "asc" : "desc");
     else { setSortBy(key); setSortDir("desc"); }
@@ -447,6 +450,14 @@ export default function VaultPage() {
     const sm={yieldoScore:(a,b)=>b.yieldoScore-a.yieldoScore,apy:(a,b)=>b.apy-a.apy,tvl:(a,b)=>b.tvl-a.tvl,risk:(a,b)=>({Low:0,Medium:1,High:2}[a.risk]-{Low:0,Medium:1,High:2}[b.risk]),depositors:(a,b)=>b.depositors-a.depositors,age:(a,b)=>b.age-a.age,sharpe:(a,b)=>(b.sharpe||0)-(a.sharpe||0),retention:(a,b)=>(b.capRet||0)-(a.capRet||0),perfScore:(a,b)=>(b.perfComposite||0)-(a.perfComposite||0)};
     if(sm[sortBy]){r.sort(sm[sortBy]); if(sortDir==="asc")r.reverse();} return r;
   }, [ALL,search,fCh,fPr,fAt,fRi,fTier,fCu,fFS,fYT,fApy,fTvl,fDep,fAge,fSc,sortBy,sortDir]);
+
+  // Reset to page 1 whenever the result set changes (filter/sort/search).
+  useEffect(() => { setPage(1); }, [filtered.length, sortBy, sortDir, pageSize]);
+  const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(filtered.length / pageSize)) : 1;
+  const curPage = Math.min(page, totalPages);
+  const paged = useMemo(() => (
+    pageSize > 0 ? filtered.slice((curPage - 1) * pageSize, curPage * pageSize) : filtered
+  ), [filtered, pageSize, curPage]);
 
   if (loading) return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -622,7 +633,7 @@ export default function VaultPage() {
               ))}
               <div></div>
             </div>
-            {filtered.map(v=>{ const ds = getDepositState(v); return (
+            {paged.map(v=>{ const ds = getDepositState(v); return (
               <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1.6fr) minmax(0,.4fr) minmax(0,.55fr) minmax(0,.4fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.5fr) minmax(0,.55fr) minmax(0,.45fr) minmax(140px,.7fr)", padding: "7px 12px", fontSize: 12, borderBottom: `1px solid ${C.border}`, alignItems: "center", background: "transparent", minWidth: 960, cursor: "pointer", transition: "background .1s", textDecoration: "none", color: "inherit" }} onMouseEnter={e=>{e.currentTarget.style.background=C.surfaceAlt}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}><AssetIcon asset={v.asset} size={14} /><div style={{ minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.name}</div><div style={{ fontSize: 9, color: C.text4 }}>{v.curator !== "Unknown" ? `${v.curator} · ` : ""}{v.chain}</div></div></div>
                 <div><ScoreRing score={v.yieldoScore} size={26} sw={2.5}/></div>
@@ -646,7 +657,7 @@ export default function VaultPage() {
         )}
         {view === "grid" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-            {filtered.map(v=>(
+            {paged.map(v=>(
               <Link key={v.id} to={`/vault/${encodeURIComponent(v.id)}`} style={{ background: C.white, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,.03)", cursor: "pointer", textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", transition: "all .15s" }}
                 onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(122,28,203,.1)";e.currentTarget.style.transform="translateY(-1px)"}}
                 onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.03)";e.currentTarget.style.transform="none"}}>
@@ -694,6 +705,47 @@ export default function VaultPage() {
               </Link>
             ))}
             {filtered.length === 0 && <div style={{ gridColumn: "1 / -1", padding: 60, textAlign: "center", color: C.text3 }}><div style={{ fontSize: 36, marginBottom: 10 }}>🏦</div><div style={{ fontSize: 14 }}>No vaults match the current filters.</div></div>}
+          </div>
+        )}
+
+        {/* Pagination + per-page control */}
+        {filtered.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+            <div style={{ fontSize: 12, color: C.text3 }}>
+              {pageSize > 0
+                ? `Showing ${(curPage - 1) * pageSize + 1}–${Math.min(curPage * pageSize, filtered.length)} of ${filtered.length}`
+                : `Showing all ${filtered.length}`}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              {pageSize > 0 && totalPages > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={curPage <= 1}
+                    style={{ padding: "5px 10px", borderRadius: 6, fontSize: 12, fontFamily: "'Inter',sans-serif", border: `1px solid ${C.border}`, background: C.white, color: curPage <= 1 ? C.text4 : C.text2, cursor: curPage <= 1 ? "not-allowed" : "pointer" }}>← Prev</button>
+                  {(() => {
+                    // Compact page numbers: window around the current page.
+                    const win = []; const span = 2;
+                    let lo = Math.max(1, curPage - span), hi = Math.min(totalPages, curPage + span);
+                    if (lo > 1) win.push(1, lo > 2 ? "…" : null);
+                    for (let i = lo; i <= hi; i++) win.push(i);
+                    if (hi < totalPages) win.push(hi < totalPages - 1 ? "…" : null, totalPages);
+                    return win.filter(x => x !== null).map((n, i) => n === "…"
+                      ? <span key={`e${i}`} style={{ fontSize: 12, color: C.text4, padding: "0 2px" }}>…</span>
+                      : <button key={n} onClick={() => setPage(n)}
+                          style={{ minWidth: 30, padding: "5px 8px", borderRadius: 6, fontSize: 12, fontFamily: "'Inter',sans-serif", fontWeight: n === curPage ? 700 : 400, border: `1px solid ${n === curPage ? C.purple + "60" : C.border}`, background: n === curPage ? C.purpleDim : C.white, color: n === curPage ? C.purple : C.text2, cursor: "pointer" }}>{n}</button>);
+                  })()}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={curPage >= totalPages}
+                    style={{ padding: "5px 10px", borderRadius: 6, fontSize: 12, fontFamily: "'Inter',sans-serif", border: `1px solid ${C.border}`, background: C.white, color: curPage >= totalPages ? C.text4 : C.text2, cursor: curPage >= totalPages ? "not-allowed" : "pointer" }}>Next →</button>
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 11, color: C.text3 }}>Per page</span>
+                <select value={pageSize} onChange={e => setPageSize(Number(e.target.value))}
+                  style={{ fontSize: 12, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "5px 8px", background: C.white, fontFamily: "'Inter',sans-serif", color: C.text, cursor: "pointer", outline: "none" }}>
+                  {[20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value={0}>All</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
       </div>

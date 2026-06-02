@@ -21,7 +21,17 @@ export default async function handler(req, res) {
     // Per-vault flags surface deposits/withdrawals toggles to the FE so it
     // can grey out the right buttons when admin disabled them.
     const [entries, sparkResults, disabled, adminFlags] = await Promise.all([
-      db.collection("vaults").find({}).toArray(),
+      // List view only needs overview + scoring/filter fields — exclude the
+      // bulky detail-only metrics (flow_history is ~1.4KB/vault alone). The
+      // detail page fetches the full doc via /api/vaults/[vaultId].
+      db.collection("vaults").find({}, {
+        projection: {
+          "metrics.flow_history": 0,
+          "metrics.perf_detail": 0,
+          "metrics.vaultsfyi_score": 0,
+          "metrics._component_counts": 0,
+        },
+      }).toArray(),
       db.collection("snapshots").aggregate([
         { $sort: { vault_id: 1, date: -1 } },
         { $group: { _id: "$vault_id", snaps: { $push: "$total_assets_usd" } } },
@@ -75,7 +85,12 @@ export default async function handler(req, res) {
       return applyCuratorOverride(row);
     });
 
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+    // Serve from the CDN edge so users don't wait on serverless cold-starts
+    // (which can take ~13s against a shared Atlas cluster). Fresh for 2 min,
+    // then served stale-but-instant for up to 1h while revalidating in the
+    // background — vault data is display-only and the indexer refreshes every
+    // ~5 min, so a couple minutes of staleness is harmless.
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=3600");
     res.status(200).json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
