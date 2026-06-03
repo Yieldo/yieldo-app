@@ -1440,9 +1440,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           alignItems: "flex-start",
         }}>
           <div style={{ flex: showFloatingPanel ? "1 1 0" : undefined, minWidth: 0 }}>
-        {/* Header — stacked full width: Score card on top, APY/stats below. */}
-        <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16, marginBottom: 20 }}>
-          <Card style={{ width: "100%", padding: isMobile ? 16 : 24 }}>
+        {/* Header — Score card (left) and APY/stats (right) side by side. */}
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, marginBottom: 20 }}>
+          <Card style={{ flex: "1 1 0", padding: isMobile ? 16 : 24 }}>
             <div style={{ display: "flex", gap: isMobile ? 12 : 16, alignItems: "flex-start", marginBottom: 16 }}>
               <ScoreRing score={v.yieldoScore} size={isMobile ? 56 : 72} sw={isMobile ? 5 : 6} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1526,8 +1526,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
               </div>
             )}
           </Card>
-          <AllocationCard vault={v} />
-          <div style={{ width: "100%", display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "1fr 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 10 : 16, alignItems: "start" }}>
+          <div style={{ width: isMobile ? "100%" : 280, display: "flex", flexDirection: "column", gap: 10 }}>
             <Card style={{ padding: isMobile ? "14px 14px" : "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
@@ -1636,6 +1635,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             </Card>
           </div>
         </div>
+        <AllocationCard vault={v} />
 
         {/* Sub-score history grid — one card per dimension. Click a card to
             toggle that dimension as an overlay on the chart below. */}
