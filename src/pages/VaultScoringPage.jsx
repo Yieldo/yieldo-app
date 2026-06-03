@@ -148,7 +148,12 @@ function calcBreakdown(raw) {
   const trustTotal = Math.min(100, trustRaw * trustBoost);
 
   const age = raw.D01 || raw.D03 || 0;
-  const conf = getConfidence(age);
+  // Use the backend's authoritative confidence (data-completeness based) so the
+  // debugger's final score matches the vault home page; fall back to age-based
+  // only when the indexer hasn't stored one.
+  const conf = (raw.confidence_multiplier != null && Number.isFinite(Number(raw.confidence_multiplier)))
+    ? Number(raw.confidence_multiplier)
+    : getConfidence(age);
   const extBonus = calcExternalRatingBonus(raw.T14);
 
   return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal, trustRaw, trustBoost, trustTotal, conf, extBonus, age };

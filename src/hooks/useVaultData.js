@@ -237,7 +237,14 @@ function _mapVault(raw) {
   const trustBoost = getTrustBoost(tvlUsd, depositorCount);
   const trustScore = Math.min(100, trustRaw * trustBoost);
 
-  const conf = getConfidence(age);
+  // Prefer the indexer's authoritative confidence multiplier (data-completeness
+  // based — it's what's baked into the stored yieldo_score) over the age-based
+  // fallback. Using the age-based one here drifted the client recompute and the
+  // /vaultscoring debugger away from the real score (e.g. sparse Midas vaults
+  // where backend conf=0.5 but age-based=1.0 → debugger showed ~75 vs real 33).
+  const conf = (raw.confidence_multiplier != null && Number.isFinite(Number(raw.confidence_multiplier)))
+    ? Number(raw.confidence_multiplier)
+    : getConfidence(age);
   const flagPenalty = flags.reduce((sum, f) => sum + (f.penalty || 0), 0);
   const extBonus = calcExternalRatingBonus(raw.T14);
 
