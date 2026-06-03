@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { CHAIN_NAMES as CHAINS, CHAIN_EXPLORERS as EXPLORERS } from "../chains.js";
+import { formatDepositAmount } from "../lib/tokens.js";
 
 const API = import.meta.env.VITE_PARTNER_API || "https://api.yieldo.xyz";
 
@@ -140,7 +141,7 @@ function DepositRow({ deposit: d, isLast }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>
-            {d.from_amount ? formatAmount(d.from_amount) : "—"} {d.from_token || ""}
+            {formatDepositAmount(d.from_chain_id, d.from_token, d.from_amount)}
           </span>
           <span style={{ fontSize: 11, color: C.text4 }}>
             {fromChain}{isCross ? ` → ${toChain}` : ""}
