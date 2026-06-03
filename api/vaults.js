@@ -2,13 +2,24 @@ import { MongoClient } from "mongodb";
 import { applyVaultOverrides as applyCuratorOverride } from "./_vault-overrides.js";
 import { getDisabledVaultIds, getVaultAdminFlags } from "./_admin-state.js";
 
-let cachedClient = null;
+// Cache the *connection promise* (not just the client) at module scope so warm
+// invocations reuse one connection and concurrent cold requests don't each open
+// their own. A bounded pool + short server-selection timeout keeps cold connects
+// from hanging on the default 30s when a replica member is slow.
+let clientPromise = null;
+function getClient() {
+  if (!clientPromise) {
+    const client = new MongoClient(process.env.MONGO_URI, {
+      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 8000,
+    });
+    clientPromise = client.connect().catch((e) => { clientPromise = null; throw e; });
+  }
+  return clientPromise;
+}
 
 async function getDb() {
-  if (cachedClient) return cachedClient.db("yieldo_v1");
-  const client = new MongoClient(process.env.MONGO_URI);
-  await client.connect();
-  cachedClient = client;
+  const client = await getClient();
   return client.db("yieldo_v1");
 }
 
@@ -90,7 +101,11 @@ export default async function handler(req, res) {
     // then served stale-but-instant for up to 1h while revalidating in the
     // background — vault data is display-only and the indexer refreshes every
     // ~5 min, so a couple minutes of staleness is harmless.
-    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=3600");
+    // Fresh for 5 min, then served stale-but-instant for up to 24h while
+    // revalidating in the background. A cron (vercel.json) hits this every 5 min
+    // to keep both the CDN cache and the serverless function warm, so users
+    // essentially never wait on a cold-start.
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=86400");
     res.status(200).json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
