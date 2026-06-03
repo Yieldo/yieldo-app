@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef } from 'react'
+import { StrictMode, Suspense, lazy, useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
@@ -8,22 +8,25 @@ import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
 import '@rainbow-me/rainbowkit/styles.css'
 import { Analytics } from '@vercel/analytics/react'
 import { config } from './walletConfig.jsx'
-import VaultPage from './pages/VaultPage.jsx'
-import VaultDetailPage from './pages/VaultDetailPage.jsx'
-import KolPage from './pages/KolPage.jsx'
-import KolLandingPage from './pages/KolLandingPage.jsx'
-import WalletsPage from './pages/WalletsPage.jsx'
-import VaultProviderPage from './pages/VaultProviderPage.jsx'
-import CuratorPage from './pages/CuratorPage.jsx'
-import ApplyPage from './pages/ApplyPage.jsx'
-import VaultScoringPage from './pages/VaultScoringPage.jsx'
-import PortfolioPage from './pages/PortfolioPage.jsx'
-import ReferralsPage from './pages/ReferralsPage.jsx'
-import HistoryPage from './pages/HistoryPage.jsx'
-import EmbedBadgePage from './pages/EmbedBadgePage.jsx'
-import IntelPage from './pages/IntelPage.jsx'
-import AdminPage from './pages/AdminPage.jsx'
-import AdminVaultDetailPage from './pages/AdminVaultDetailPage.jsx'
+// Route pages are lazy-loaded so the landing route (/vault) doesn't ship every
+// page's code in the entry bundle. Each page becomes its own chunk, fetched on
+// navigation — this is the main lever on first-paint time.
+const VaultPage = lazy(() => import('./pages/VaultPage.jsx'))
+const VaultDetailPage = lazy(() => import('./pages/VaultDetailPage.jsx'))
+const KolPage = lazy(() => import('./pages/KolPage.jsx'))
+const KolLandingPage = lazy(() => import('./pages/KolLandingPage.jsx'))
+const WalletsPage = lazy(() => import('./pages/WalletsPage.jsx'))
+const VaultProviderPage = lazy(() => import('./pages/VaultProviderPage.jsx'))
+const CuratorPage = lazy(() => import('./pages/CuratorPage.jsx'))
+const ApplyPage = lazy(() => import('./pages/ApplyPage.jsx'))
+const VaultScoringPage = lazy(() => import('./pages/VaultScoringPage.jsx'))
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage.jsx'))
+const ReferralsPage = lazy(() => import('./pages/ReferralsPage.jsx'))
+const HistoryPage = lazy(() => import('./pages/HistoryPage.jsx'))
+const EmbedBadgePage = lazy(() => import('./pages/EmbedBadgePage.jsx'))
+const IntelPage = lazy(() => import('./pages/IntelPage.jsx'))
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
+const AdminVaultDetailPage = lazy(() => import('./pages/AdminVaultDetailPage.jsx'))
 import ProtectedRoute from './ProtectedRoute.jsx'
 import TxTracker from './components/TxTracker.jsx'
 import RefTracker from './components/RefTracker.jsx'
@@ -31,6 +34,15 @@ import ClickTracker from './components/ClickTracker.jsx'
 import './index.css'
 
 const queryClient = new QueryClient()
+
+// Lightweight full-screen fallback while a route chunk loads.
+function RouteFallback() {
+  return (
+    <div style={{ fontFamily: "'Inter',sans-serif", background: "#f8f7fc", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, backgroundImage: "linear-gradient(100deg,#4B0CA6 0%,#7A1CCB 58%,#9E3BFF 114%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>Y</div>
+    </div>
+  )
+}
 
 function KolRedirect() {
   const { handle } = useParams()
@@ -75,6 +87,7 @@ createRoot(document.getElementById('root')).render(
             <RefTracker />
             <ClickTracker />
             <RoleRedirect />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Navigate to="/vault" replace />} />
               <Route path="/vault" element={<VaultPage />} />
@@ -104,6 +117,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/vault/:vaultId" element={<AdminVaultDetailPage />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </RainbowKitProvider>
       </QueryClientProvider>
