@@ -98,6 +98,38 @@ function normApy(v) {
   return typeof v === "number" ? v : v;
 }
 
+// Build a clean Net-APY series (in %) from raw daily snapshots. A single bad
+// share-price reading annualizes into garbage (e.g. -50% / -90% APY) and makes
+// the chart plunge off-axis. Real vault APY lives in roughly [-20%, +300%];
+// anything outside that is an artifact, so we carry forward the previous valid
+// reading (keeping the line continuous) instead of plotting the spike.
+const APY_MIN_FRAC = -0.2;   // -20%
+const APY_MAX_FRAC = 3.0;    // +300%
+function sanitizeApySeries(snapshots) {
+  const vals = [];
+  let lastGood = null;
+  for (const s of snapshots) {
+    const f = typeof s.net_apy === "number" ? s.net_apy : null;
+    const ok = f !== null && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
+    if (ok) lastGood = f;
+    vals.push((ok ? f : (lastGood ?? 0)) * 100);
+  }
+  // If the leading points were artifacts, backfill them from the first good one.
+  const firstGood = vals.find((_, i) => {
+    const f = snapshots[i] && snapshots[i].net_apy;
+    return typeof f === "number" && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
+  });
+  if (firstGood != null) {
+    for (let i = 0; i < vals.length; i++) {
+      const f = snapshots[i] && snapshots[i].net_apy;
+      const ok = typeof f === "number" && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
+      if (ok) break;
+      vals[i] = firstGood;
+    }
+  }
+  return vals;
+}
+
 // Exported so the admin console can run the same scoring/metric pipeline on
 // the payload returned by /v1/admin/vaults (which mirrors /api/vaults).
 export function mapVault(raw) { return _mapVault(raw); }
@@ -530,9 +562,7 @@ export function useVaultDetail(vaultId) {
         setCache(cacheKey, data);
         const mapped = mapVault(data);
         if (data.snapshots) {
-          mapped.apyHistory = data.snapshots.map(
-            (s) => (s.net_apy || 0) * 100
-          );
+          mapped.apyHistory = sanitizeApySeries(data.snapshots);
           mapped.apyDates = data.snapshots.map(
             (s) => s.date || ""
           );
