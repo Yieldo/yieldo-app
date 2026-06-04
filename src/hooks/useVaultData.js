@@ -98,36 +98,46 @@ function normApy(v) {
   return typeof v === "number" ? v : v;
 }
 
-// Build a clean Net-APY series (in %) from raw daily snapshots. A single bad
-// share-price reading annualizes into garbage (e.g. -50% / -90% APY) and makes
-// the chart plunge off-axis. Real vault APY lives in roughly [-20%, +300%];
-// anything outside that is an artifact, so we carry forward the previous valid
-// reading (keeping the line continuous) instead of plotting the spike.
+// Build a clean Net-APY series (in %) from raw daily snapshots.
+//
+// Daily net_apy is derived from day-over-day share-price deltas. Many vaults
+// (Veda, Morpho V2, RWA wrappers) only refresh their share price every few
+// days, so on the in-between days the computed APY reads exactly 0 — not a real
+// 0% yield, just "no fresh price". Plotting that raw produces a 0↔X sawtooth
+// that disagrees with the header (protocol's smoothed APY) and with the
+// volatility metric (computed on weekly-averaged data). A single bad reading
+// also annualizes into garbage (e.g. -50%/-90%).
+//
+// So we: (1) treat artifacts (outside [-20%, +300%]) and no-update days (exactly
+// 0) as gaps, carrying forward the last real APY; then (2) apply a 7-day
+// trailing average so the line reflects the yield *trend* and stays consistent
+// with the smoothed metrics shown elsewhere.
 const APY_MIN_FRAC = -0.2;   // -20%
 const APY_MAX_FRAC = 3.0;    // +300%
+const APY_SMOOTH_WINDOW = 7; // days
 function sanitizeApySeries(snapshots) {
-  const vals = [];
+  // 1) Gap-fill: carry forward through artifacts and no-update (==0) days.
+  const filled = [];
   let lastGood = null;
   for (const s of snapshots) {
     const f = typeof s.net_apy === "number" ? s.net_apy : null;
-    const ok = f !== null && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
+    const ok = f !== null && f !== 0 && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
     if (ok) lastGood = f;
-    vals.push((ok ? f : (lastGood ?? 0)) * 100);
+    filled.push(ok ? f : lastGood);
   }
-  // If the leading points were artifacts, backfill them from the first good one.
-  const firstGood = vals.find((_, i) => {
-    const f = snapshots[i] && snapshots[i].net_apy;
-    return typeof f === "number" && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
-  });
-  if (firstGood != null) {
-    for (let i = 0; i < vals.length; i++) {
-      const f = snapshots[i] && snapshots[i].net_apy;
-      const ok = typeof f === "number" && f >= APY_MIN_FRAC && f <= APY_MAX_FRAC;
-      if (ok) break;
-      vals[i] = firstGood;
-    }
+  // Backfill any leading gaps from the first real reading.
+  const firstGood = filled.find((v) => v != null);
+  for (let i = 0; i < filled.length && filled[i] == null; i++) filled[i] = firstGood ?? 0;
+
+  // 2) 7-day trailing average → smooth, trend-representative line (in %).
+  const out = [];
+  for (let i = 0; i < filled.length; i++) {
+    const start = Math.max(0, i - APY_SMOOTH_WINDOW + 1);
+    let sum = 0, n = 0;
+    for (let j = start; j <= i; j++) { if (filled[j] != null) { sum += filled[j]; n++; } }
+    out.push((n ? sum / n : 0) * 100);
   }
-  return vals;
+  return out;
 }
 
 // Exported so the admin console can run the same scoring/metric pipeline on
