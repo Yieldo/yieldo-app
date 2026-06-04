@@ -140,23 +140,31 @@ function calcBreakdown(raw) {
     { metric: "T03.30d", label: "User Retention", rawVal: userRet, rawFmt: userRet !== null ? `${fv(userRet)}%` : "N/A", score: scoreUserRetention(userRet), weight: 0.05 },
   ];
 
-  const capTotal = capital.reduce((s, r) => s + r.score * r.weight, 0);
-  const perfTotal = performance.reduce((s, r) => s + r.score * r.weight, 0);
-  const riskTotal = risk.reduce((s, r) => s + r.score * r.weight, 0);
+  // Client recompute of each dimension (kept so the per-metric tables can show
+  // how each sub-metric contributes).
+  const capClient = capital.reduce((s, r) => s + r.score * r.weight, 0);
+  const perfClient = performance.reduce((s, r) => s + r.score * r.weight, 0);
+  const riskClient = risk.reduce((s, r) => s + r.score * r.weight, 0);
   const trustRaw = trust.reduce((s, r) => s + r.score * r.weight, 0);
   const trustBoost = getTrustBoost(tvlUsd, raw.C07 || 0);
-  const trustTotal = Math.min(100, trustRaw * trustBoost);
+  const trustClient = Math.min(100, trustRaw * trustBoost);
+
+  // The client scoring mirror (lib/scoring.js) drifts from the backend
+  // scoring.py. To keep the debugger's composite identical to the home page,
+  // prefer the backend's AUTHORITATIVE dimension scores for the final math and
+  // fall back to the client recompute only when the indexer hasn't stored them.
+  const bnum = (x) => (x != null && Number.isFinite(Number(x)) ? Number(x) : null);
+  const capTotal = bnum(raw.capital_score) ?? capClient;
+  const perfTotal = bnum(raw.performance_score) ?? perfClient;
+  const riskTotal = bnum(raw.risk_score) ?? riskClient;
+  const trustTotal = bnum(raw.trust_score) ?? trustClient;
 
   const age = raw.D01 || raw.D03 || 0;
-  // Use the backend's authoritative confidence (data-completeness based) so the
-  // debugger's final score matches the vault home page; fall back to age-based
-  // only when the indexer hasn't stored one.
-  const conf = (raw.confidence_multiplier != null && Number.isFinite(Number(raw.confidence_multiplier)))
-    ? Number(raw.confidence_multiplier)
-    : getConfidence(age);
-  const extBonus = calcExternalRatingBonus(raw.T14);
+  const conf = bnum(raw.confidence_multiplier) ?? getConfidence(age);
+  const extBonus = bnum(raw.external_rating_bonus) ?? calcExternalRatingBonus(raw.T14);
 
-  return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal, trustRaw, trustBoost, trustTotal, conf, extBonus, age };
+  return { capital, performance, risk, trust, capTotal, perfTotal, riskTotal,
+           capClient, perfClient, riskClient, trustRaw, trustBoost, trustTotal, conf, extBonus, age };
 }
 
 const FORMULAS = {
@@ -480,10 +488,20 @@ function ScoringDetail({ vault }) {
   if (!raw) return <div style={{ padding: 20, color: C.text3 }}>No raw data available</div>;
 
   const b = calcBreakdown(raw);
-  const flagPenalty = vault.flags.reduce((s, f) => s + (f.penalty || 0), 0);
+  // Prefer the backend's authoritative flag penalty (sum stored as positive,
+  // subtracted from the score) so the math matches the home page; fall back to
+  // the FE-derived flag list only when the indexer hasn't stored it.
+  const flagPenalty = (raw.flag_penalties != null && Number.isFinite(Number(raw.flag_penalties)))
+    ? -Math.abs(Number(raw.flag_penalties))
+    : vault.flags.reduce((s, f) => s + (f.penalty || 0), 0);
   const weighted = b.capTotal * 0.20 + b.perfTotal * 0.20 + b.riskTotal * 0.35 + b.trustTotal * 0.25;
   const afterConf = weighted * b.conf;
-  const finalScore = Math.max(0, Math.min(100, Math.round(afterConf + flagPenalty + b.extBonus)));
+  const computedFinal = Math.max(0, Math.min(100, Math.round(afterConf + flagPenalty + b.extBonus)));
+  // The headline equals the backend's stored yieldo_score so the debugger never
+  // disagrees with the home page (intermediate rounding can otherwise differ).
+  const finalScore = (raw.yieldo_score != null && Number.isFinite(Number(raw.yieldo_score)))
+    ? Number(raw.yieldo_score)
+    : computedFinal;
 
   return (
     <div style={{ padding: "16px 20px", background: C.surfaceAlt, borderTop: `1px solid ${C.border2}` }}>
