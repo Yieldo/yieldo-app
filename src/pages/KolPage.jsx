@@ -959,14 +959,14 @@ export default function KolPage() {
               </p>
             </div>
             <Suspense fallback={null}>
-              <BecomeCreatorModal onClose={() => { /* stay on /creator — modal re-opens below */ setAuthState("apply"); }} />
+              <BecomeCreatorModal onClose={() => { /* stay on /creator — modal re-opens below */ setAuthState("apply"); }} onSuccess={handleRegistered} />
             </Suspense>
           </>
         )}
 
         {authState === "register" && address && (
           <Suspense fallback={null}>
-            <BecomeCreatorModal onClose={() => setAuthState("apply")} />
+            <BecomeCreatorModal onClose={() => setAuthState("apply")} onSuccess={handleRegistered} />
           </Suspense>
         )}
 

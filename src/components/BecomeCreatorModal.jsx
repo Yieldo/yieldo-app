@@ -44,7 +44,7 @@ function Btn({ children, primary, full, onClick, disabled, style = {} }) {
              boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>{children}</button>;
 }
 
-export default function BecomeCreatorModal({ onClose, unlockedByTier = false }) {
+export default function BecomeCreatorModal({ onClose, onSuccess, unlockedByTier = false }) {
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const navigate = useNavigate();
@@ -142,9 +142,35 @@ export default function BecomeCreatorModal({ onClose, unlockedByTier = false }) 
         const err = await regRes.json().catch(() => ({}));
         throw new Error(err.detail || "Registration failed");
       }
-      // Success — redirect to Creator dashboard
-      onClose();
-      navigate("/creator");
+      const regData = await regRes.json().catch(() => ({}));
+
+      // Log the new Creator in so they land on the dashboard, not back on the
+      // invite gate. Newer backends issue a session token straight from
+      // /register (the register signature already proves ownership) — use it
+      // and skip the extra prompt. Older backends don't, so fall back to a
+      // follow-up login signature.
+      let token = regData.session_token;
+      if (!token) {
+        try {
+          const lnNonce = await fetch(`${API}/v1/creators/nonce`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address }),
+          });
+          const { message: loginMsg } = await lnNonce.json();
+          const loginSig = await signMessageAsync({ message: loginMsg });
+          const loginRes = await fetch(`${API}/v1/creators/login`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address, signature: loginSig }),
+          });
+          if (loginRes.ok) token = (await loginRes.json()).session_token;
+        } catch { /* non-fatal — fall through to navigate */ }
+      }
+      if (token) sessionStorage.setItem("yieldo_kol_token", token);
+
+      // Success — hand control back to the host (which refreshes to the
+      // authenticated dashboard), or navigate to /creator as a fallback.
+      if (onSuccess) onSuccess();
+      else { onClose(); navigate("/creator"); }
     } catch (e) {
       if (e.message?.includes("User rejected") || e.message?.includes("User denied")) {
         setSubmitError("Signature rejected");
