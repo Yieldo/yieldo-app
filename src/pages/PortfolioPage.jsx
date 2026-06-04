@@ -95,6 +95,53 @@ function toFloat(raw, decimals = 18) {
   } catch { return 0; }
 }
 
+// Assets pegged ~1:1 to USD. A vault holding these can't realistically lose
+// principal in normal operation, so a negative "yield" on one is a cost-basis
+// artifact (an unrecorded / partial / off-platform withdrawal), not a real loss.
+const STABLE_SYMBOLS = new Set([
+  "usdc", "usdt", "dai", "usds", "usdtb", "usdt0", "pyusd", "usde", "susd",
+  "usdc.e", "usdbc", "frax", "lusd", "crvusd", "ousd", "rlusd", "ausd",
+  "wxdai", "xdai", "gusd", "usdl", "usr", "rusd",
+]);
+const isStableAsset = (s) => !!s && STABLE_SYMBOLS.has(s.toLowerCase());
+
+// Compute a trustworthy yield for a position, or flag it as having no reliable
+// baseline. Handles the two ways our cost basis goes stale:
+//   1. Withdrawals we couldn't fully attribute (off-platform or legacy records
+//      missing assets_out) leave the basis too high → phantom negative yield.
+//      On a stable vault that's never a real loss, so we don't paint it red.
+//   2. Deposits we couldn't attribute (e.g. a cross-chain deposit whose amount
+//      wasn't recorded) leave the basis too low → a "gain" bigger than the
+//      principal itself, which is impossible. Decline to show a fabricated gain.
+// In both cases we surface "no baseline yet" rather than a misleading number —
+// the on-chain current value is always shown and trusted.
+function computeYield(p) {
+  const dec = p.asset_decimals || 18;
+  let raw = p.yield_assets;
+  if (raw == null && p.current_assets != null && p.deposited_assets != null) {
+    try { raw = (BigInt(p.current_assets) - BigInt(p.deposited_assets)).toString(); } catch {}
+  }
+  if (raw == null) return { yieldRaw: null, yieldVal: null, yieldUsd: null, noBaseline: true };
+
+  let yieldVal = toFloat(raw, dec);
+  const dep = p.deposited_assets != null ? toFloat(p.deposited_assets, dec) : null;
+  const cur = p.current_assets != null ? toFloat(p.current_assets, dec) : null;
+  const stable = isStableAsset(p.asset_symbol);
+
+  // Gain larger than principal → deposits under-counted → unreliable baseline.
+  if (dep != null && dep > 0 && yieldVal > dep) {
+    return { yieldRaw: null, yieldVal: null, yieldUsd: null, noBaseline: true };
+  }
+  // Loss on a stable vault → almost certainly an unaccounted withdrawal.
+  if (stable && yieldVal < 0) {
+    return { yieldRaw: null, yieldVal: null, yieldUsd: null, noBaseline: true };
+  }
+
+  let yieldUsd = null;
+  if (p.value_usd != null && cur != null && cur > 0) yieldUsd = (yieldVal / cur) * p.value_usd;
+  return { yieldRaw: raw, yieldVal, yieldUsd, noBaseline: false };
+}
+
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -123,10 +170,12 @@ export default function PortfolioPage() {
   // Merge position data with vault metadata (APY from our indexer, score) from useVaults hook.
   // Prefer Zerion's APY when available (p.apy is a fraction, e.g. 0.045 = 4.5%).
   // Otherwise fall back to our indexer's apy (which is already in percent form).
+  // Also attach the robust yield (yieldRaw/yieldVal/yieldUsd/noBaseline) once so
+  // the summary cards and the rows agree.
   const enrichedPositions = positions.map(p => {
     const v = vaults.find(x => x.id === p.vault_id) || {};
     const displayApy = p.apy != null ? p.apy * 100 : v.apy;
-    return { ...p, displayApy, score: v.yieldoScore };
+    return { ...p, displayApy, score: v.yieldoScore, ...computeYield(p) };
   });
 
   // Prefer Zerion USD values (from `value_usd`); fall back to per-asset sum when unavailable.
@@ -138,9 +187,14 @@ export default function PortfolioPage() {
   const totalValueAsset = enrichedPositions.reduce((s, p) =>
     s + (p.current_assets ? toFloat(p.current_assets, p.asset_decimals || 6) : toFloat(p.share_balance, p.share_decimals || 18)), 0);
 
-  const totalYield = enrichedPositions.reduce((s, p) =>
-    s + (p.yield_assets ? toFloat(p.yield_assets, p.asset_decimals || 6) : 0), 0);
-  const hasAnyYield = enrichedPositions.some(p => p.yield_assets != null);
+  // Total yield: sum positions with a reliable baseline. Across mixed assets
+  // USD is the only sound unit, so prefer it; only fall back to asset units when
+  // every yielding position shares one asset.
+  const yielding = enrichedPositions.filter(p => !p.noBaseline && p.yieldVal != null);
+  const hasAnyYield = yielding.length > 0;
+  const allYieldUsd = hasAnyYield && yielding.every(p => p.yieldUsd != null);
+  const totalYieldUsd = yielding.reduce((s, p) => s + (p.yieldUsd || 0), 0);
+  const totalYield = yielding.reduce((s, p) => s + (p.yieldVal || 0), 0);
 
   // Detect if all positions share a single asset so we can show a unit label
   const uniqueAssets = new Set(enrichedPositions.map(p => p.asset_symbol));
@@ -194,12 +248,14 @@ export default function PortfolioPage() {
             <span style={{ fontSize: 14 }}>📈</span>
             <span style={{ fontSize: 12, color: C.text3, fontWeight: 500 }}>Total Yield</span>
           </div>
-          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, color: hasAnyYield ? (totalYield >= 0 ? C.green : C.red) : C.text4 }}>
-            {!hasAnyYield ? "—" : `${totalYield >= 0 ? "+" : ""}${totalYield.toLocaleString(undefined, { maximumFractionDigits: 4 })}`}
-            {hasAnyYield && singleAsset && <span style={{ fontSize: 14, color: C.text3, marginLeft: 6 }}>{singleAsset}</span>}
+          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, color: hasAnyYield ? ((allYieldUsd ? totalYieldUsd : totalYield) >= 0 ? C.green : C.red) : C.text4 }}>
+            {!hasAnyYield ? "—" : allYieldUsd
+              ? `${totalYieldUsd >= 0 ? "+" : "-"}$${Math.abs(totalYieldUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : `${totalYield >= 0 ? "+" : ""}${totalYield.toLocaleString(undefined, { maximumFractionDigits: 4 })}`}
+            {hasAnyYield && !allYieldUsd && singleAsset && <span style={{ fontSize: 14, color: C.text3, marginLeft: 6 }}>{singleAsset}</span>}
           </div>
           <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>
-            {hasAnyYield ? "current value − deposited" : "computing..."}
+            {hasAnyYield ? "net of deposits & withdrawals" : "computing..."}
           </div>
         </Card>
         <Card style={{ padding: isMobile ? "14px 14px" : "18px 20px" }}>
@@ -259,22 +315,11 @@ export default function PortfolioPage() {
             const depositedDisplay = p.deposited_assets
               ? fmtAmount(p.deposited_assets, assetDecimals)
               : null;
-            // Real yield in asset units. Use backend's yield_assets if present, else
-            // fall back to current - deposited when both are known. Only stays null
-            // when we genuinely have no baseline (e.g. position from before we began
-            // tracking deposits).
-            let yieldRaw = p.yield_assets;
-            if (yieldRaw == null && p.current_assets != null && p.deposited_assets != null) {
-              try { yieldRaw = (BigInt(p.current_assets) - BigInt(p.deposited_assets)).toString(); } catch {}
-            }
-            const yieldVal = yieldRaw != null ? toFloat(yieldRaw, assetDecimals) : null;
-            // USD-denominated yield when we can convert: scale the asset-unit yield
-            // by the position's USD/asset ratio from Zerion.
-            let yieldUsd = null;
-            if (yieldVal != null && p.value_usd != null && p.current_assets) {
-              const curF = toFloat(p.current_assets, assetDecimals);
-              if (curF > 0) yieldUsd = (yieldVal / curF) * p.value_usd;
-            }
+            // Robust yield (computed once in enrichedPositions): yieldVal/yieldUsd
+            // are null and noBaseline is true when the cost basis is unreliable
+            // (unaccounted withdrawal or under-counted deposit) — we show
+            // "no baseline yet" rather than a misleading red loss or fake gain.
+            const { yieldRaw, yieldVal, yieldUsd, noBaseline } = p;
             const fmtUsdSigned = (n) => {
               const s = n >= 0 ? "+" : "-";
               const a = Math.abs(n);
@@ -286,10 +331,10 @@ export default function PortfolioPage() {
             const valueText = p.value_usd != null
               ? `$${p.value_usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
               : valueDisplay;
-            const yieldText = yieldUsd != null
-              ? fmtUsdSigned(yieldUsd)
+            const yieldText = noBaseline ? "—"
+              : yieldUsd != null ? fmtUsdSigned(yieldUsd)
               : yieldVal != null ? fmtAmountSigned(yieldRaw, assetDecimals) : "+$0.00";
-            const yieldColor = yieldVal != null && yieldVal < 0 ? C.red : C.green;
+            const yieldColor = noBaseline ? C.text4 : yieldVal != null && yieldVal < 0 ? C.red : C.green;
 
             // Mobile: stacked card layout — vault header row, then 2x2 metric grid, then full-width buttons.
             if (isMobile) {
