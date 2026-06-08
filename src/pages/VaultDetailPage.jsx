@@ -749,7 +749,7 @@ function SubScoreCard({ label, dimension, value, weight, history, accent, isActi
         <div ref={sparkRef} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, minWidth: 80 }}>
           <MiniSparkline data={history} color={accent} width={sparkW} height={isMobile ? 36 : 32} />
           <span style={{ fontSize: 9.5, color: isActiveOverlay ? accent : C.text4, fontWeight: 600 }}>
-            {isActiveOverlay ? "✓ on chart" : "Tap to overlay"}
+            {isActiveOverlay ? "▲ Hide details" : "▼ View details"}
           </span>
         </div>
       </div>
@@ -1255,6 +1255,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     setActiveOverlays(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
     document.getElementById("yieldo-history-chart")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+  // Which score dimension's detail panel is expanded (accordion). Clicking a
+  // dimension card opens its full metric breakdown below the card grid.
+  const [expandedDim, setExpandedDim] = useState(null);
   // Real overall success-rate from /v1/vaults/{id}/stats — kept for any other
   // consumers; the header "Deposit Success Rate" box was removed.
   const { stats: vaultStats } = useVaultStats(vaultId, { days: 30 });
@@ -1635,27 +1638,8 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             </Card>
           </div>
         </div>
-        <AllocationCard vault={v} />
-
-        {/* Sub-score history grid — one card per dimension. Click a card to
-            toggle that dimension as an overlay on the chart below. */}
-        <div style={{ display: "grid",
-                      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                      gap: isMobile ? 10 : 12, marginBottom: isMobile ? 14 : 16 }}>
-          {[
-            { key: "capital",     label: "Capital",     weight: weights.capital,     accent: DIM.capital,     value: v.subScores?.capital,     history: scoreHistory.capital     },
-            { key: "performance", label: "Performance", weight: weights.performance, accent: DIM.performance, value: v.subScores?.performance, history: scoreHistory.performance },
-            { key: "risk",        label: "Risk",        weight: weights.risk,        accent: DIM.risk,        value: v.subScores?.risk,        history: scoreHistory.risk        },
-            { key: "trust",       label: "Trust",       weight: weights.trust,       accent: DIM.trust,       value: v.subScores?.trust,       history: scoreHistory.trust       },
-          ].map(c => (
-            <SubScoreCard key={c.key} label={c.label} dimension={c.key} value={c.value} weight={c.weight}
-              history={c.history} accent={c.accent} isMobile={isMobile}
-              isActiveOverlay={activeOverlays.includes(c.key)}
-              onClick={() => toggleOverlay(c.key)} />
-          ))}
-        </div>
-
-        {/* Multi-overlay chart — APY (solid) + selectable score dimensions (dashed) */}
+        {/* Multi-overlay chart — APY (solid) + selectable score dimensions
+            (dashed). Sits directly under the header, above the score cards. */}
         {hasHistory && (
           <Card id="yieldo-history-chart" style={{ padding: isMobile ? "14px 12px" : "20px 24px", marginBottom: 20 }}>
             <MultiOverlayChart
@@ -1670,14 +1654,34 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           </Card>
         )}
 
+        {/* Score dimension cards — click a card to expand its full metric
+            breakdown in the panel below. */}
+        <div style={{ display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                      gap: isMobile ? 10 : 12, marginBottom: expandedDim ? 12 : (isMobile ? 14 : 16) }}>
+          {[
+            { key: "capital",     label: "Capital",     weight: weights.capital,     accent: DIM.capital,     value: v.subScores?.capital,     history: scoreHistory.capital     },
+            { key: "performance", label: "Performance", weight: weights.performance, accent: DIM.performance, value: v.subScores?.performance, history: scoreHistory.performance },
+            { key: "risk",        label: "Risk",        weight: weights.risk,        accent: DIM.risk,        value: v.subScores?.risk,        history: scoreHistory.risk        },
+            { key: "trust",       label: "Trust",       weight: weights.trust,       accent: DIM.trust,       value: v.subScores?.trust,       history: scoreHistory.trust       },
+          ].map(c => (
+            <SubScoreCard key={c.key} label={c.label} dimension={c.key} value={c.value} weight={c.weight}
+              history={c.history} accent={c.accent} isMobile={isMobile}
+              isActiveOverlay={expandedDim === c.key}
+              onClick={() => setExpandedDim(d => d === c.key ? null : c.key)} />
+          ))}
+        </div>
+
         {/* Flags */}
         {/* Active Flags moved into the left summary card (near the score) so
             users see risk warnings immediately. The duplicate card here was
             causing both visual noise and inconsistent positioning. */}
 
-        {/* Metric Sections */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : 16 }}>
+        {/* Expanded score-dimension detail — only the selected card's panel
+            renders, full-width, directly under the card grid. */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: isMobile ? 12 : 16 }}>
           {/* Capital */}
+          {expandedDim === "capital" && (
           <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#6366f1" }} />
@@ -1716,8 +1720,10 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             {v.withdrawalType === "Async" && v.supply_queue_length !== undefined && <MR label="Supply Queue" value={v.supply_queue_length} />}
             {v.withdrawalType === "Async" && v.withdraw_queue_length !== undefined && <MR label="Withdraw Queue" value={v.withdraw_queue_length} />}
           </Card>
+          )}
 
           {/* Performance */}
+          {expandedDim === "performance" && (
           <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
@@ -1787,8 +1793,10 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} />
             <MR label="Yield Type" value={v._raw?.P12 || v.yieldType} />
           </Card>
+          )}
 
           {/* Risk */}
+          {expandedDim === "risk" && (
           <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b" }} />
@@ -1832,8 +1840,10 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             })()}
             {v.timelock > 0 && <MR label="Timelock" value={`${v.timelock}s`} />}
           </Card>
+          )}
 
           {/* Trust */}
+          {expandedDim === "trust" && (
           <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
@@ -1878,7 +1888,19 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             {v.T10b && typeof v.T10b === "object" && <MR label="Net Capital Flow (30d)" value={`${v.T10b.net_flow_pct >= 0 ? "+" : ""}${v.T10b.net_flow_pct}%`} desc={`Score: ${v.T10b.score}/100 · (Net deposits − withdrawals) / TVL`} />}
             {/* <MR label="External Ratings" value={fmt(v.T14)} desc="Independent risk ratings count" /> */}
           </Card>
+          )}
         </div>
+
+        {/* Prompt when no dimension is expanded, so the section isn't empty. */}
+        {!expandedDim && (
+          <div style={{ padding: "14px 16px", borderRadius: 10, background: C.surfaceAlt,
+                        border: `1px dashed ${C.border2}`, textAlign: "center", fontSize: 12.5,
+                        color: C.text3, marginBottom: 4 }}>
+            Click a score card above to see its full metric breakdown.
+          </div>
+        )}
+
+        <AllocationCard vault={v} />
 
         {/* Data Confidence */}
         <Card style={{ padding: "16px 20px", marginTop: 16 }}>
