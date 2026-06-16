@@ -96,16 +96,14 @@ export default async function handler(req, res) {
       return applyCuratorOverride(row);
     });
 
-    // Serve from the CDN edge so users don't wait on serverless cold-starts
-    // (which can take ~13s against a shared Atlas cluster). Fresh for 2 min,
-    // then served stale-but-instant for up to 1h while revalidating in the
-    // background — vault data is display-only and the indexer refreshes every
-    // ~5 min, so a couple minutes of staleness is harmless.
-    // Fresh for 5 min, then served stale-but-instant for up to 24h while
-    // revalidating in the background. A cron (vercel.json) hits this every 5 min
-    // to keep both the CDN cache and the serverless function warm, so users
-    // essentially never wait on a cold-start.
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=86400");
+    // Keep this in lock-step with the detail endpoint (/api/vaults/[vaultId].js,
+    // s-maxage=30, swr=60). They MUST use the same freshness window or the same
+    // vault shows different scores on the list-fed pages (home, /vaultscoring)
+    // vs the detail-fed /vault page. The old 24h stale-while-revalidate let the
+    // list serve scores up to a DAY old while detail was ~live — that was the
+    // home/scoring vs detail score-mismatch. A cron (vercel.json) + the module-
+    // scoped connection keep this warm, so a 30s window doesn't cold-start.
+    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
     res.status(200).json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
