@@ -19,9 +19,16 @@ import {
   getConfidence, calcExternalRatingBonus, deriveFlags,
 } from "../lib/scoring.js";
 
-const CACHE_KEY = "yieldo_vaults_cache_v6";  // bumped — underlying yield boost surfaced
-const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v4_";
-const CACHE_TTL = 5 * 60 * 1000;
+// Bump these version suffixes to force every browser to drop its cached payload
+// on the next load — otherwise a stale localStorage list keeps showing an old
+// score (e.g. Midas 77) even after the server is fresh, and the list-fed pages
+// (home, /vaultscoring) disagree with the detail page.
+const CACHE_KEY = "yieldo_vaults_cache_v7";
+const CACHE_DETAIL_PREFIX = "yieldo_vault_detail_v5_";
+// 60s, matching the API's 30s edge freshness, so the browser layer can't hold a
+// score materially staler than the server (was 5 min — long enough to show a
+// stale score well after the indexer recomputed).
+const CACHE_TTL = 60 * 1000;
 
 function getCache(key) {
   try {
