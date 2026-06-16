@@ -14,8 +14,5 @@
   ],
   "redirects": [
     { "source": "/vaults/:vaultId", "destination": "/vault/:vaultId", "permanent": false }
-  ],
-  "crons": [
-    { "path": "/api/vaults", "schedule": "*/5 * * * *" }
   ]
 }
