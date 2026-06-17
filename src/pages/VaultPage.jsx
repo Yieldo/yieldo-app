@@ -678,7 +678,12 @@ export default function VaultPage() {
                   <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                     <Badge color={v.riskC}>{v.risk}</Badge>
                     {v.strategyTier && <StrategyChip tier={v.strategyTier} />}
-                    <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
+                    {v.protocol === "Morpho V2" ? (<>
+                      <Badge color={C.text3} bg={C.surfaceAlt}>Morpho</Badge>
+                      <Badge color="#fff" bg="#7A1CCB">V2</Badge>
+                    </>) : (
+                      <Badge color={C.text3} bg={C.surfaceAlt}>{v.protocol}</Badge>
+                    )}
                     <Badge color={C.text3} bg={C.surfaceAlt}>{v.asset}</Badge>
                   </div>
                   {v.flags.filter(f=>f.severity!=="info").length>0 && <div style={{ marginBottom: 10 }}><FlagBadge flags={v.flags.filter(f=>f.severity!=="info")} compact/></div>}
