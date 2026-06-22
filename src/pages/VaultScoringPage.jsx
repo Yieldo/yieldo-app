@@ -61,6 +61,19 @@ function ScoreRing({ score, size = 36, sw = 3 }) {
   );
 }
 
+// Informational stability score from APY volatility (lower vol = steadier yield).
+// P04 is NOT part of the composite performance score (weight 0); this only gives
+// the debug table a 0-100 readout for context.
+function scoreVolatility(v) {
+  if (v == null) return 0;
+  const pct = v * 100;
+  if (pct < 0.5) return 100;
+  if (pct < 1) return 85;
+  if (pct < 2) return 65;
+  if (pct < 5) return 40;
+  return 20;
+}
+
 function calcBreakdown(raw) {
   const c02 = raw.C02 || {};
   const c04 = raw.C04 || {};
@@ -110,7 +123,13 @@ function calcBreakdown(raw) {
   const worstWeekVal = raw.P07 === "Insufficient Data" ? null : (typeof raw.P07 === "number" ? raw.P07 : null);
   const consistencyVal = raw.P13 === "Insufficient Data" ? null : (typeof raw.P13 === "number" ? raw.P13 : null);
 
+  // P04=APY Volatility (informational — not part of the composite performance
+  // score; shown here for transparency). StdDev of the net-APY series.
+  const p04obj = raw.P04 || {};
+  const apyVol = typeof p04obj === "object" ? (p04obj["30d"] ?? p04obj["365d"] ?? null) : (typeof raw.P04 === "number" ? raw.P04 : null);
+
   const performance = [
+    { metric: "P04", label: "APY Volatility (info)", rawVal: apyVol, rawFmt: apyVol !== null && apyVol !== undefined ? `${(apyVol * 100).toFixed(2)}%` : "N/A", score: scoreVolatility(apyVol), weight: 0 },
     { metric: "P05", label: "Sharpe Ratio", rawVal: sharpeVal, rawFmt: fv(sharpeVal), score: scoreSharpe(sharpeVal), weight: 0.15 },
     { metric: "P06", label: "Win Rate", rawVal: winRateVal, rawFmt: winRateVal !== null ? `${(winRateVal * 100).toFixed(1)}%` : "N/A", score: scoreWinRate(winRateVal), weight: 0.10 },
     { metric: "P07", label: "Worst Week", rawVal: worstWeekVal, rawFmt: worstWeekVal !== null ? `${(worstWeekVal * 100).toFixed(2)}%` : "N/A", score: scoreWorstWeek(worstWeekVal), weight: 0.05 },
@@ -174,6 +193,7 @@ const FORMULAS = {
   R07: { formula: "100 − (pending_pct × 2)\n0%→100, 25%→50, 50%→0", source: "On-chain (async vaults only)" },
   "C04.7d": { formula: "pct = (net_flow_7d / TVL) × 100\n>5%: 100, ±2%: 70, 2-5%: 85\n-2 to -10%: 40, <-10%: 0", source: "Computed from TVL snapshot diffs" },
   R06: { formula: "Instant: 100, <1hr: 80\n1-24hr: 40, >24hr: 0", source: "On-chain ERC-7540 interface check" },
+  P04: { formula: "APY Volatility = StdDev(net APY series)\nover the window (30d / 365d).\nAPY is already annualized, so dispersion\nis measured directly — NO /365 × √365.\n\nInformational only (weight 0): not part\nof the composite performance score.\nDisplay score: <0.5%→100, <1%→85,\n<2%→65, <5%→40, ≥5%→20", source: "Daily net_apy snapshots (StdDev)" },
   P05: { formula: "Benchmark-relative Sharpe:\nmean(spread) / σ(spread)\nspread = vault_apy − benchmark_apy\n13w(40%) + 52w(60%) blend\n\n<0→0, 0-0.5→30, 0.5-1→50\n1-1.5→70, 1.5-2→85, >2→100", source: "perf_alpha.py (snapshots + DeFiLlama benchmark)" },
   P06: { formula: "Win Rate = wins / total_weeks\nwins = weeks where vault APY > benchmark\n13w(40%) + 52w(60%) blend\n\n<30%→10, 30-50%→30, 50-65%→50\n65-80%→75, 80-90%→90, >90%→100", source: "perf_alpha.py (snapshots + DeFiLlama benchmark)" },
   P07: { formula: "Worst Week = min(weekly spread)\nspread = vault_apy − benchmark_apy\n13w(40%) + 52w(60%) blend\n\nabs=0→100, <0.5%→90, <1%→75\n<2%→50, <5%→30, >5%→10", source: "perf_alpha.py" },
@@ -230,6 +250,7 @@ const METRIC_CATALOG = [
   { cat: "Capital", code: "C04.7d", label: "Net Flows (7d)", weight: "18.75%", refresh: REFRESH.realtime, key: "C04.7d" },
   { cat: "Capital", code: "R06", label: "Deposit Latency", weight: "6.25%", refresh: REFRESH.hour48, key: "R06" },
   // — Performance (20%) —
+  { cat: "Performance", code: "P04", label: "APY Volatility (info)", weight: "0% (info)", refresh: REFRESH.realtime, key: "P04" },
   { cat: "Performance", code: "P05", label: "Sharpe (vs benchmark)", weight: "15%", refresh: REFRESH.realtime, key: "P05" },
   { cat: "Performance", code: "P08", label: "Max Drawdown", weight: "25%", refresh: REFRESH.realtime, key: "P08" },
   { cat: "Performance", code: "P09", label: "Drawdown Duration", weight: "5%", refresh: REFRESH.realtime, key: "P09" },
