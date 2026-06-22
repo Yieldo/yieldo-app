@@ -151,17 +151,38 @@ export function scoreIncidents(count) {
   if (count === 2) return 10;
   return 0;
 }
-export function scoreDepegRisk(assetPrice, assetType, asset, r02depeg) {
+// Graded depeg score from Pharos' measured peg deviation (bps from the coin's
+// own peg currency). Mirrors _pharos_depeg_score in the indexer's scoring.py.
+// Only trusted at high/medium price confidence. null = no Pharos signal.
+function pharosDepegScore(devBps, confidence) {
+  if (devBps == null || (confidence !== "high" && confidence !== "medium")) return null;
+  const a = Math.abs(Number(devBps));
+  if (Number.isNaN(a)) return null;
+  if (a <= 25) return 100;
+  if (a <= 50) return 90;
+  if (a <= 100) return 70;
+  if (a <= 200) return 40;
+  return 10;
+}
+
+export function scoreDepegRisk(assetPrice, assetType, asset, r02depeg, pharosDevBps, pharosConf) {
   if (assetType !== "stablecoin") return 80;
-  // EUR-pegged stables: the $1 ladder is meaningless (their USD price ≈ EUR/USD
-  // ≈ 1.05-1.20). Use the indexer's EUR-aware R02_depeg flag instead.
-  if (isEurPegged(asset)) return r02depeg ? 0 : 100;
-  if (assetPrice == null) return 50;
-  const price = assetPrice;
-  if (price > 0.995) return 100;
-  if (price >= 0.99) return 70;
-  if (price >= 0.98) return 30;
-  return 0;
+  const pharos = pharosDepegScore(pharosDevBps, pharosConf);
+  // Base score, then take the MIN with Pharos so a measured deviation can lower
+  // it but never raise a flagged coin (mirrors scoring.py _score_depeg).
+  let base;
+  if (isEurPegged(asset)) {
+    // EUR-pegged stables: the $1 ladder is meaningless (USD price ≈ EUR/USD).
+    base = r02depeg ? 0 : 100;
+  } else if (assetPrice == null && pharos == null) {
+    return 50;
+  } else if (assetPrice == null) {
+    base = 100;
+  } else {
+    const price = assetPrice;
+    base = price > 0.995 ? 100 : price >= 0.99 ? 70 : price >= 0.98 ? 30 : 0;
+  }
+  return pharos == null ? base : Math.min(base, pharos);
 }
 export function scoreWithdrawalLatency(type) {
   if (type === "Instant") return 100;
@@ -333,7 +354,7 @@ export function calcRiskScore(raw) {
   const top5 = top5raw > 1 ? top5raw / 100 : top5raw;
   return (
     scoreIncidents(incidents) * 0.353 +
-    scoreDepegRisk(raw.R01, assetType, raw.asset, raw.R02_depeg) * 0.294 +
+    scoreDepegRisk(raw.R01, assetType, raw.asset, raw.R02_depeg, raw.pharos_deviation_bps, raw.pharos_price_confidence) * 0.294 +
     scoreConcentration(top5, raw.C07 || 0) * 0.176 +
     scoreWithdrawalLatency(raw.R06 || "Instant") * 0.118 +
     scoreTimelock(raw.timelock || 0) * 0.059

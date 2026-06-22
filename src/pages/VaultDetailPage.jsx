@@ -191,6 +191,50 @@ const Badge = ({ children, color = C.purple, bg }) => <span style={{ fontSize: 1
 
 const Card = ({ children, style: sx = {} }) => <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,.03)", ...sx }}>{children}</div>;
 
+// Stablecoin health panel sourced from the Pharos API (pharos.watch). Shown
+// only for vaults whose underlying asset is a Pharos-tracked stablecoin.
+function PharosCard({ p, asset, isMobile }) {
+  const dev = p.deviationBps;
+  const devAbs = dev == null ? null : Math.abs(dev);
+  const devCol = devAbs == null ? C.text3 : devAbs <= 25 ? C.green : devAbs <= 50 ? C.blue : devAbs <= 100 ? C.amber : C.red;
+  const pegCol = p.pegScore == null ? C.text3 : p.pegScore >= 90 ? C.green : p.pegScore >= 75 ? C.amber : C.red;
+  const fmtDev = dev == null ? "N/A" : `${dev > 0 ? "+" : ""}${dev} bps`;
+  const conf = p.priceConfidence ? p.priceConfidence.replace(/(^|-)\w/g, m => m.toUpperCase()).replace("-", " ") : "N/A";
+  const tiles = [
+    { lbl: "Peg Score", val: p.pegScore == null ? "N/A" : `${p.pegScore}`, unit: p.pegScore == null ? "" : "/100", col: pegCol },
+    { lbl: "Deviation", val: fmtDev, col: devCol },
+    { lbl: "Price Confidence", val: conf, col: p.priceConfidence === "high" ? C.green : C.text2 },
+    ...(p.bluechipGrade ? [{ lbl: "Bluechip Grade", val: p.bluechipGrade, col: C.purple }] : []),
+  ];
+  return (
+    <Card style={{ padding: "16px 20px", marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🛡️</span>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>Stablecoin Health</span>
+          <Badge color="#fff" bg="#7A1CCB">{(asset || "").toUpperCase()}</Badge>
+        </div>
+        <a href={p.id ? `https://pharos.watch/stablecoin/${p.id}` : "https://pharos.watch"} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, color: C.text3, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+          Data from <strong style={{ color: C.purple }}>Pharos</strong> ↗
+        </a>
+      </div>
+      <div style={{ fontSize: 11, color: C.text3, marginBottom: 12 }}>
+        Live peg-stability for this vault's underlying asset. The measured deviation also feeds the depeg risk score.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : `repeat(${tiles.length}, 1fr)`, gap: isMobile ? 8 : 16 }}>
+        {tiles.map((t, i) => (
+          <div key={i} style={{ padding: 12, borderRadius: 8, background: C.surfaceAlt, textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: C.text4, fontWeight: 600, textTransform: "uppercase" }}>{t.lbl}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, margin: "4px 0", color: t.col }}>{t.val}{t.unit && <span style={{ fontSize: 12, fontWeight: 400, color: C.text3 }}>{t.unit}</span>}</div>
+          </div>
+        ))}
+      </div>
+      {p.governance && <div style={{ fontSize: 10, color: C.text4, marginTop: 10 }}>Governance: {p.governance}</div>}
+    </Card>
+  );
+}
+
 function ScoreRing({ score, size = 44, sw = 4 }) {
   if (score === null || score === undefined) score = 0;
   const r = (size - sw) / 2, circ = 2 * Math.PI * r, off = circ * (1 - score / 100);
@@ -1928,6 +1972,9 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             ))}
           </div>
         </Card>
+
+        {/* Stablecoin Health — Data from Pharos (only for tracked stablecoin assets) */}
+        {v.pharos && <PharosCard p={v.pharos} asset={v.asset} isMobile={isMobile} />}
 
         {/* Metadata */}
         <Card style={{ padding: "16px 20px", marginTop: 16 }}>

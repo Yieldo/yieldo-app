@@ -451,6 +451,16 @@ function _mapVault(raw) {
     pendingWithdrawalsFlag: raw.R08 === true || raw.R08 === "critical" ? "critical" : raw.R08 === "warning" ? "warning" : undefined,
     pauseEvents: typeof raw.R03 === "number" ? raw.R03 : (raw.R03 && typeof raw.R03 === "object" ? (raw.R03["365d"] ?? raw.R03["90d"] ?? 0) : 0),
     depegEvents: raw.R02_depeg ? 1 : 0,
+    // Pharos stablecoin-intelligence enrichment (only present for tracked
+    // stablecoin assets). pharos_deviation_bps also feeds the depeg score.
+    pharos: raw.pharos_tracked ? {
+      id: raw.pharos_id || null,
+      pegScore: typeof raw.pharos_peg_score === "number" ? raw.pharos_peg_score : null,
+      deviationBps: typeof raw.pharos_deviation_bps === "number" ? raw.pharos_deviation_bps : null,
+      priceConfidence: raw.pharos_price_confidence || null,
+      governance: raw.pharos_governance || null,
+      bluechipGrade: raw.pharos_bluechip_grade || null,
+    } : null,
     incidentCount: typeof raw.R10 === "number" ? { "90d": raw.R10, "365d": raw.R10 } : (raw.R10 && typeof raw.R10 === "object" ? { "90d": raw.R10["90d"] ?? 0, "365d": raw.R10["365d"] ?? 0 } : { "90d": 0, "365d": 0 }),
     assetPrice: raw.R01 || null,
     vol24h: raw.vol_24h || null,
