@@ -60,7 +60,11 @@ export function useUserAuth() {
     fetch(`${API}/v1/users/me`, {
       headers: { Authorization: `Bearer ${stored.token}` },
     }).then(res => {
-      if (!res.ok) {
+      // Only a DEFINITIVE 401 (invalid/expired/revoked token) should log the
+      // user out. A transient 5xx, a 403, or a CORS/network hiccup must NOT
+      // wipe a valid 48h+ session — that was forcing a re-sign every few
+      // minutes whenever /me blipped. Network errors hit .catch() (no-op).
+      if (res.status === 401) {
         localStorage.removeItem(STORAGE_KEY);
         setSession(null);
       }
