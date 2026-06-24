@@ -70,7 +70,12 @@ export default async function handler(req, res) {
     row.withdrawals_enabled = flags ? flags.withdrawals_enabled : true;
 
     applyCuratorOverride(row);
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+    // MUST match the list endpoint (/api/vaults.js) exactly, or list-fed pages
+    // and this detail page show different scores for the same vault. s-maxage=120
+    // keeps them within ~2 min; stale-while-revalidate=1200 serves the cached
+    // copy instantly for 20 min while refreshing in the background, so the page
+    // doesn't pay the cold-start (7s) load when revisited within 20 min.
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=1200");
     res.status(200).json(row);
   } catch (err) {
     console.error("Error fetching vault:", err);

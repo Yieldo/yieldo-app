@@ -96,14 +96,19 @@ export default async function handler(req, res) {
       return applyCuratorOverride(row);
     });
 
-    // Keep this in lock-step with the detail endpoint (/api/vaults/[vaultId].js,
-    // s-maxage=30, swr=60). They MUST use the same freshness window or the same
-    // vault shows different scores on the list-fed pages (home, /vaultscoring)
-    // vs the detail-fed /vault page. The old 24h stale-while-revalidate let the
-    // list serve scores up to a DAY old while detail was ~live — that was the
-    // home/scoring vs detail score-mismatch. A cron (vercel.json) + the module-
-    // scoped connection keep this warm, so a 30s window doesn't cold-start.
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+    // Keep this in lock-step with the detail endpoint (/api/vaults/[vaultId].js).
+    // They MUST use the SAME header or the same vault shows different scores on
+    // the list-fed pages (home, /vaultscoring) vs the detail-fed /vault page —
+    // the old 24h stale-while-revalidate let the list serve day-old scores while
+    // detail was ~live (the score-mismatch we fixed).
+    //
+    // s-maxage=120: edge serves a HARD-fresh copy for 2 min, so list & detail
+    // stay within ~2 min of each other (no visible mismatch — scores don't move
+    // that fast). stale-while-revalidate=1200: for the next 20 min the edge
+    // serves the cached copy INSTANTLY while refreshing in the background, so a
+    // page visited at least once per 20 min never waits on a cold function (the
+    // 7s load). Only a vault with zero traffic for 20 min pays the cold start.
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=1200");
     res.status(200).json(data);
   } catch (err) {
     console.error("Error fetching vaults:", err);
