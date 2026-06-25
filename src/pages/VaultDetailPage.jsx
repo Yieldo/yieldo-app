@@ -195,36 +195,49 @@ const Card = ({ children, style: sx = {} }) => <div style={{ background: C.white
 // API (Midas, Upshift, Lagoon, Veda, Lido, Accountable, Morpho V2). Sourced via
 // web research, so it's clearly labelled with a confidence chip + sources.
 function StrategyCard({ s, isMobile }) {
+  const [open, setOpen] = useState(false);
   const confColor = s.confidence === "high" ? C.green : s.confidence === "medium" ? C.amber : C.text3;
   const links = (s.sources || []).filter(u => typeof u === "string" && u.startsWith("http"));
+  // Staleness: researched_at is an ISO string; show "researched Nd ago".
+  const ageDays = s.researched_at ? Math.floor((Date.now() - new Date(s.researched_at).getTime()) / 86400000) : null;
+  const ageLabel = ageDays == null ? null : ageDays <= 0 ? "today" : `${ageDays}d ago`;
   return (
     <Card style={{ padding: "16px 20px", marginTop: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+      {/* Header row — always visible; whole row toggles details */}
+      <div onClick={() => setOpen(o => !o)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", cursor: "pointer" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 16 }}>🧭</span>
           <span style={{ fontSize: 15, fontWeight: 700 }}>Strategy</span>
-          {s.curator && <Badge color={C.text3} bg={C.surfaceAlt}>{s.curator}</Badge>}
+          {s.curator && <Badge color={C.text3} bg={C.surfaceAlt}>{String(s.curator).split(/[;(]/)[0].trim().slice(0, 28)}</Badge>}
         </div>
-        <span style={{ fontSize: 10, fontWeight: 600, color: confColor, textTransform: "uppercase" }}>
-          {s.confidence || "?"} confidence · researched
-        </span>
-      </div>
-      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginBottom: s.holdings?.length ? 12 : 0 }}>{s.summary}</div>
-      {Array.isArray(s.holdings) && s.holdings.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Allocates to</div>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
-            {s.holdings.map((h, i) => <li key={i}>{h}</li>)}
-          </ul>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: confColor, textTransform: "uppercase" }}>{s.confidence || "?"} · researched{ageLabel ? ` ${ageLabel}` : ""}</span>
+          <span style={{ fontSize: 12, color: C.purple, fontWeight: 600 }}>{open ? "Hide ▲" : "Details ▼"}</span>
         </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
-        {s.yield_source && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Yield source</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.yield_source}</div></div>}
-        {s.risk_notes && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Key risks</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.risk_notes}</div></div>}
       </div>
-      {links.length > 0 && (
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.text3 }}>
-          Sources: {links.slice(0, 4).map((u, i) => <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, marginRight: 8 }}>[{i + 1}]</a>)}
+      {/* Summary — always visible (the "necessary data to see") */}
+      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginTop: 10 }}>{s.summary}</div>
+
+      {/* Full breakdown — collapsed by default */}
+      {open && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+          {Array.isArray(s.holdings) && s.holdings.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Allocates to</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+                {s.holdings.map((h, i) => <li key={i}>{h}</li>)}
+              </ul>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+            {s.yield_source && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Yield source</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.yield_source}</div></div>}
+            {s.risk_notes && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Key risks</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.risk_notes}</div></div>}
+          </div>
+          {links.length > 0 && (
+            <div style={{ marginTop: 12, fontSize: 11, color: C.text3 }}>
+              Sources: {links.slice(0, 4).map((u, i) => <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, marginRight: 8 }}>[{i + 1}]</a>)}
+            </div>
+          )}
         </div>
       )}
     </Card>
