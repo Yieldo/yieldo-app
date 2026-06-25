@@ -462,7 +462,9 @@ function _mapVault(raw) {
       bluechipGrade: raw.pharos_bluechip_grade || null,
     } : null,
     // Researched strategy (qualitative) for protocols with no allocation API.
-    strategy: raw.strategy || null,
+    // NOTE: named `researchedStrategy` to avoid collision with the existing
+    // `strategy` key below (deriveStrategyTier) which would overwrite it.
+    researchedStrategy: raw.strategy || null,
     incidentCount: typeof raw.R10 === "number" ? { "90d": raw.R10, "365d": raw.R10 } : (raw.R10 && typeof raw.R10 === "object" ? { "90d": raw.R10["90d"] ?? 0, "365d": raw.R10["365d"] ?? 0 } : { "90d": 0, "365d": 0 }),
     assetPrice: raw.R01 || null,
     vol24h: raw.vol_24h || null,

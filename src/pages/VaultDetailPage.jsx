@@ -1989,7 +1989,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           </div>
         )}
 
-        {v.strategy && v.strategy.summary && <StrategyCard s={v.strategy} isMobile={isMobile} />}
+        {v.researchedStrategy && v.researchedStrategy.summary && <StrategyCard s={v.researchedStrategy} isMobile={isMobile} />}
 
         <AllocationCard vault={v} />
 
