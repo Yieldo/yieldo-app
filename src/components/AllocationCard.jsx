@@ -29,6 +29,10 @@ export default function AllocationCard({ vault }) {
   // No allocation data (Midas/Lagoon/Upshift/Lido/Morpho-V2/Accountable, or a
   // fetch error) — be explicit rather than rendering an empty card.
   if (!alloc || !Array.isArray(alloc.positions) || alloc.positions.length === 0) {
+    // If we have a researched Strategy panel for this vault, it already shows
+    // what the vault allocates to — don't also render a contradictory
+    // "not published" Allocation card.
+    if (vault?.researchedStrategy?.summary) return null;
     return (
       <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
