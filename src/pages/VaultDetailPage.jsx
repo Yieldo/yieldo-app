@@ -191,6 +191,46 @@ const Badge = ({ children, color = C.purple, bg }) => <span style={{ fontSize: 1
 
 const Card = ({ children, style: sx = {} }) => <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,.03)", ...sx }}>{children}</div>;
 
+// Researched strategy panel — for protocols that don't expose allocation via
+// API (Midas, Upshift, Lagoon, Veda, Lido, Accountable, Morpho V2). Sourced via
+// web research, so it's clearly labelled with a confidence chip + sources.
+function StrategyCard({ s, isMobile }) {
+  const confColor = s.confidence === "high" ? C.green : s.confidence === "medium" ? C.amber : C.text3;
+  const links = (s.sources || []).filter(u => typeof u === "string" && u.startsWith("http"));
+  return (
+    <Card style={{ padding: "16px 20px", marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🧭</span>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>Strategy</span>
+          {s.curator && <Badge color={C.text3} bg={C.surfaceAlt}>{s.curator}</Badge>}
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 600, color: confColor, textTransform: "uppercase" }}>
+          {s.confidence || "?"} confidence · researched
+        </span>
+      </div>
+      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginBottom: s.holdings?.length ? 12 : 0 }}>{s.summary}</div>
+      {Array.isArray(s.holdings) && s.holdings.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Allocates to</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+            {s.holdings.map((h, i) => <li key={i}>{h}</li>)}
+          </ul>
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+        {s.yield_source && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Yield source</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.yield_source}</div></div>}
+        {s.risk_notes && <div><div style={{ fontSize: 10, fontWeight: 700, color: C.text4, textTransform: "uppercase", marginBottom: 3 }}>Key risks</div><div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{s.risk_notes}</div></div>}
+      </div>
+      {links.length > 0 && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.text3 }}>
+          Sources: {links.slice(0, 4).map((u, i) => <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, marginRight: 8 }}>[{i + 1}]</a>)}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // Stablecoin health panel sourced from the Pharos API (pharos.watch). Shown
 // only for vaults whose underlying asset is a Pharos-tracked stablecoin.
 function PharosCard({ p, asset, isMobile }) {
@@ -1948,6 +1988,8 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             Click a score card above to see its full metric breakdown.
           </div>
         )}
+
+        {v.strategy && v.strategy.summary && <StrategyCard s={v.strategy} isMobile={isMobile} />}
 
         <AllocationCard vault={v} />
 

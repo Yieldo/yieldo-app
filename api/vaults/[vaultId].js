@@ -38,6 +38,9 @@ export default async function handler(req, res) {
         : null,
       vault_name: entry.name || (entry._id || "").slice(0, 12) + "...",
       source: entry.source || null,
+      // Researched strategy (qualitative — protocols with no allocation API).
+      // Top-level field on the vault doc; not produced by a fetcher.
+      strategy: entry.strategy || null,
     };
     for (const [key, metric_data] of Object.entries(metrics)) {
       if (metric_data && typeof metric_data === "object" && "value" in metric_data) {
