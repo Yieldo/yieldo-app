@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { getStoredClickId } from "./useTrackingParams.js";
 
@@ -18,26 +18,42 @@ function getStored() {
   } catch { return null; }
 }
 
+// Auto-login is tracked at MODULE scope (not a per-hook useRef) so the SIWE
+// popup fires at most once even when useUserAuth() mounts in several components
+// and survives SPA navigation (a ref reset on every remount was re-firing the
+// prompt on each page change). A user rejection is remembered in sessionStorage
+// so it survives reloads too: once they decline, we leave them alone for the
+// rest of the session — they can still sign via any auth-gated action.
+const autoAttempted = new Set();
+const DISMISS_PREFIX = "yieldo_siwe_dismissed_";
+function isAutoDismissed(addr) {
+  try { return sessionStorage.getItem(DISMISS_PREFIX + addr.toLowerCase()) === "1"; }
+  catch { return false; }
+}
+function setAutoDismissed(addr, on) {
+  try {
+    const k = DISMISS_PREFIX + addr.toLowerCase();
+    if (on) sessionStorage.setItem(k, "1"); else sessionStorage.removeItem(k);
+  } catch {}
+}
+
 export function useUserAuth() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const [session, setSession] = useState(getStored);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const autoLoginAttempted = useRef(false);
 
   // Clear session if wallet disconnects or address changes
   useEffect(() => {
     if (!isConnected || !address) {
       setSession(null);
-      autoLoginAttempted.current = false;
       return;
     }
     const stored = getStored();
     if (stored && stored.address?.toLowerCase() !== address.toLowerCase()) {
       localStorage.removeItem(STORAGE_KEY);
       setSession(null);
-      autoLoginAttempted.current = false;
     }
   }, [address, isConnected]);
 
@@ -105,6 +121,7 @@ export function useUserAuth() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setSession(sessionData);
+      setAutoDismissed(address, false); // signed in — re-enable auto-login next time
 
       // Attribution: if the visitor came from a tracked share link, post
       // the click_id alongside the wallet so the backend can link them.
@@ -131,32 +148,27 @@ export function useUserAuth() {
 
   const login = useCallback(doLogin, [address, signMessageAsync]);
 
-  // Proactive SIWE: as soon as the wallet is connected AND we don't have a
-  // valid stored session, fire the sign-in flow. Before this, the SIWE
-  // popup was deferred until the user clicked Deposit — so someone opening
-  // the app the next day with their wallet still connected could browse
-  // for minutes, then be surprised by a sign prompt at the worst possible
-  // moment (mid-deposit). Now the prompt arrives at the same moment the
-  // wallet reports connected, which matches every user's mental model of
-  // "I'm logged in if my wallet is connected and my session is fresh."
-  //
-  // `autoLoginAttempted` is reset on disconnect/address-change above, so a
-  // single user-reject doesn't loop. If the user rejects, they can still
-  // trigger the sign manually via any auth-gated action.
+  // Proactive SIWE: when the wallet is connected and we have no valid session,
+  // prompt for the sign-in signature ONCE. Guarded by the module-scoped
+  // `autoAttempted` set (shared across hook instances + survives SPA nav) and
+  // the sessionStorage dismissal, so the popup shows at most once and never
+  // again after the user declines — they can still sign later via any
+  // auth-gated action (Deposit, etc.).
   useEffect(() => {
     if (!isConnected || !address) return;
-    if (autoLoginAttempted.current) return;
+    const key = address.toLowerCase();
+    if (autoAttempted.has(key)) return;     // already auto-prompted this page-load
+    if (isAutoDismissed(address)) return;    // user declined earlier — leave them alone
     const stored = getStored();
-    if (stored && stored.address?.toLowerCase() === address.toLowerCase()) {
-      // Already have a fresh session — nothing to do.
-      return;
-    }
-    autoLoginAttempted.current = true;
-    // Tiny delay so wagmi's connection state has fully settled before we
-    // hit the wallet provider with a sign request — otherwise some
-    // providers (notably MetaMask mobile) drop the request as "no active
-    // session yet" on cold-page-load races.
-    const t = setTimeout(() => { doLogin(); }, 250);
+    if (stored && stored.address?.toLowerCase() === key) return; // fresh session already
+    autoAttempted.add(key);
+    // Tiny delay so wagmi's connection state has fully settled before we hit
+    // the wallet provider (some providers drop a sign request fired mid-connect).
+    const t = setTimeout(async () => {
+      const ok = await doLogin();
+      // Rejected or failed → remember it for the session so we stop prompting.
+      if (!ok) setAutoDismissed(address, true);
+    }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address]);
