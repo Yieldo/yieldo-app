@@ -1,4 +1,5 @@
-import { StrictMode, Suspense, lazy, useEffect, useRef } from 'react'
+import { StrictMode, Suspense, useEffect, useRef } from 'react'
+import { lazyWithReload as lazy } from './lib/lazyWithReload.js'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
