@@ -1332,6 +1332,233 @@ function FloatingDepositPanel({
 }
 
 
+// Full metric breakdown for one score dimension — rendered inline under
+// its summary card so expansion is immediately visible in context.
+function ScoreDimensionDetail({ dimension, v, isMobile, weights, tf }) {
+  const {
+    tvlTf, setTvlTf, nfTf, setNfTf, apyTf, setApyTf, benchTf, setBenchTf,
+    volTf, setVolTf, ddTf, setDdTf, incTf, setIncTf, capRetTf, setCapRetTf,
+    userRetTf, setUserRetTf,
+  } = tf;
+
+  if (dimension === "capital") {
+    return (
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#6366f1" }} />
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Capital</span>
+              <ScoreInfoTooltip dimension="capital" isMobile={isMobile} />
+              <ScoreRing score={v.subScores.capital} size={28} sw={3} />
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
+            </div>
+            <ScoreExplanation vaultId={v.id} dimension="capital" />
+            <MR label="Total Value Locked" value={fmtTvl(v.tvl)} trend={v.tvlChange7d} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>TVL Change</span>
+                <select value={tvlTf} onChange={e => setTvlTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) !== null && (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) >= 0 ? C.green : C.red }}>{(() => { const val = tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d; return val !== null ? `${val >= 0 ? "+" : ""}${val.toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Net Flow</span>
+                <select value={nfTf} onChange={e => setNfTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) !== null && (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) >= 0 ? C.green : C.red }}>{(() => { const val = nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d; return val !== null ? `${val >= 0 ? "+" : "-"}${fmtTvl(Math.abs(val))}` : "N/A"; })()}</span>
+            </div>
+            <MR label="Unique Depositors" value={v.depositors.toLocaleString()} flag={v.depositors < 10 ? "warning" : undefined} trigger={v.depositors < 10 ? "Less than 10 depositors" : undefined} />
+            {v._raw?.C08_low_dep && <MR label="Low Depositors" value="Yes" flag="warning" />}
+            <MR label="Deposit Type" value={v.C06 === 0 ? "Instant" : fmt(v.C06)} />
+            {v.withdrawalType === "Async" && v.supply_queue_length !== undefined && <MR label="Supply Queue" value={v.supply_queue_length} />}
+            {v.withdrawalType === "Async" && v.withdraw_queue_length !== undefined && <MR label="Withdraw Queue" value={v.withdraw_queue_length} />}
+          </Card>
+    );
+  }
+
+  if (dimension === "performance") {
+    return (
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Performance</span>
+              <ScoreInfoTooltip dimension="performance" isMobile={isMobile} />
+              <ScoreRing score={v.subScores.performance} size={28} sw={3} />
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
+            </div>
+            <ScoreExplanation vaultId={v.id} dimension="performance" />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Net APY</span>
+                <select value={apyTf} onChange={e => setApyTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="1d">1d</option>
+                  <option value="7d">7d</option>
+                  <option value="30d">30d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: (() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null && val < 0 ? C.red : C.purple; })() }}>{(() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null ? `${val.toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
+            {v._raw?.P02 && <MR label="Negative Daily APY" value="Yes" flag="warning" />}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+                  APY vs Benchmark
+                  <select value={benchTf} onChange={e => setBenchTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="1d">1d</option>
+                    <option value="7d">7d</option>
+                    <option value="30d">30d</option>
+                  </select>
+                  {v.P03b && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV.warning.bg, color: SEV.warning.color }}>{SEV.warning.icon}</span>}
+                </div>
+                {(v.benchAave || v.benchLido) ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>{v.benchLido ? "Lido" : "Aave"}: {(v.benchAave || v.benchLido).toFixed(2)}% <a href={getBenchmarkUrl(v.asset, v.chain_id)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
+                {v.P03b && <div style={{ fontSize: 10, color: SEV.warning.color, marginTop: 2, fontStyle: "italic" }}>→ Below 80% of benchmark</div>}
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const val = benchTf === "1d" ? v.apyVsBench1d : benchTf === "7d" ? v.apyVsBench7d : v.apyVsBench30d; return val !== null ? `${val.toFixed(2)}×` : (v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"); })()}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>APY Volatility</span>
+                <select value={volTf} onChange={e => setVolTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                  <option value="30d">30d</option>
+                  <option value="365d">365d</option>
+                </select>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const p = v.P04; const val = p && typeof p === "object" ? p[volTf] : (typeof p === "number" ? p : null); return val !== null && val !== undefined ? `${(val * 100).toFixed(2)}%` : "N/A"; })()}</span>
+            </div>
+            <MR label="Sharpe Ratio" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : "Excess return per unit of volatility vs Aave"} />
+            <MR label="Win Rate" value={v.winRate !== null ? `${(v.winRate * 100).toFixed(1)}%` : "N/A"} desc={v.perfDetail?.win_rate ? `Beat benchmark ${v.perfDetail.win_rate.win_weeks} / ${v.perfDetail.win_rate.total_weeks} weeks` : "% of weeks outperforming benchmark"} />
+            <MR label="Worst Week" value={v.worstWeek !== null ? `${(v.worstWeek * 100).toFixed(2)}%` : "N/A"} desc="Largest single-week underperformance vs benchmark" />
+            <MR label="Alpha Consistency" value={v.alphaConsistency !== null ? `${(v.alphaConsistency * 100).toFixed(1)}%` : "N/A"} desc="Higher = steadier outperformance (1 - CV of positive spreads)" />
+            {(() => { const val = ddTf === "30d" ? v.maxDD30d : ddTf === "90d" ? v.maxDD90d : v.maxDD365d; const flag = val !== null && val < -10 ? "critical" : val !== null && val < -5 ? "warning" : undefined; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Max Drawdown</span>
+                  <select value={ddTf} onChange={e => setDdTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="90d">90d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                  {flag && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV[flag].bg, color: SEV[flag].color }}>{SEV[flag].icon}</span>}
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: val !== null && val < -5 ? C.red : C.text }}>{val !== null ? `${val.toFixed(2)}%` : "N/A"}</span>
+              </div>
+            ); })()}
+            <MR label="Drawdown Duration" value={fmt(v.P09)} />
+            <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} />
+            <MR label="Yield Type" value={v._raw?.P12 || v.yieldType} />
+          </Card>
+    );
+  }
+
+  if (dimension === "risk") {
+    return (
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b" }} />
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Risk</span>
+              <ScoreInfoTooltip dimension="risk" isMobile={isMobile} />
+              <ScoreRing score={v.subScores.risk} size={28} sw={3} />
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>35% weight</span>
+            </div>
+            <ScoreExplanation vaultId={v.id} dimension="risk" />
+            <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
+            {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
+            <MR label="Pause Events" value={v.pauseEvents} />
+            {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
+            <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
+            {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
+            <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 25 ? "warning" : undefined} />
+            <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 50 ? "warning" : undefined} desc="Share of TVL held by top 5" />
+            {(() => { const val = v.incidentCount[incTf] ?? 0; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Incidents</span>
+                  <select value={incTf} onChange={e => setIncTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="90d">90d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: val > 0 ? "#ef4444" : C.text }}>{val}</span>
+              </div>
+            ); })()}
+            {v.owner && (() => {
+              const name = KNOWN_NAMES[v.owner.toLowerCase()];
+              const link = getExplorerLink(v.chain_id, v.owner);
+              const display = name || `${v.owner.slice(0, 6)}...${v.owner.slice(-4)}`;
+              return <MR label="Owner" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.owner : undefined} />;
+            })()}
+            {v.guardian && (() => {
+              const name = KNOWN_NAMES[v.guardian.toLowerCase()];
+              const link = getExplorerLink(v.chain_id, v.guardian);
+              const display = name || `${v.guardian.slice(0, 6)}...${v.guardian.slice(-4)}`;
+              return <MR label="Guardian" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.guardian : undefined} />;
+            })()}
+            {v.timelock > 0 && <MR label="Timelock" value={`${v.timelock}s`} />}
+          </Card>
+    );
+  }
+
+  if (dimension === "trust") {
+    return (
+          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Trust</span>
+              <ScoreInfoTooltip dimension="trust" isMobile={isMobile} />
+              <ScoreRing score={v.subScores.trust} size={28} sw={3} />
+              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
+            </div>
+            <ScoreExplanation vaultId={v.id} dimension="trust" />
+            {(() => { const val = v.capitalRetention?.[capRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; const flag = d !== null && d < 50 ? "critical" : d !== null && d < 70 ? "warning" : undefined; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Capital Retention</span>
+                  <select value={capRetTf} onChange={e => setCapRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: flag === "critical" ? "#ef4444" : flag === "warning" ? "#f59e0b" : C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
+              </div>
+            ); })()}
+            {(() => { const val = v.userRetention?.[userRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; return (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>User Retention</span>
+                  <select value={userRetTf} onChange={e => setUserRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+                    <option value="30d">30d</option>
+                    <option value="365d">365d</option>
+                  </select>
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
+              </div>
+            ); })()}
+            <MR label="Avg Holding Days" value={fmt(v.avgHold)} unit="days" flag={v.avgHold !== null && v.avgHold < 3 ? "critical" : v.avgHold !== null && v.avgHold < 10 ? "warning" : undefined} />
+            {v._raw?.T05_short_hold && <MR label="Short Hold Flag" value="Yes" flag="warning" />}
+            <MR label="Quick Exit Rate" value={fmt(v.quickExitRate, "%")} flag={v.quickExitRate !== null && v.quickExitRate > 25 ? "warning" : undefined} desc="% exiting within 7 days" />
+            <MR label="Holders 90+ Days" value={fmt(v.holders90plus)} />
+            <MR label="HOLD Ratio" value={v.T11 !== null ? `${v.T11.toFixed(1)}%` : "N/A"} desc="% of all-time depositors still holding" />
+            <MR label="Avg Deposit Duration" value={fmt(v.avgDepDuration)} unit="days" />
+            <MR label="Net Depositors (30d)" value={v.netDep30d !== null ? `${v.netDep30d >= 0 ? "+" : ""}${v.netDep30d}` : "N/A"} />
+            {v.netDep30d !== null && v.depositors > 0 && <MR label="Net User Flow (30d)" value={`${v.netDep30d >= 0 ? "+" : ""}${((v.netDep30d / v.depositors) * 100).toFixed(1)}%`} desc={`${Math.abs(v.netDep30d)} of ${v.depositors} depositors ${v.netDep30d >= 0 ? "net in" : "net out"}`} />}
+            {v.T10b && typeof v.T10b === "object" && <MR label="Net Capital Flow (30d)" value={`${v.T10b.net_flow_pct >= 0 ? "+" : ""}${v.T10b.net_flow_pct}%`} desc={`Score: ${v.T10b.score}/100 · (Net deposits − withdrawals) / TVL`} />}
+            {/* <MR label="External Ratings" value={fmt(v.T14)} desc="Independent risk ratings count" /> */}
+          </Card>
+    );
+  }
+
+  return null;
+}
+
+
 export default function VaultDetailPage({ vault: listVault, onBack, skipFetch }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -1353,7 +1580,7 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
     document.getElementById("yieldo-history-chart")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
   // Which score dimension's detail panel is expanded (accordion). Clicking a
-  // dimension card opens its full metric breakdown below the card grid.
+  // dimension card opens its full metric breakdown directly below that card.
   const [expandedDim, setExpandedDim] = useState(null);
   // Real overall success-rate from /v1/vaults/{id}/stats — kept for any other
   // consumers; the header "Deposit Success Rate" box was removed.
@@ -1756,21 +1983,29 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
           </Card>
         )}
 
-        {/* Score dimension cards — click a card to expand its full metric
-            breakdown in the panel below. */}
+        {/* Score dimension cards — click a card to expand its metric
+            breakdown directly below that card. */}
         <div style={{ display: "grid",
                       gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                      gap: isMobile ? 10 : 12, marginBottom: expandedDim ? 12 : (isMobile ? 14 : 16) }}>
+                      gap: isMobile ? 10 : 12, marginBottom: isMobile ? 14 : 16 }}>
           {[
             { key: "capital",     label: "Capital",     weight: weights.capital,     accent: DIM.capital,     value: v.subScores?.capital,     history: scoreHistory.capital     },
             { key: "performance", label: "Performance", weight: weights.performance, accent: DIM.performance, value: v.subScores?.performance, history: scoreHistory.performance },
             { key: "risk",        label: "Risk",        weight: weights.risk,        accent: DIM.risk,        value: v.subScores?.risk,        history: scoreHistory.risk        },
             { key: "trust",       label: "Trust",       weight: weights.trust,       accent: DIM.trust,       value: v.subScores?.trust,       history: scoreHistory.trust       },
           ].map(c => (
-            <SubScoreCard key={c.key} label={c.label} dimension={c.key} value={c.value} weight={c.weight}
-              history={c.history} accent={c.accent} isMobile={isMobile}
-              isActiveOverlay={expandedDim === c.key}
-              onClick={() => setExpandedDim(d => d === c.key ? null : c.key)} />
+            <div key={c.key} style={{ display: "flex", flexDirection: "column", gap: isMobile ? 10 : 12 }}>
+              <SubScoreCard label={c.label} dimension={c.key} value={c.value} weight={c.weight}
+                history={c.history} accent={c.accent} isMobile={isMobile}
+                isActiveOverlay={expandedDim === c.key}
+                onClick={() => setExpandedDim(d => d === c.key ? null : c.key)} />
+              {expandedDim === c.key && (
+                <ScoreDimensionDetail dimension={c.key} v={v} isMobile={isMobile} weights={weights}
+                  tf={{ tvlTf, setTvlTf, nfTf, setNfTf, apyTf, setApyTf, benchTf, setBenchTf,
+                        volTf, setVolTf, ddTf, setDdTf, incTf, setIncTf, capRetTf, setCapRetTf,
+                        userRetTf, setUserRetTf }} />
+              )}
+            </div>
           ))}
         </div>
 
@@ -1779,219 +2014,6 @@ export default function VaultDetailPage({ vault: listVault, onBack, skipFetch })
             users see risk warnings immediately. The duplicate card here was
             causing both visual noise and inconsistent positioning. */}
 
-        {/* Expanded score-dimension detail — only the selected card's panel
-            renders, full-width, directly under the card grid. */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: isMobile ? 12 : 16 }}>
-          {/* Capital */}
-          {expandedDim === "capital" && (
-          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#6366f1" }} />
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Capital</span>
-              <ScoreInfoTooltip dimension="capital" isMobile={isMobile} />
-              <ScoreRing score={v.subScores.capital} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
-            </div>
-            <ScoreExplanation vaultId={v.id} dimension="capital" />
-            <MR label="Total Value Locked" value={fmtTvl(v.tvl)} trend={v.tvlChange7d} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>TVL Change</span>
-                <select value={tvlTf} onChange={e => setTvlTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                  <option value="1d">1d</option>
-                  <option value="7d">7d</option>
-                  <option value="30d">30d</option>
-                </select>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) !== null && (tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d) >= 0 ? C.green : C.red }}>{(() => { const val = tvlTf === "1d" ? v.tvlChange1d : tvlTf === "7d" ? v.tvlChange7d : v.tvlChange30d; return val !== null ? `${val >= 0 ? "+" : ""}${val.toFixed(2)}%` : "N/A"; })()}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>Net Flow</span>
-                <select value={nfTf} onChange={e => setNfTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                  <option value="1d">1d</option>
-                  <option value="7d">7d</option>
-                  <option value="30d">30d</option>
-                </select>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) !== null && (nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d) >= 0 ? C.green : C.red }}>{(() => { const val = nfTf === "1d" ? v.netFlow1d : nfTf === "7d" ? v.netFlow7d : v.netFlow30d; return val !== null ? `${val >= 0 ? "+" : "-"}${fmtTvl(Math.abs(val))}` : "N/A"; })()}</span>
-            </div>
-            <MR label="Unique Depositors" value={v.depositors.toLocaleString()} flag={v.depositors < 10 ? "warning" : undefined} trigger={v.depositors < 10 ? "Less than 10 depositors" : undefined} />
-            {v._raw?.C08_low_dep && <MR label="Low Depositors" value="Yes" flag="warning" />}
-            <MR label="Deposit Type" value={v.C06 === 0 ? "Instant" : fmt(v.C06)} />
-            {v.withdrawalType === "Async" && v.supply_queue_length !== undefined && <MR label="Supply Queue" value={v.supply_queue_length} />}
-            {v.withdrawalType === "Async" && v.withdraw_queue_length !== undefined && <MR label="Withdraw Queue" value={v.withdraw_queue_length} />}
-          </Card>
-          )}
-
-          {/* Performance */}
-          {expandedDim === "performance" && (
-          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: C.teal }} />
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Performance</span>
-              <ScoreInfoTooltip dimension="performance" isMobile={isMobile} />
-              <ScoreRing score={v.subScores.performance} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>20% weight</span>
-            </div>
-            <ScoreExplanation vaultId={v.id} dimension="performance" />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>Net APY</span>
-                <select value={apyTf} onChange={e => setApyTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                  <option value="1d">1d</option>
-                  <option value="7d">7d</option>
-                  <option value="30d">30d</option>
-                </select>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: (() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null && val < 0 ? C.red : C.purple; })() }}>{(() => { const val = apyTf === "1d" ? v.apy1d : apyTf === "7d" ? v.apy7d : v.apy30d; return val !== null ? `${val.toFixed(2)}%` : "N/A"; })()}</span>
-            </div>
-            {v._raw?.P02 && <MR label="Negative Daily APY" value="Yes" flag="warning" />}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
-                  APY vs Benchmark
-                  <select value={benchTf} onChange={e => setBenchTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                    <option value="1d">1d</option>
-                    <option value="7d">7d</option>
-                    <option value="30d">30d</option>
-                  </select>
-                  {v.P03b && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV.warning.bg, color: SEV.warning.color }}>{SEV.warning.icon}</span>}
-                </div>
-                {(v.benchAave || v.benchLido) ? <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>{v.benchLido ? "Lido" : "Aave"}: {(v.benchAave || v.benchLido).toFixed(2)}% <a href={getBenchmarkUrl(v.asset, v.chain_id)} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontSize: 9 }}>verify ↗</a></div> : null}
-                {v.P03b && <div style={{ fontSize: 10, color: SEV.warning.color, marginTop: 2, fontStyle: "italic" }}>→ Below 80% of benchmark</div>}
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const val = benchTf === "1d" ? v.apyVsBench1d : benchTf === "7d" ? v.apyVsBench7d : v.apyVsBench30d; return val !== null ? `${val.toFixed(2)}×` : (v.apyVsBenchmark !== null ? `${v.apyVsBenchmark.toFixed(2)}×` : "N/A"); })()}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>APY Volatility</span>
-                <select value={volTf} onChange={e => setVolTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                  <option value="30d">30d</option>
-                  <option value="365d">365d</option>
-                </select>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>{(() => { const p = v.P04; const val = p && typeof p === "object" ? p[volTf] : (typeof p === "number" ? p : null); return val !== null && val !== undefined ? `${(val * 100).toFixed(2)}%` : "N/A"; })()}</span>
-            </div>
-            <MR label="Sharpe Ratio" value={fmt(v.sharpe)} desc={v.age < 90 ? "Requires 90+ days" : "Excess return per unit of volatility vs Aave"} />
-            <MR label="Win Rate" value={v.winRate !== null ? `${(v.winRate * 100).toFixed(1)}%` : "N/A"} desc={v.perfDetail?.win_rate ? `Beat benchmark ${v.perfDetail.win_rate.win_weeks} / ${v.perfDetail.win_rate.total_weeks} weeks` : "% of weeks outperforming benchmark"} />
-            <MR label="Worst Week" value={v.worstWeek !== null ? `${(v.worstWeek * 100).toFixed(2)}%` : "N/A"} desc="Largest single-week underperformance vs benchmark" />
-            <MR label="Alpha Consistency" value={v.alphaConsistency !== null ? `${(v.alphaConsistency * 100).toFixed(1)}%` : "N/A"} desc="Higher = steadier outperformance (1 - CV of positive spreads)" />
-            {(() => { const val = ddTf === "30d" ? v.maxDD30d : ddTf === "90d" ? v.maxDD90d : v.maxDD365d; const flag = val !== null && val < -10 ? "critical" : val !== null && val < -5 ? "warning" : undefined; return (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Max Drawdown</span>
-                  <select value={ddTf} onChange={e => setDdTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                    <option value="30d">30d</option>
-                    <option value="90d">90d</option>
-                    <option value="365d">365d</option>
-                  </select>
-                  {flag && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: SEV[flag].bg, color: SEV[flag].color }}>{SEV[flag].icon}</span>}
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: val !== null && val < -5 ? C.red : C.text }}>{val !== null ? `${val.toFixed(2)}%` : "N/A"}</span>
-              </div>
-            ); })()}
-            <MR label="Drawdown Duration" value={fmt(v.P09)} />
-            <MR label="Yield Composition" value={`${100 - v.incRatio}% organic`} desc={`${v.incRatio}% from incentives`} />
-            <MR label="Yield Type" value={v._raw?.P12 || v.yieldType} />
-          </Card>
-          )}
-
-          {/* Risk */}
-          {expandedDim === "risk" && (
-          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b" }} />
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Risk</span>
-              <ScoreInfoTooltip dimension="risk" isMobile={isMobile} />
-              <ScoreRing score={v.subScores.risk} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>35% weight</span>
-            </div>
-            <ScoreExplanation vaultId={v.id} dimension="risk" />
-            <MR label="Asset Price" value={v.assetPrice !== null ? `$${typeof v.assetPrice === "number" ? v.assetPrice.toFixed(4) : v.assetPrice}` : "N/A"} />
-            {v.depegEvents > 0 && <MR label="Depeg Alert" value="DEPEG DETECTED" flag="critical" desc="Price deviation >3% from peg" />}
-            <MR label="Pause Events" value={v.pauseEvents} />
-            {v._raw?.R05 && <MR label="Emergency Events" value="Yes" flag="critical" />}
-            <MR label="Withdrawal Latency" value={v.withdrawalType === "Async" ? "Async" : "Instant"} flag={v.withdrawalType === "Async" ? "info" : undefined} />
-            {v.withdrawalType === "Async" && <MR label="Pending Withdrawals" value={v.pendingWithdrawals !== null ? `${v.pendingWithdrawals}%` : "N/A"} flag={v.pendingWithdrawalsFlag} desc="% of TVL in pending withdrawals" />}
-            <MR label="Top-1 Concentration" value={v.top1 !== null ? `${v.top1}%` : "N/A"} flag={v.top1 !== null && v.top1 > 25 ? "warning" : undefined} />
-            <MR label="Top-5 Concentration" value={v.top5 !== null && v.top5 > 0 ? `${v.top5}%` : "N/A"} flag={v.top5 !== null && v.top5 > 50 ? "warning" : undefined} desc="Share of TVL held by top 5" />
-            {(() => { const val = v.incidentCount[incTf] ?? 0; return (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Incidents</span>
-                  <select value={incTf} onChange={e => setIncTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                    <option value="90d">90d</option>
-                    <option value="365d">365d</option>
-                  </select>
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: val > 0 ? "#ef4444" : C.text }}>{val}</span>
-              </div>
-            ); })()}
-            {v.owner && (() => {
-              const name = KNOWN_NAMES[v.owner.toLowerCase()];
-              const link = getExplorerLink(v.chain_id, v.owner);
-              const display = name || `${v.owner.slice(0, 6)}...${v.owner.slice(-4)}`;
-              return <MR label="Owner" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.owner : undefined} />;
-            })()}
-            {v.guardian && (() => {
-              const name = KNOWN_NAMES[v.guardian.toLowerCase()];
-              const link = getExplorerLink(v.chain_id, v.guardian);
-              const display = name || `${v.guardian.slice(0, 6)}...${v.guardian.slice(-4)}`;
-              return <MR label="Guardian" value={link ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: C.purple, textDecoration: "none", fontWeight: 700, fontSize: 15 }}>{display} ↗</a> : display} desc={name ? v.guardian : undefined} />;
-            })()}
-            {v.timelock > 0 && <MR label="Timelock" value={`${v.timelock}s`} />}
-          </Card>
-          )}
-
-          {/* Trust */}
-          {expandedDim === "trust" && (
-          <Card style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: C.gold }} />
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Trust</span>
-              <ScoreInfoTooltip dimension="trust" isMobile={isMobile} />
-              <ScoreRing score={v.subScores.trust} size={28} sw={3} />
-              <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>25% weight</span>
-            </div>
-            <ScoreExplanation vaultId={v.id} dimension="trust" />
-            {(() => { const val = v.capitalRetention?.[capRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; const flag = d !== null && d < 50 ? "critical" : d !== null && d < 70 ? "warning" : undefined; return (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Capital Retention</span>
-                  <select value={capRetTf} onChange={e => setCapRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                    <option value="30d">30d</option>
-                    <option value="365d">365d</option>
-                  </select>
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: flag === "critical" ? "#ef4444" : flag === "warning" ? "#f59e0b" : C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
-              </div>
-            ); })()}
-            {(() => { const val = v.userRetention?.[userRetTf] ?? null; const d = typeof val === "number" ? Math.round(val) : null; return (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>User Retention</span>
-                  <select value={userRetTf} onChange={e => setUserRetTf(e.target.value)} style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: `1px solid ${C.border2}`, background: C.white, color: C.text2, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-                    <option value="30d">30d</option>
-                    <option value="365d">365d</option>
-                  </select>
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{d !== null ? `${d}%` : "N/A"}</span>
-              </div>
-            ); })()}
-            <MR label="Avg Holding Days" value={fmt(v.avgHold)} unit="days" flag={v.avgHold !== null && v.avgHold < 3 ? "critical" : v.avgHold !== null && v.avgHold < 10 ? "warning" : undefined} />
-            {v._raw?.T05_short_hold && <MR label="Short Hold Flag" value="Yes" flag="warning" />}
-            <MR label="Quick Exit Rate" value={fmt(v.quickExitRate, "%")} flag={v.quickExitRate !== null && v.quickExitRate > 25 ? "warning" : undefined} desc="% exiting within 7 days" />
-            <MR label="Holders 90+ Days" value={fmt(v.holders90plus)} />
-            <MR label="HOLD Ratio" value={v.T11 !== null ? `${v.T11.toFixed(1)}%` : "N/A"} desc="% of all-time depositors still holding" />
-            <MR label="Avg Deposit Duration" value={fmt(v.avgDepDuration)} unit="days" />
-            <MR label="Net Depositors (30d)" value={v.netDep30d !== null ? `${v.netDep30d >= 0 ? "+" : ""}${v.netDep30d}` : "N/A"} />
-            {v.netDep30d !== null && v.depositors > 0 && <MR label="Net User Flow (30d)" value={`${v.netDep30d >= 0 ? "+" : ""}${((v.netDep30d / v.depositors) * 100).toFixed(1)}%`} desc={`${Math.abs(v.netDep30d)} of ${v.depositors} depositors ${v.netDep30d >= 0 ? "net in" : "net out"}`} />}
-            {v.T10b && typeof v.T10b === "object" && <MR label="Net Capital Flow (30d)" value={`${v.T10b.net_flow_pct >= 0 ? "+" : ""}${v.T10b.net_flow_pct}%`} desc={`Score: ${v.T10b.score}/100 · (Net deposits − withdrawals) / TVL`} />}
-            {/* <MR label="External Ratings" value={fmt(v.T14)} desc="Independent risk ratings count" /> */}
-          </Card>
-          )}
-        </div>
 
         {/* Prompt when no dimension is expanded, so the section isn't empty. */}
         {!expandedDim && (
