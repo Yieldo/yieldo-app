@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+GitHub hygiene:
+- Never mention "Cursor", "cloud agent", or similar tooling in commit messages, PR titles, PR descriptions, or any other GitHub-visible text.
+- Write commits and PRs as if a human teammate authored them.
+
+Workflow:
+- Before starting any work, run `git fetch origin` and pull the latest code from the default branch.
+- Assume the workspace may be stale; never assume it is up to date.
